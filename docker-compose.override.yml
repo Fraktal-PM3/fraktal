@@ -1,0 +1,3 @@
+# Add custom config overrides here
+# See https://docs.docker.com/compose/extends
+version: "2.4"

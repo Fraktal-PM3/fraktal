@@ -1,0 +1,144 @@
+{
+ "name": "fraktal",
+ "members": [
+  {
+   "id": "0",
+   "index": 0,
+   "account": {
+    "name": "org_e72a2e",
+    "orgName": "org_e72a2e"
+   },
+   "exposedFireflyPort": 5000,
+   "exposedFireflyAdminPort": 5101,
+   "exposedConnectorPort": 5102,
+   "exposedPostgresPort": 5104,
+   "exposedDataexchangePort": 10205,
+   "exposedIPFSApiPort": 10206,
+   "exposedIPFSGWPort": 10207,
+   "exposedUiPort": 5103,
+   "exposedSandboxPort": 5108,
+   "exposePtmTpPort": 4100,
+   "orgName": "org_e72a2e",
+   "nodeName": "node_e72a2e",
+   "namespaces": null
+  },
+  {
+   "id": "1",
+   "index": 1,
+   "account": {
+    "name": "org_6903a8",
+    "orgName": "org_6903a8"
+   },
+   "exposedFireflyPort": 5001,
+   "exposedFireflyAdminPort": 5201,
+   "exposedConnectorPort": 5202,
+   "exposedPostgresPort": 5204,
+   "exposedDataexchangePort": 10405,
+   "exposedIPFSApiPort": 10406,
+   "exposedIPFSGWPort": 10407,
+   "exposedUiPort": 5203,
+   "exposedSandboxPort": 5208,
+   "exposePtmTpPort": 4110,
+   "orgName": "org_6903a8",
+   "nodeName": "node_6903a8",
+   "namespaces": null
+  },
+  {
+   "id": "2",
+   "index": 2,
+   "account": {
+    "name": "org_66dbcc",
+    "orgName": "org_66dbcc"
+   },
+   "exposedFireflyPort": 5002,
+   "exposedFireflyAdminPort": 5301,
+   "exposedConnectorPort": 5302,
+   "exposedPostgresPort": 5304,
+   "exposedDataexchangePort": 10605,
+   "exposedIPFSApiPort": 10606,
+   "exposedIPFSGWPort": 10607,
+   "exposedUiPort": 5303,
+   "exposedSandboxPort": 5308,
+   "exposePtmTpPort": 4120,
+   "orgName": "org_66dbcc",
+   "nodeName": "node_66dbcc",
+   "namespaces": null
+  }
+ ],
+ "swarmKey": "/key/swarm/psk/1.0.0/\n/base16/\ndc13150c1a2e1728e6ffdf358c920fed66ee467b1fc67886908da4b4ee9c110a",
+ "exposedBlockchainPort": 5100,
+ "exposedPtmPort": 4100,
+ "database": "sqlite3",
+ "blockchainProvider": "fabric",
+ "blockchainConnector": "evmconnect",
+ "blockchainNodeProvider": "geth",
+ "privateTransactionManager": "none",
+ "consensus": "clique",
+ "tokenProviders": [],
+ "versionManifest": {
+  "firefly": {
+   "image": "ghcr.io/hyperledger/firefly",
+   "tag": "latest",
+   "sha": "441bf2ac40c1da9b6b64c4b65f89062060b350ed47bd043ec65d04e70dd64026"
+  },
+  "cardanoconnect": {
+   "image": "ghcr.io/hyperledger/firefly-cardanoconnect",
+   "tag": "v0.6.1",
+   "sha": "6a7c0534cf08b1afcce56a8234f1da3ef08594b3cbf27d4a9ee84bf4ecd096dd"
+  },
+  "cardanosigner": {
+   "image": "ghcr.io/hyperledger/firefly-cardanosigner",
+   "tag": "v0.6.1",
+   "sha": "b950c1d902d58f132f69f5b10aeb1623732de8db4d223534797be87766f123e9"
+  },
+  "ethconnect": {
+   "image": "ghcr.io/hyperledger/firefly-ethconnect",
+   "tag": "v3.3.3",
+   "sha": "250509a54bbd3251598a807071b388492c0157df02a3b06bfa64e14e791c0633"
+  },
+  "evmconnect": {
+   "image": "ghcr.io/hyperledger/firefly-evmconnect",
+   "tag": "v1.4.0",
+   "sha": "5af81620813b087d4e4fd2efbede7f27383c783d93d9c0cb142de700db0f7177"
+  },
+  "tezosconnect": {
+   "image": "ghcr.io/hyperledger/firefly-tezosconnect",
+   "tag": "v0.2.9",
+   "sha": "cc77e88032ae4afc33c419b58f5b042bc18ad1a193ee9d364455b9cbabd85cd9"
+  },
+  "fabconnect": {
+   "image": "ghcr.io/hyperledger/firefly-fabconnect",
+   "tag": "v0.9.23",
+   "sha": "a52dd8c60802562a3752015480af590b7f350fc165297c62a077394d7c49557c"
+  },
+  "dataexchange-https": {
+   "image": "ghcr.io/hyperledger/firefly-dataexchange-https",
+   "tag": "v1.3.2",
+   "sha": "6b6a8df8845cd19d06ea2af0f58028bcd9d480a42bdc9cfe374e01346d89791a"
+  },
+  "tokens-erc1155": {
+   "image": "ghcr.io/hyperledger/firefly-tokens-erc1155",
+   "tag": "v1.3.6",
+   "sha": "7a5c31cbfa29f17182dd09e360638e5df1123b485151d8a5fccd50e7a4179e87"
+  },
+  "tokens-erc20-erc721": {
+   "image": "ghcr.io/hyperledger/firefly-tokens-erc20-erc721",
+   "tag": "v1.3.6",
+   "sha": "29daced3498a24191aa354fd204860492a4089335fb99cfb258bba685446ea1f"
+  },
+  "signer": {
+   "image": "ghcr.io/hyperledger/firefly-signer",
+   "tag": "v1.1.22",
+   "sha": "00e7aaac049f3e3f80644cea3394e4efa4180a195fa2f71d2e2ca57f8e6f2ec9"
+  }
+ },
+ "sandboxEnabled": true,
+ "multiparty": true,
+ "chainID": 2021,
+ "network": "mainnet",
+ "disableTokenFactories": true,
+ "ipfsMode": "private",
+ "channelName": "firefly",
+ "chaincodeName": "firefly",
+ "environmentVars": {}
+}

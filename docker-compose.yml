@@ -1,0 +1,456 @@
+# This file is generated - DO NOT EDIT!
+# To override config, edit docker-compose.override.yml
+version: "2.4"
+services:
+    dataexchange_0:
+        container_name: fraktal_dataexchange_0
+        image: ghcr.io/hyperledger/firefly-dataexchange-https@sha256:6b6a8df8845cd19d06ea2af0f58028bcd9d480a42bdc9cfe374e01346d89791a
+        volumes:
+            - dataexchange_0:/data
+        ports:
+            - 10205:3000
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    dataexchange_1:
+        container_name: fraktal_dataexchange_1
+        image: ghcr.io/hyperledger/firefly-dataexchange-https@sha256:6b6a8df8845cd19d06ea2af0f58028bcd9d480a42bdc9cfe374e01346d89791a
+        volumes:
+            - dataexchange_1:/data
+        ports:
+            - 10405:3000
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    dataexchange_2:
+        container_name: fraktal_dataexchange_2
+        image: ghcr.io/hyperledger/firefly-dataexchange-https@sha256:6b6a8df8845cd19d06ea2af0f58028bcd9d480a42bdc9cfe374e01346d89791a
+        volumes:
+            - dataexchange_2:/data
+        ports:
+            - 10605:3000
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    fabconnect_0:
+        container_name: fraktal_fabconnect_0
+        image: ghcr.io/hyperledger/firefly-fabconnect@sha256:a52dd8c60802562a3752015480af590b7f350fc165297c62a077394d7c49557c
+        command: -f /fabconnect/fabconnect.yaml
+        volumes:
+            - fabconnect_receipts_0:/fabconnect/receipts
+            - fabconnect_events_0:/fabconnect/events
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/blockchain/fabconnect.yaml:/fabconnect/fabconnect.yaml
+            - firefly_fabric:/etc/firefly
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/blockchain/ccp.yaml:/fabconnect/ccp.yaml
+        ports:
+            - 5102:3000
+        depends_on:
+            fabric_ca:
+                condition: service_started
+            fabric_orderer:
+                condition: service_started
+            fabric_peer:
+                condition: service_started
+        healthcheck:
+            test:
+                - CMD
+                - wget
+                - -O
+                - '-'
+                - http://localhost:3000/status
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    fabconnect_1:
+        container_name: fraktal_fabconnect_1
+        image: ghcr.io/hyperledger/firefly-fabconnect@sha256:a52dd8c60802562a3752015480af590b7f350fc165297c62a077394d7c49557c
+        command: -f /fabconnect/fabconnect.yaml
+        volumes:
+            - fabconnect_receipts_1:/fabconnect/receipts
+            - fabconnect_events_1:/fabconnect/events
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/blockchain/fabconnect.yaml:/fabconnect/fabconnect.yaml
+            - firefly_fabric:/etc/firefly
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/blockchain/ccp.yaml:/fabconnect/ccp.yaml
+        ports:
+            - 5202:3000
+        depends_on:
+            fabric_ca:
+                condition: service_started
+            fabric_orderer:
+                condition: service_started
+            fabric_peer:
+                condition: service_started
+        healthcheck:
+            test:
+                - CMD
+                - wget
+                - -O
+                - '-'
+                - http://localhost:3000/status
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    fabconnect_2:
+        container_name: fraktal_fabconnect_2
+        image: ghcr.io/hyperledger/firefly-fabconnect@sha256:a52dd8c60802562a3752015480af590b7f350fc165297c62a077394d7c49557c
+        command: -f /fabconnect/fabconnect.yaml
+        volumes:
+            - fabconnect_receipts_2:/fabconnect/receipts
+            - fabconnect_events_2:/fabconnect/events
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/blockchain/fabconnect.yaml:/fabconnect/fabconnect.yaml
+            - firefly_fabric:/etc/firefly
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/blockchain/ccp.yaml:/fabconnect/ccp.yaml
+        ports:
+            - 5302:3000
+        depends_on:
+            fabric_ca:
+                condition: service_started
+            fabric_orderer:
+                condition: service_started
+            fabric_peer:
+                condition: service_started
+        healthcheck:
+            test:
+                - CMD
+                - wget
+                - -O
+                - '-'
+                - http://localhost:3000/status
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    fabric_ca:
+        container_name: fraktal_fabric_ca
+        image: hyperledger/fabric-ca:1.5
+        command: sh -c 'fabric-ca-server start -b admin:adminpw'
+        environment:
+            FABRIC_CA_HOME: /etc/hyperledger/fabric-ca-server
+            FABRIC_CA_SERVER_CA_CERTFILE: /etc/firefly/organizations/peerOrganizations/org1.example.com/ca/fabric_ca.org1.example.com-cert.pem
+            FABRIC_CA_SERVER_CA_KEYFILE: /etc/firefly/organizations/peerOrganizations/org1.example.com/ca/priv_sk
+            FABRIC_CA_SERVER_CA_NAME: fabric_ca
+            FABRIC_CA_SERVER_OPERATIONS_LISTENADDRESS: 0.0.0.0:17054
+            FABRIC_CA_SERVER_PORT: "7054"
+        volumes:
+            - firefly_fabric:/etc/firefly
+        ports:
+            - 7054:7054
+            - 17054:17054
+    fabric_orderer:
+        container_name: fraktal_fabric_orderer
+        image: hyperledger/fabric-orderer:2.5
+        command: orderer
+        environment:
+            FABRIC_LOGGING_SPEC: INFO
+            ORDERER_ADMIN_LISTENADDRESS: 0.0.0.0:7053
+            ORDERER_ADMIN_TLS_CERTIFICATE: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
+            ORDERER_ADMIN_TLS_CLIENTROOTCAS: '[/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/ca.crt]'
+            ORDERER_ADMIN_TLS_ENABLED: "true"
+            ORDERER_ADMIN_TLS_PRIVATEKEY: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.key
+            ORDERER_ADMIN_TLS_ROOTCAS: '[/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/ca.crt]'
+            ORDERER_CHANNELPARTICIPATION_ENABLED: "true"
+            ORDERER_GENERAL_BOOTSTRAPMETHOD: none
+            ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
+            ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.key
+            ORDERER_GENERAL_CLUSTER_ROOTCAS: '[/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/ca.crt]'
+            ORDERER_GENERAL_LISTENADDRESS: 0.0.0.0
+            ORDERER_GENERAL_LISTENPORT: "7050"
+            ORDERER_GENERAL_LOCALMSPDIR: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/msp
+            ORDERER_GENERAL_LOCALMSPID: OrdererMSP
+            ORDERER_GENERAL_TLS_CERTIFICATE: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.crt
+            ORDERER_GENERAL_TLS_ENABLED: "true"
+            ORDERER_GENERAL_TLS_PRIVATEKEY: /etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/server.key
+            ORDERER_GENERAL_TLS_ROOTCAS: '[/etc/firefly/organizations/ordererOrganizations/example.com/orderers/fabric_orderer.example.com/tls/ca.crt]'
+            ORDERER_KAFKA_TOPIC_REPLICATIONFACTOR: "1"
+            ORDERER_KAFKA_VERBOSE: "true"
+            ORDERER_OPERATIONS_LISTENADDRESS: 0.0.0.0:17050
+        volumes:
+            - firefly_fabric:/etc/firefly
+            - fabric_orderer:/var/hyperledger/production/orderer
+        ports:
+            - 7050:7050
+            - 7053:7053
+            - 17050:17050
+        working_dir: /opt/gopath/src/github.com/hyperledger/fabric
+    fabric_peer:
+        container_name: fraktal_fabric_peer
+        image: hyperledger/fabric-peer:2.5
+        environment:
+            CORE_OPERATIONS_LISTENADDRESS: 0.0.0.0:17051
+            CORE_PEER_ADDRESS: fabric_peer:7051
+            CORE_PEER_CHAINCODEADDRESS: fabric_peer:7052
+            CORE_PEER_CHAINCODELISTENADDRESS: 0.0.0.0:7052
+            CORE_PEER_GOSSIP_BOOTSTRAP: fabric_peer:7051
+            CORE_PEER_GOSSIP_EXTERNALENDPOINT: fabric_peer:7051
+            CORE_PEER_ID: fabric_peer
+            CORE_PEER_LISTENADDRESS: 0.0.0.0:7051
+            CORE_PEER_LOCALMSPID: Org1MSP
+            CORE_PEER_MSPCONFIGPATH: /etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/msp
+            CORE_PEER_PROFILE_ENABLED: "false"
+            CORE_PEER_TLS_CERT_FILE: /etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/server.crt
+            CORE_PEER_TLS_ENABLED: "true"
+            CORE_PEER_TLS_KEY_FILE: /etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/server.key
+            CORE_PEER_TLS_ROOTCERT_FILE: /etc/firefly/organizations/peerOrganizations/org1.example.com/peers/fabric_peer.org1.example.com/tls/ca.crt
+            CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE: fraktal_default
+            CORE_VM_ENDPOINT: unix:///host/var/run/docker.sock
+            FABRIC_LOGGING_SPEC: INFO
+        volumes:
+            - firefly_fabric:/etc/firefly
+            - fabric_peer:/var/hyperledger/production
+            - /var/run/docker.sock:/host/var/run/docker.sock
+        ports:
+            - 7051:7051
+            - 17051:17051
+    firefly_core_0:
+        container_name: fraktal_firefly_core_0
+        image: ghcr.io/hyperledger/firefly@sha256:441bf2ac40c1da9b6b64c4b65f89062060b350ed47bd043ec65d04e70dd64026
+        volumes:
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/config/firefly_core_0.yml:/etc/firefly/firefly.core.yml:ro
+            - firefly_core_data_0:/etc/firefly/data
+        ports:
+            - 5000:5000
+            - 5101:5101
+        depends_on:
+            dataexchange_0:
+                condition: service_started
+            fabconnect_0:
+                condition: service_healthy
+            fabconnect_1:
+                condition: service_healthy
+            fabconnect_2:
+                condition: service_healthy
+            fabric_ca:
+                condition: service_started
+            fabric_orderer:
+                condition: service_started
+            fabric_peer:
+                condition: service_started
+            ipfs_0:
+                condition: service_healthy
+        healthcheck:
+            test:
+                - CMD
+                - curl
+                - --fail
+                - http://localhost:5000/api/v1/status
+            interval: 15s
+            retries: 30
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    firefly_core_1:
+        container_name: fraktal_firefly_core_1
+        image: ghcr.io/hyperledger/firefly@sha256:441bf2ac40c1da9b6b64c4b65f89062060b350ed47bd043ec65d04e70dd64026
+        volumes:
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/config/firefly_core_1.yml:/etc/firefly/firefly.core.yml:ro
+            - firefly_core_data_1:/etc/firefly/data
+        ports:
+            - 5001:5001
+            - 5201:5201
+        depends_on:
+            dataexchange_1:
+                condition: service_started
+            fabconnect_0:
+                condition: service_healthy
+            fabconnect_1:
+                condition: service_healthy
+            fabconnect_2:
+                condition: service_healthy
+            fabric_ca:
+                condition: service_started
+            fabric_orderer:
+                condition: service_started
+            fabric_peer:
+                condition: service_started
+            ipfs_1:
+                condition: service_healthy
+        healthcheck:
+            test:
+                - CMD
+                - curl
+                - --fail
+                - http://localhost:5001/api/v1/status
+            interval: 15s
+            retries: 30
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    firefly_core_2:
+        container_name: fraktal_firefly_core_2
+        image: ghcr.io/hyperledger/firefly@sha256:441bf2ac40c1da9b6b64c4b65f89062060b350ed47bd043ec65d04e70dd64026
+        volumes:
+            - /home/hedlund01/.firefly/stacks/fraktal/runtime/config/firefly_core_2.yml:/etc/firefly/firefly.core.yml:ro
+            - firefly_core_data_2:/etc/firefly/data
+        ports:
+            - 5002:5002
+            - 5301:5301
+        depends_on:
+            dataexchange_2:
+                condition: service_started
+            fabconnect_0:
+                condition: service_healthy
+            fabconnect_1:
+                condition: service_healthy
+            fabconnect_2:
+                condition: service_healthy
+            fabric_ca:
+                condition: service_started
+            fabric_orderer:
+                condition: service_started
+            fabric_peer:
+                condition: service_started
+            ipfs_2:
+                condition: service_healthy
+        healthcheck:
+            test:
+                - CMD
+                - curl
+                - --fail
+                - http://localhost:5002/api/v1/status
+            interval: 15s
+            retries: 30
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    ipfs_0:
+        container_name: fraktal_ipfs_0
+        image: ipfs/go-ipfs:v0.10.0
+        environment:
+            IPFS_SWARM_KEY: |-
+                /key/swarm/psk/1.0.0/
+                /base16/
+                dc13150c1a2e1728e6ffdf358c920fed66ee467b1fc67886908da4b4ee9c110a
+            LIBP2P_FORCE_PNET: "1"
+        volumes:
+            - ipfs_staging_0:/export
+            - ipfs_data_0:/data/ipfs
+        ports:
+            - 10206:5001
+            - 10207:8080
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - wget --post-data= http://127.0.0.1:5001/api/v0/id -O - -q
+            interval: 5s
+            timeout: 3s
+            retries: 12
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    ipfs_1:
+        container_name: fraktal_ipfs_1
+        image: ipfs/go-ipfs:v0.10.0
+        environment:
+            IPFS_SWARM_KEY: |-
+                /key/swarm/psk/1.0.0/
+                /base16/
+                dc13150c1a2e1728e6ffdf358c920fed66ee467b1fc67886908da4b4ee9c110a
+            LIBP2P_FORCE_PNET: "1"
+        volumes:
+            - ipfs_staging_1:/export
+            - ipfs_data_1:/data/ipfs
+        ports:
+            - 10406:5001
+            - 10407:8080
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - wget --post-data= http://127.0.0.1:5001/api/v0/id -O - -q
+            interval: 5s
+            timeout: 3s
+            retries: 12
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    ipfs_2:
+        container_name: fraktal_ipfs_2
+        image: ipfs/go-ipfs:v0.10.0
+        environment:
+            IPFS_SWARM_KEY: |-
+                /key/swarm/psk/1.0.0/
+                /base16/
+                dc13150c1a2e1728e6ffdf358c920fed66ee467b1fc67886908da4b4ee9c110a
+            LIBP2P_FORCE_PNET: "1"
+        volumes:
+            - ipfs_staging_2:/export
+            - ipfs_data_2:/data/ipfs
+        ports:
+            - 10606:5001
+            - 10607:8080
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - wget --post-data= http://127.0.0.1:5001/api/v0/id -O - -q
+            interval: 5s
+            timeout: 3s
+            retries: 12
+        logging:
+            driver: json-file
+            options:
+                max-file: "1"
+                max-size: 10m
+    sandbox_0:
+        container_name: fraktal_sandbox_0
+        image: ghcr.io/hyperledger/firefly-sandbox:latest
+        environment:
+            FF_ENDPOINT: http://firefly_core_0:5000
+        ports:
+            - 5108:3001
+    sandbox_1:
+        container_name: fraktal_sandbox_1
+        image: ghcr.io/hyperledger/firefly-sandbox:latest
+        environment:
+            FF_ENDPOINT: http://firefly_core_1:5001
+        ports:
+            - 5208:3001
+    sandbox_2:
+        container_name: fraktal_sandbox_2
+        image: ghcr.io/hyperledger/firefly-sandbox:latest
+        environment:
+            FF_ENDPOINT: http://firefly_core_2:5002
+        ports:
+            - 5308:3001
+volumes:
+    dataexchange_0: {}
+    dataexchange_1: {}
+    dataexchange_2: {}
+    fabconnect_events_0: {}
+    fabconnect_events_1: {}
+    fabconnect_events_2: {}
+    fabconnect_receipts_0: {}
+    fabconnect_receipts_1: {}
+    fabconnect_receipts_2: {}
+    fabric_ca: {}
+    fabric_orderer: {}
+    fabric_peer: {}
+    firefly_core_data_0: {}
+    firefly_core_data_1: {}
+    firefly_core_data_2: {}
+    firefly_fabric: {}
+    ipfs_data_0: {}
+    ipfs_data_1: {}
+    ipfs_data_2: {}
+    ipfs_staging_0: {}
+    ipfs_staging_1: {}
+    ipfs_staging_2: {}
