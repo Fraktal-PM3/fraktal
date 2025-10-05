@@ -9,7 +9,7 @@ certificateAuthorities:
       enrollId: admin
       enrollSecret: adminpw
 channels:
-  mychannel:
+  pm3:
     orderers:
       - fabric_orderer
     peers:
@@ -41,7 +41,7 @@ client:
       cert:
         path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
       key:
-        path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/3a513afeaea61f5011f8851d8081879ed181921eced00c30501e5b85c35fdf8f_sk
+        path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/933448032987ebd6d5b6e34b51cddef9249bef3fb25f68083c2c1f401eb09ac6_sk
 orderers:
   fabric_orderer:
     tlsCACerts:

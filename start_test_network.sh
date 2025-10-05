@@ -1,9 +1,18 @@
 FRAKTALDIR=$(cd "$(dirname "$0")" && pwd)
 NETWORKDIR=${FRAKTALDIR}/fabric-samples/test-network
 CHANNEL_NAME="pm3"
+CONTAINER_CLI=docker
 
 pushd ${FRAKTALDIR} >/dev/null
 trap "popd > /dev/null" EXIT
+
+function infoln() {
+  echo -e "\033[1;34m$1\033[0m"
+}
+
+function errorln() {
+  echo -e "\033[1;31m$1\033[0m"
+}
 
 # Start the fabric test network using the network.sh script. Setting the channel name to pm3.
 # if the network is already running, this will do nothing.
@@ -14,45 +23,52 @@ function networkUp() {
   fi
   # Check if the network is already running
   CONTAINERS=($($CONTAINER_CLI ps | grep hyperledger/ | awk '{print $2}'))
-  if [[len ${CONTAINERS[@]} -ge 4 ]]; then
+  if [[ ${#CONTAINERS[@]} -ge 4 ]]; then
     infoln "Fabric test network already running"
     return
   else
+    infoln "==============================="
     infoln "Starting Fabric test network..."
+    infoln "==============================="
     pushd ${NETWORKDIR} >/dev/null
     ./network.sh up createChannel -ca -c ${CHANNEL_NAME}
 
     # Make sure to deploy the firefly chaincode so that if we start a firefly instance later it will work
+    infoln "=============================="
+    infoln "Deploying Firefly chaincode..."
+    infoln "=============================="
     ./deploy_firefly_chaincode.sh
     popd >/dev/null
   fi
 }
 
-function fireflyUp(fabric_selected) {
-  ORG1_KEYSTORE=${FRAKTALDIR}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
-  ORG2_KEYSTORE=${FRAKTALDIR}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore
+# Makes sure that the configs are in order and then starts the firefly containers.
+function fireflyUp() {
+  ORG1_KEYSTORE=${NETWORKDIR}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
+  ORG2_KEYSTORE=${NETWORKDIR}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore
 
   # Make sure to chown these direcories to the current user so that ff can read them
-  chown -R $USER:$USER ${FRAKTALDIR}/organizations
+  sudo chown -R $USER:$USER ${NETWORKDIR}/organizations
 
   #Check if the firefly containers are already running
   CONTAINERS=($($CONTAINER_CLI ps | grep ghcr.io/hyperledger-labs/firefly | awk '{print $2}'))
-  if [[len ${CONTAINERS[@]} -ge 4 ]]; then
+  if [[ ${#CONTAINERS[@]} -ge 4 ]]; then
     infoln "Firefly containers already running, stop them if you want to make changes"
     return
   fi
 
-
-
+  infoln "==============================="
   infoln "Starting Firefly containers..."
+  infoln "==============================="
+
   # Check if the key files have been generated
   if [[ ! -d ${ORG1_KEYSTORE} || ! -d ${ORG2_KEYSTORE} ]]; then
     errorln "Fabric keystore directories not found. Make sure the fabric test network is running."
     exit 1
   fi
 
-  ORG1_KEYFILE=$(ls ${ORG1_KEYSTORE}/*_ks | head -n 1)
-  ORG2_KEYFILE=$(ls ${ORG2_KEYSTORE}/*_ks | head -n 1)
+  ORG1_KEYFILE=$(ls ${ORG1_KEYSTORE}/* | head -n 1)
+  ORG2_KEYFILE=$(ls ${ORG2_KEYSTORE}/* | head -n 1)
 
   if [[ -z "${ORG1_KEYFILE}" || -z "${ORG2_KEYFILE}" ]]; then
     errorln "Fabric keystore files not found. Make sure the fabric test network is running."
@@ -60,27 +76,23 @@ function fireflyUp(fabric_selected) {
   fi
 
   # Copy the template ccp yml files and replace the private key file names, overwriting any existing ccp files
-  cp -f ${FRAKTALDIR}/config/ccp-template-org1.yaml ${FRAKTALDIR}/config/ccp-org1.yaml
-  cp -f ${FRAKTALDIR}/config/ccp-template-org2.yaml ${FRAKTALDIR}/config/ccp-org2.yaml
+  cp -f ${FRAKTALDIR}/config/ccp-template-org1.yml ${FRAKTALDIR}/config/ccp-org1.yml
+  cp -f ${FRAKTALDIR}/config/ccp-template-org2.yml ${FRAKTALDIR}/config/ccp-org2.yml
 
   # Extract just the filename from the full paths
   ORG1_KEYFILE_NAME=$(basename ${ORG1_KEYFILE})
   ORG2_KEYFILE_NAME=$(basename ${ORG2_KEYFILE})
 
   # Replace FILL_IN_KEY_NAME_HERE with actual key filenames
-  sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG1_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org1.yaml
-  sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG2_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org2.yaml
-
+  sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG1_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org1.yml
+  sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG2_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org2.yml
 
   # Init the stack with the ccp files as flags and with the correct channel name
   pushd ${NETWORKDIR} >/dev/null
 
   # Check if stack exists already and remove it if so
-
-  ff list | grep dev >/dev/null 2>&1
-
-  # Check if fabric was also selected to start, in which case the key files will be changes so we will need to remove the stack and recreate it
-  if [[ $? -eq 0 && fabric_selected ]]; then
+  FF_LIST_OUTPUT=$(ff list)
+  if [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
     ff remove dev
   fi
 
@@ -91,9 +103,29 @@ function fireflyUp(fabric_selected) {
     --msp "organizations" \
     --channel ${CHANNEL_NAME} \
     --chaincode firefly
-
-  ff start dev
   popd >/dev/null
+
+  cp -f ${FRAKTALDIR}/config/docker-compose.override.yml ${HOME}/.firefly/stacks/dev
+
+  ff start dev --no-rollback -v
+}
+
+function printHelp() {
+  echo "Usage: $0 <mode> [ff|firefly|fb|fabric] [-h|--help]"
+  echo ""
+  echo "Modes:"
+  echo "  start       Start the PM3 test network and/or Firefly containers"
+  echo "  stop        Stop the Firefly containers"
+  echo "  restart     Restart the PM3 test network and/or Firefly containers"
+  echo "  down        Stop and remove the PM3 test network and/or Firefly containers"
+  echo "  status      Show the status of the PM3 test network and/or Firefly containers"
+  echo ""
+  echo "Options:"
+  echo "  ff,firefly  Operate on Firefly containers only"
+  echo "  fb,fabric   Operate on PM3 test network only"
+  echo "  -h, --help  Show this help message"
+  echo ""
+  echo "If neither firefly nor fabric is specified, both will be operated on."
 }
 
 # Parse commandline args
@@ -114,14 +146,14 @@ while [[ $# -ge 1 ]]; do
   ff)
     firefly_selected=true
     ;;
+  firefly)
+    firefly_selected=true
+    ;;
   fb)
     fabric_selected=true
     ;;
   fabric)
     fabric_selected=true
-    ;;
-  firefly)
-    firefly_selected=true
     ;;
   -h | --help)
     printHelp $MODE
@@ -149,7 +181,7 @@ if [[ "${MODE}" == "start" ]]; then
   fi
   if [[ "${firefly_selected}" == true ]]; then
     infoln "Starting Firefly containers..."
-    fireflyUp fabric_selected
+    fireflyUp
   fi
 elif [[ "${MODE}" == "stop" ]]; then
   if [[ "${firefly_selected}" == true ]]; then

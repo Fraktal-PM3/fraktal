@@ -9,7 +9,7 @@ certificateAuthorities:
       enrollId: admin
       enrollSecret: adminpw
 channels:
-  mychannel:
+  pm3:
     orderers:
       - fabric_orderer
     peers:
