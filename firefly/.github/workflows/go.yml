@@ -1,0 +1,175 @@
+name: Go
+
+on:
+  push:
+    branches: [main] 
+    paths:
+      - '**'  # include all files
+      - '!.github/**' # exclude .github directory
+      - '!**.md' # exclude all markdown files
+      - 'doc-site/docs/reference/**.md' # include markdown files that are auto generated and need to be tested
+
+  pull_request:
+    paths:
+      - '**'  # include all files
+      - '!.github/**' # exclude .github directory
+      - '!**.md' # exclude all markdown files
+      - 'doc-site/docs/reference/**.md' # include markdown files that are auto generated and need to be tested
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    env:
+      TEST_ARGS: -v
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      - name: Build and Test
+        run: make
+
+      - uses: codecov/codecov-action@v4
+        with:
+          codecov_yml_path: ./codecov.yml
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      - name: Build Docker image
+        run: make docker
+
+      - name: Save Docker image
+        run: docker save --output firefly.tar.gz hyperledger/firefly
+
+      - name: Upload Docker image
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefly-docker
+          path: firefly.tar.gz
+
+  e2e-test:
+    runs-on: ubuntu-latest
+    needs: docker
+    strategy:
+      fail-fast: false
+      matrix:
+        stack-type: [ethereum, fabric]
+        exclude: [stack-type: ethereum, stack-type: fabric]
+        include:
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: sqlite3
+            token-provider: erc20_erc721
+            multiparty-enabled: true
+
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: postgres
+            token-provider: erc20_erc721
+            multiparty-enabled: true
+
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: sqlite3
+            token-provider: erc1155
+            multiparty-enabled: true
+
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumMultipartyTokensRemoteNameE2ESuite
+            database-type: postgres
+            token-provider: erc20_erc721
+            multiparty-enabled: true
+
+          - stack-type: fabric
+            test-suite: TestFabricE2ESuite
+            database-type: sqlite3
+            token-provider: none
+            multiparty-enabled: true
+
+          - stack-type: ethereum
+            blockchain-connector: evmconnect
+            test-suite: TestEthereumGatewayE2ESuite
+            database-type: sqlite3
+            token-provider: erc20_erc721
+            multiparty-enabled: false
+
+          - stack-type: fabric
+            test-suite: TestFabricGatewayE2ESuite
+            database-type: sqlite3
+            token-provider: none
+            multiparty-enabled: false
+
+          - stack-type: ethereum
+            blockchain-connector: ethconnect
+            test-suite: TestEthereumMultipartyE2ESuite
+            database-type: sqlite3
+            token-provider: erc20_erc721
+            multiparty-enabled: true
+
+          - stack-type: ethereum
+            blockchain-connector: ethconnect
+            test-suite: TestEthereumGatewayLegacyEthE2ESuite
+            database-type: sqlite3
+            token-provider: erc1155
+            multiparty-enabled: false
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      - name: Download Docker image
+        uses: actions/download-artifact@v4
+        with:
+          name: firefly-docker
+
+      - name: Load Docker image
+        run: docker load --input firefly.tar.gz
+
+      - name: Run E2E tests
+        env:
+          BUILD_FIREFLY: false
+          TEST_SUITE: ${{ matrix.test-suite }}
+          STACK_TYPE: ${{ matrix.stack-type }}
+          BLOCKCHAIN_CONNECTOR: ${{ matrix.blockchain-connector }}
+          TOKENS_PROVIDER: ${{ matrix.token-provider }}
+          DATABASE_TYPE: ${{ matrix.database-type }}
+          MULTIPARTY_ENABLED: ${{ matrix.multiparty-enabled }}
+        run: ./test/e2e/run.sh
+
+      - name: Archive container logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-logs-${{ matrix.test-suite }}-${{ matrix.blockchain-provider }}-${{ matrix.blockchain-connector }}-${{ matrix.database-type }}-${{ matrix.token-provider }}
+          path: containerlogs/logs.txt

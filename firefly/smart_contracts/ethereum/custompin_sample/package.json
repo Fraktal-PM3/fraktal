@@ -1,0 +1,14 @@
+{
+  "name": "sample-custompin-contract",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "hardhat test --network hardhat"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "typescript": "^5.4.2"
+  },
+  "dependencies": {
+    "@hyperledger/firefly-contracts": "file:../solidity_firefly"
+  }
+}

@@ -1,0 +1,188 @@
+---
+title: Release Notes
+---
+
+# Release Notes
+
+[Full release notes](https://github.com/hyperledger/firefly/releases)
+
+## [v1.4.0 - Jul 17, 2025](https://github.com/hyperledger/firefly/releases/tag/v1.4.0)
+
+What's New:
+- New Cardano connector https://github.com/hyperledger/firefly-cardano
+    - Powers a reliable event-stream-based API for applications to react to custom Cardano events
+    - Own signer module for managing keys 
+    - Incorporates it's own Balius wrapper framework for smart contracts
+    - Includes in depth documentation section on developing Cardano smart contracts and listening to events
+    - Support in FireFly CLI to create a Cardano stack and connect to a remote provider
+    - Rust based framework for building FireFly Connectors
+- Enhancements to the connector framework to expose internal event listeners to consume directly instead of using external listeners
+- Miscellaneous bug fixes and minor improvements 
+- Documentation updates, new Cardano section in the tutorials
+- CVE fixes across the board
+
+## [v1.3.3 - Mar 25, 2025](https://github.com/hyperledger/firefly/releases/tag/v1.3.3)
+
+What's New:
+
+- Add new interface for blockchain plugins to stream receipt notifications in transactional batches
+    - For blockchain connectors that have an `ack` based reliable receipt stream (or other checkpoint system)
+    - Allows strictly ordered delivery of receipts from blockchain plugins that support it
+    - Allows resilience on receipt delivery to core, against a checkpoint maintained in the connector
+- Changes in metrics:   
+    - Added new metrics for Data Exchange for monitoring by a timeseries and alerting system.
+        - `ff_multiparty_node_identity_dx_mismatch` notify that the certificate in FireFly Core is different to the one stored in Data Exchange
+        - `ff_multiparty_node_identity_dx_expiry_epoch` emit the timestamp of the certificate of Data Exchange useful for SREs to monitor before it expires 
+    - Added a namespace label to existing metrics to separate metrics more easily 
+    - Added HTTP Response Time and Complete Gauge Support to `firefly-common`
+    - Allow the `metrics` server to host additional routes such as status endpoints 
+        - This resulted in a new configuration section of `monitoring` to be more appropriate than `metrics` which has now be deprecated. 
+- Fix to issue that resulted in retried private messages using local namespace rather than the network namespace
+- Fix to issue that could result in messages being marked `Pending` on re-delivery of a batch over the network
+- Miscellaneous bug fixes and minor improvements
+- Documentation updates, new troubleshooting section for multiparty messages
+- CVE fixes and adoption of OpenSSF scorecard on key repositories
+    
+### Migration consideration
+
+As part of the changes to the metrics to add the new `namespace` label, we changed from using a Prometheus `Counter` to a `CounterVec`. As a result there is no default value of `0` on the counter, which means when users query for a specific metric such as `ff_message_rejected_total` it will not be available until the `CounterVec` associated with that metric is incremented. This has been determined to be an easy upgrade for SRE monitoring these metrics, hence inclusion in a patch release. 
+
+## [v1.3.2 - Oct 3, 2024](https://github.com/hyperledger/firefly/releases/tag/v1.3.2)
+
+What's New:
+
+- Support for JSON numbers larger than `2^53-1`
+   - See [FFBigInt](../reference/types/simpletypes.md#ffbigint) for detailed explanation
+   - Support added to FireFly core, including the UI, FireFly Transaction Manager, and FireFly EVMConnect
+- Ability to install FireFly CLI with Brew for MacOS users
+    See [Brew](../gettingstarted/firefly_cli.md#install-via-homebrew-macOS) 
+- Miscellaneous bug fixes and minor improvements
+- FireFly has been upgraded to use Go 1.22
+
+## [v1.3.1 - Aug 5, 2024](https://github.com/hyperledger/firefly/releases/tag/v1.3.1)
+
+What's New:
+
+- Enable contract listeners with multiple filters
+    See [Contract Listeners](../reference/types/contractlistener.md) for details
+- New multiparty status API at `/status/multiparty`
+
+## [v1.3.0 - April 25, 2024](https://github.com/hyperledger/firefly/releases/tag/v1.3.0)
+
+[Migration guide](1.3_migration_guide.md)
+
+What's New:
+
+- Enhancements to FireFly Messaging capabilities, allowing off-chain data to be linked to on-chain transactions from custom smart contracts
+- Sample contract implementation for custom pin contracts
+- Contract interfaces, contract APIs, and token pools can now be separately defined and published
+- Support for batching events when delivering over websockets
+- Lots of bug fixes and miscellaneous enhancements
+
+## [v1.2.0 - February 6, 2023](https://github.com/hyperledger/firefly/releases/tag/v1.2.0)
+
+[Migration guide](1.2_migration_guide.md)
+
+What's New:
+
+- Enhanced support for token contracts generated by the OpenZeppelin Wizard
+- Custom smart contract error types are now returned on the API
+- Data objects and associated blobs can now be deleted
+- Optional dynamic reload of core configuration file
+- The `X-FireFly-Request-ID` HTTP header is now passed through to FireFly dependency microservices
+- Custom HTTP headers can be passed through to FireFly dependency microservices
+- Evmconnect is now the default blockchain connector for Ethereum based FireFly stacks
+
+
+## [v1.1.0 - September 12, 2022](https://github.com/hyperledger/firefly/releases/tag/v1.1.0)
+
+[Migration guide](1.1_migration_guide.md)
+
+What's New:
+
+- Gateway Mode: Connect to many chains with auto-indexing of activities
+- Public EVM Chain Support: Manage public chain connections including Ethereum, Polygon, Arbitrum, Binance Smart Chain, Moonbeam, and more.
+- Namespaces: Isolated environments within a FireFly runtime allowing independent configuration of plugin and infrastructure components and more
+- Connector Toolkit: Quickly build custom connectors
+- Pluggable API Security: Plug in your own API security
+- Mass Scale Tokens: Support many parallel copies of token plugins for mass scale
+
+## [v1.0.3 - July 07, 2022](https://github.com/hyperledger/firefly/releases/tag/v1.0.3)
+
+What's New:
+
+- Adds support for custom URIs for non-fungible tokens and documentation updates
+- Deprecate default value for "ffdx"
+- Back port of custom URI support for non-fungible tokens
+- Update token connector versions
+- Back port of "FAQ and FireFly Tutorial updates"
+
+## [v1.0.2 - May 12, 2022](https://github.com/hyperledger/firefly/releases/tag/v1.0.2)
+
+What's New:
+
+- Fix invocations on custom Fabric chaincode, which were not properly reporting success/failure status back to FireFly (along with other minor bugfixes).
+- De-duplicate existing token approvals in database migration
+- Backport docs generation and versioning code for 1.0 stream
+- Default fabconnect calls to async
+- Set message header type of broadcast/private
+
+## [v1.0.1 - May 09, 2022](https://github.com/hyperledger/firefly/releases/tag/v1.0.1)
+
+What's New:
+
+- Fixes for token approvals - previously approvals would intermittently be missed by FireFly or recorded with incorrect details.
+- New versions of ERC20/ERC721 connector will assume "no data" support if you create a token pool against an older version of the sample smart contracts.
+
+## [v1.0.0 - April 28, 2022](https://github.com/hyperledger/firefly/releases/tag/v1.0.0)
+
+This release includes lots of major hardening, performance improvements, and bug fixes, as well as more complete documentation and OpenAPI specifications.
+
+What's New:
+
+- Massive performance improvements across the board
+- Up-to-date documentation and fully annotated OpenAPI specification
+- Overhaul of UI
+- Cleaner logs and error messages
+- Lots of bug fixes and miscellaneous enhancements
+
+## [v0.14.0 - March 22, 2022](https://github.com/hyperledger/firefly/releases/tag/v0.14.0)
+
+What's New:
+
+- Major UI updates including Activity, Blockchain, Off-Chain, Tokens, Network Map, and My Node sections
+- Custom contract APIs
+- Enhanced subscription filters
+- Event API enrichment
+- Performance updates
+- Bug fixes
+
+## [v0.13.0 - February 14, 2022](https://github.com/hyperledger/firefly/releases/tag/v0.13.0)
+
+What's New:
+
+- Hardening release with significant rework to core of FireFly, mostly to fix issues exposed by the performance testing.
+- Support for running on ARM-based M1 processors
+- Rewrite of the message batching and event aggregation logic inside FireFly, to fix numerous edge cases with lost or hung messages
+- Hardening of operations and transactions to behave more consistently across all types
+- Metrics reporting to Prometheus
+- Continued development to support custom on-chain logic (still in preview)
+
+## [v0.12.0 - February 02, 2022](https://github.com/hyperledger/firefly/releases/tag/v0.12.0)
+
+What's New:
+
+- All APIs deprecated in v0.11.0 or earlier are removed
+- Preview of custom on-chain logic
+- Support for new ERC20 / ERC721 connector
+- Overhaul of Transaction type and new BlockchainEvent type
+- Support for delivery confirmations via DX plugin
+
+## [v0.11.0 - November 22, 2021](https://github.com/hyperledger/firefly/releases/tag/v0.11.0)
+
+What's New:
+
+- Significant hardening and enhanced token functionality
+- Major web UI overhaul
+- Optimized database operations for increased transactional throughput
+- Fixed PostgreSQL database migrations
