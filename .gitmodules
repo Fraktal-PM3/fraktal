@@ -1,0 +1,3 @@
+[submodule "firefly"]
+	path = firefly
+	url = https://github.com/Fraktal-PM3/firefly
