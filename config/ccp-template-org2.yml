@@ -4,7 +4,7 @@ certificateAuthorities:
       path: /etc/firefly/organizations/peerOrganizations/org2.example.com/msp/tlscacerts/ca.crt
     url: https://ca_org2:8054
     grpcOptions:
-      ssl-target-name-override: org2.example.com
+      ssl-target-name-override: ca_org2
     registrar:
       enrollId: admin
       enrollSecret: adminpw

@@ -4,7 +4,7 @@ certificateAuthorities:
       path: /etc/firefly/organizations/peerOrganizations/org1.example.com/msp/tlscacerts/ca.crt
     url: https://ca_org1:7054
     grpcOptions:
-      ssl-target-name-override: org1.example.com
+      ssl-target-name-override: ca_org1
     registrar:
       enrollId: admin
       enrollSecret: adminpw
@@ -41,7 +41,7 @@ client:
       cert:
         path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
       key:
-        path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/933448032987ebd6d5b6e34b51cddef9249bef3fb25f68083c2c1f401eb09ac6_sk
+        path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/3d120f18e07d52ef28745171857030047fd22c6b19be55ad7a63be3f321ee277_sk
 orderers:
   fabric_orderer:
     tlsCACerts:

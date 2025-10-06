@@ -25,21 +25,23 @@ function networkUp() {
   CONTAINERS=($($CONTAINER_CLI ps | grep hyperledger/ | awk '{print $2}'))
   if [[ ${#CONTAINERS[@]} -ge 4 ]]; then
     infoln "Fabric test network already running"
-    return
-  else
-    infoln "==============================="
-    infoln "Starting Fabric test network..."
-    infoln "==============================="
     pushd ${NETWORKDIR} >/dev/null
-    ./network.sh up createChannel -ca -c ${CHANNEL_NAME}
-
-    # Make sure to deploy the firefly chaincode so that if we start a firefly instance later it will work
-    infoln "=============================="
-    infoln "Deploying Firefly chaincode..."
-    infoln "=============================="
-    ./deploy_firefly_chaincode.sh
+    ./network.sh down
     popd >/dev/null
   fi
+  infoln "==============================="
+  infoln "Starting Fabric test network..."
+  infoln "==============================="
+  pushd ${NETWORKDIR} >/dev/null
+
+  ./network.sh up createChannel -ca -c ${CHANNEL_NAME}
+
+  # Make sure to deploy the firefly chaincode so that if we start a firefly instance later it will work
+  infoln "=============================="
+  infoln "Deploying Firefly chaincode..."
+  infoln "=============================="
+  ./deploy_firefly_chaincode.sh
+  popd >/dev/null
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
@@ -48,7 +50,7 @@ function fireflyUp() {
   ORG2_KEYSTORE=${NETWORKDIR}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore
 
   # Make sure to chown these direcories to the current user so that ff can read them
-  sudo chown -R $USER:$USER ${NETWORKDIR}/organizations
+  sudo chown -R $USER ${NETWORKDIR}/organizations
 
   #Check if the firefly containers are already running
   CONTAINERS=($($CONTAINER_CLI ps | grep ghcr.io/hyperledger-labs/firefly | awk '{print $2}'))
@@ -84,8 +86,16 @@ function fireflyUp() {
   ORG2_KEYFILE_NAME=$(basename ${ORG2_KEYFILE})
 
   # Replace FILL_IN_KEY_NAME_HERE with actual key filenames
-  sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG1_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org1.yml
-  sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG2_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org2.yml
+  # Cross-platform sed in-place replacement
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    sed -i '' "s/FILL_IN_KEY_NAME_HERE/${ORG1_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org1.yml
+    sed -i '' "s/FILL_IN_KEY_NAME_HERE/${ORG2_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org2.yml
+  else
+    # Linux
+    sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG1_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org1.yml
+    sed -i "s/FILL_IN_KEY_NAME_HERE/${ORG2_KEYFILE_NAME}/g" ${FRAKTALDIR}/config/ccp-org2.yml
+  fi
 
   # Init the stack with the ccp files as flags and with the correct channel name
   pushd ${NETWORKDIR} >/dev/null
@@ -102,7 +112,7 @@ function fireflyUp() {
     --ccp "${FRAKTALDIR}/config/ccp-org2.yml" \
     --msp "organizations" \
     --channel ${CHANNEL_NAME} \
-    --chaincode firefly
+    --chaincode firefly -p 8000
   popd >/dev/null
 
   cp -f ${FRAKTALDIR}/config/docker-compose.override.yml ${HOME}/.firefly/stacks/dev

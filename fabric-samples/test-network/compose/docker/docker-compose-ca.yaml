@@ -2,6 +2,17 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-
-version: '3.7'
-
+version: "3.7"
+services:
+  ca_org1:
+    hostname: ca_org1
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_org1,localhost
+  ca_org2:
+    hostname: ca_org2
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_org2,localhost
+  ca_orderer:
+    hostname: ca_orderer
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_orderer,localhost
