@@ -41,7 +41,7 @@ client:
       cert:
         path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/signcerts/cert.pem
       key:
-        path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/3d120f18e07d52ef28745171857030047fd22c6b19be55ad7a63be3f321ee277_sk
+        path: /etc/firefly/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore/5c2c34e25476eceb73051ac8606503fa7472926cb8775016ead4511f8fc909ce_sk
 orderers:
   fabric_orderer:
     tlsCACerts:
