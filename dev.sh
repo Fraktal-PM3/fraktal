@@ -176,6 +176,8 @@ function install() {
   infoln "==============================="
   infoln "Installing prerequisites..."
   infoln "==============================="
+  git submodule init
+  git submodule update
   pushd ${NETWORKDIR} >/dev/null
   ./network.sh prereq
   popd >/dev/null
