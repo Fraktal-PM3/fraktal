@@ -103,6 +103,7 @@ function fireflyUp() {
   # Check if stack exists already and remove it if so
   FF_LIST_OUTPUT=$(ff list)
   if [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
+    ff stop dev
     ff remove dev
   fi
 
@@ -120,15 +121,89 @@ function fireflyUp() {
   ff start dev --no-rollback -v
 }
 
+function networkDown() {
+  if [[ ! -d ${NETWORKDIR} ]]; then
+    errorln "Fabric test network directory not found: ${NETWORKDIR}"
+    exit 1
+  fi
+  # Check if the network is already running
+  CONTAINERS=($($CONTAINER_CLI ps | grep hyperledger/ | awk '{print $2}'))
+  if [[ ${#CONTAINERS[@]} -ge 1 ]]; then
+    infoln "==============================="
+    infoln "Stopping Fabric test network..."
+    infoln "==============================="
+    pushd ${NETWORKDIR} >/dev/null
+    ./network.sh down
+    popd >/dev/null
+  else
+    infoln "Fabric test network is not running"
+  fi
+}
+
+function fireflyDown() {
+  FF_LIST_OUTPUT=$(ff list)
+  if [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
+    infoln "==============================="
+    infoln "Stopping and removing Firefly containers..."
+    infoln "==============================="
+    ff stop dev
+    ff remove dev
+  else
+    errorln "Could not find Firefly stack 'dev'"
+  fi
+}
+
+function networkRestart() {
+  if [[ ! -d ${NETWORKDIR} ]]; then
+    errorln "Fabric test network directory not found: ${NETWORKDIR}"
+    exit 1
+  fi
+  # Check if the network is already running
+  CONTAINERS=($($CONTAINER_CLI ps | grep hyperledger/ | awk '{print $2}'))
+  if [[ ${#CONTAINERS[@]} -ge 1 ]]; then
+    networkDown
+    networkUp
+  else
+    infoln "Fabric test network is not running"
+  fi
+}
+
+function install() {
+  if [[ ! -d ${NETWORKDIR} ]]; then
+    errorln "Fabric test network directory not found: ${NETWORKDIR}"
+    exit 1
+  fi
+  infoln "==============================="
+  infoln "Installing prerequisites..."
+  infoln "==============================="
+  pushd ${NETWORKDIR} >/dev/null
+  ./network.sh prereq
+  popd >/dev/null
+}
+
+function networkStatus() {
+  infoln "==============================="
+  infoln "Fabric test network status:"
+  infoln "==============================="
+  docker ps | grep hyperledger/
+}
+
+function fireflyStatus() {
+  infoln "==============================="
+  infoln "Firefly status:"
+  infoln "==============================="
+  ff info dev
+}
+
 function printHelp() {
   echo "Usage: $0 <mode> [ff|firefly|fb|fabric] [-h|--help]"
   echo ""
   echo "Modes:"
-  echo "  start       Start the PM3 test network and/or Firefly containers"
-  echo "  stop        Stop the Firefly containers"
+  echo "  up          Start the PM3 test network and/or Firefly containers"
   echo "  restart     Restart the PM3 test network and/or Firefly containers"
   echo "  down        Stop and remove the PM3 test network and/or Firefly containers"
   echo "  status      Show the status of the PM3 test network and/or Firefly containers"
+  echo "  install     Install prerequisites for the PM3 test network"
   echo ""
   echo "Options:"
   echo "  ff,firefly  Operate on Firefly containers only"
@@ -183,47 +258,39 @@ if [[ "${fabric_selected}" == false && "${firefly_selected}" == false ]]; then
   firefly_selected=true
 fi
 
-if [[ "${MODE}" == "start" ]]; then
+if [[ "${MODE}" == "up" ]]; then
   #Default to starting both if none specified
   if [[ "${fabric_selected}" == true ]]; then
-    infoln "Starting PM3 test network..."
     networkUp
   fi
   if [[ "${firefly_selected}" == true ]]; then
-    infoln "Starting Firefly containers..."
     fireflyUp
-  fi
-elif [[ "${MODE}" == "stop" ]]; then
-  if [[ "${firefly_selected}" == true ]]; then
-    infoln "Stopping Firefly containers..."
-    fireflyStop
   fi
 elif [[ "$MODE" == "restart" ]]; then
   if [[ "${fabric_selected}" == true ]]; then
-    infoln "Restarting PM3 test network..."
     networkRestart
   fi
   if [[ "${firefly_selected}" == true ]]; then
-    infoln "Restarting Firefly containers..."
+    fireflyDown
     fireflyUp
   fi
 elif [[ "${MODE}" == "down" ]]; then
   if [[ "${firefly_selected}" == true ]]; then
-    infoln "Stopping and removing Firefly containers..."
     fireflyDown
   fi
   if [[ "${fabric_selected}" == true ]]; then
-    infoln "Stopping and removing PM3 test network..."
     networkDown
   fi
 elif [[ "${MODE}" == "status" ]]; then
   if [[ "${fabric_selected}" == true ]]; then
-    infoln "PM3 test network status..."
     networkStatus
   fi
   if [[ "${firefly_selected}" == true ]]; then
-    infoln "Firefly containers status..."
     fireflyStatus
+  fi
+elif [[ "${MODE}" == "install" ]]; then
+  if [[ "${fabric_selected}" == true ]]; then
+    install
   fi
 else
   echo "Unknown mode: ${MODE}"
