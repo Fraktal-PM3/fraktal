@@ -2,6 +2,17 @@ FRAKTALDIR=$(cd "$(dirname "$0")" && pwd)
 NETWORKDIR=${FRAKTALDIR}/fabric-samples/test-network
 CHANNEL_NAME="pm3"
 CONTAINER_CLI=docker
+CC_NAME=${CC_NAME:-pm3package}
+CC_VERSION=${CC_VERSION:-1.0}
+CC_SEQUENCE=${CC_SEQUENCE:-1}
+CC_LANG=${CC_LANG:-javascript}   # we prebuild TS -> JS, so use javascript
+CC_PATH=${CC_PATH:-${FRAKTALDIR}/chaincodes/package}
+
+case "${CC_LANG}" in
+  node|Node|NODE)       CC_LANG=javascript ;;
+  js|JS|JavaScript)     CC_LANG=javascript ;;
+  ts|TS|TypeScript)     CC_LANG=typescript ;;
+esac
 
 pushd ${FRAKTALDIR} >/dev/null
 trap "popd > /dev/null" EXIT
@@ -12,6 +23,41 @@ function infoln() {
 
 function errorln() {
   echo -e "\033[1;31m$1\033[0m"
+}
+
+# Build the PM3 chaincode (TypeScript -> dist JS)
+function buildChaincode() {
+  infoln "==============================="
+  infoln "Building chaincode at: ${CC_PATH}"
+  infoln "==============================="
+  if [[ ! -d "${CC_PATH}" ]]; then
+    errorln "Chaincode path not found: ${CC_PATH}"
+    exit 1
+  fi
+  pushd "${CC_PATH}" >/dev/null
+  npm ci
+  npm run build
+  popd >/dev/null
+}
+
+# Deploy the PM3 chaincode via test-network/network.sh
+function deployChaincode() {
+  infoln "======================================"
+  infoln "Deploying chaincode to channel: ${CHANNEL_NAME}"
+  infoln "Name=${CC_NAME}  Version=${CC_VERSION}  Seq=${CC_SEQUENCE}  Lang=${CC_LANG}"
+  infoln "Path=${CC_PATH}"
+  infoln "======================================"
+  pushd "${NETWORKDIR}" >/dev/null
+  GOWORK=off ./network.sh deployCC \
+    -c "${CHANNEL_NAME}" \
+    -ccn "${CC_NAME}" \
+    -ccp "${CC_PATH}" \
+    -ccl "${CC_LANG}" \
+    -ccv "${CC_VERSION}" \
+    -ccs "${CC_SEQUENCE}"
+  local rc=$?
+  popd >/dev/null
+  return ${rc}
 }
 
 # Register users with roles in the Fabric test network CAs
@@ -280,6 +326,7 @@ function printHelp() {
   echo "  down        Stop and remove the PM3 test network and/or Firefly containers"
   echo "  status      Show the status of the PM3 test network and/or Firefly containers"
   echo "  install     Install prerequisites for the PM3 test network"
+  echo "  deploycc    Build and deploy the PM3 chaincode to the Fabric network"
   echo ""
   echo "Options:"
   echo "  ff,firefly  Operate on Firefly containers only"
@@ -368,6 +415,12 @@ elif [[ "${MODE}" == "install" ]]; then
   if [[ "${fabric_selected}" == true ]]; then
     install
   fi
+elif [[ "${MODE}" == "deploycc" ]]; then
+  # Ensure Fabric network is up first
+  networkUp
+  # Build and deploy the PM3 chaincode
+  buildChaincode
+  deployChaincode
 else
   echo "Unknown mode: ${MODE}"
   printHelp

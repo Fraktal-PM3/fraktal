@@ -4,10 +4,10 @@ import { logger } from "./logger"
 async function main() {
     logger.info("App starting...")
 
-    // await createContractAPI()
+    await createContractAPI()
     await getContractAPI()
     // await invokeContractAPI()
-    await getAssets()
+    // await getAssets()
 }
 
 main().catch((err) => {
