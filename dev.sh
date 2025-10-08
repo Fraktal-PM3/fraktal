@@ -115,7 +115,7 @@ function networkUp() {
   infoln "=============================="
   ./deploy_firefly_chaincode.sh
   popd >/dev/null
-  registerRoles()
+  registerRoles
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
