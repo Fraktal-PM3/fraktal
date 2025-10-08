@@ -1,57 +1,59 @@
 import { logger } from "../logger"
-import { PrivatePackage, Urgency } from "../types/package"
-const tsj = require("ts-json-schema-generator");
-const fs = require("fs");
-const path = require("path");
+import { createGenerator } from "ts-json-schema-generator"
+import fs from "fs"
+import path from "path"
+import { Config } from "ts-json-schema-generator/dist/src/Config"
 
 export function generatePackageSchema() {
-    /** @type {import('ts-json-schema-generator/dist/src/Config').Config} */
-    const projectRoot = process.cwd();
-    const config = {
+    const projectRoot = process.cwd()
+
+    const config: Config = {
         path: path.join(projectRoot, "src", "types", "package.ts"),
         tsconfig: path.join(projectRoot, "tsconfig.json"),
-        type: "PrivatePackage", // Or <type-name> if you want to generate schema for that one type only
-    };
+        type: "PrivatePackage",
+    }
 
-    // We want the generated schemas to live in projectRoot/schemas (not under src) so they can be distributed / inspected.
-    const packageSchemaPath = path.join(projectRoot, "schemas", "package.json");
-    const sizeSchemaPath = path.resolve(__dirname, "../schemas/size.json");
-    const locationSchemaPath = path.resolve(__dirname, "../schemas/location.json");
-    const urgencySchemaPath = path.resolve(__dirname, "../schemas/urgency.json");
+    const packageSchemaPath = path.join(
+        projectRoot,
+        "schemas",
+        "private-package.schema.json",
+    )
 
-    const packageSchema = tsj.createGenerator(config).createSchema(config.type);
-    const sizeSchema = tsj.createGenerator({ ...config, type: "Size" }).createSchema("Size");
-    const locationSchema = tsj.createGenerator({ ...config, type: "Location" }).createSchema("Location");
-    const urgencySchema = tsj.createGenerator({ ...config, type: "Urgency" }).createSchema("Urgency");
+    const packageSchema = createGenerator(config).createSchema(config.type)
+
+    // Add proper $id for FireFly compatibility at the beginning
+    const baseUrl =
+        process.env.SCHEMA_BASE_URL || "http://localhost:3000/schemas"
+    const schemaWithId = {
+        $id: `${baseUrl}/private-package.schema.json`,
+        ...packageSchema,
+    }
     try {
-        // Ensure the directory exists
-        const dir = path.dirname(packageSchemaPath);
+        const dir = path.dirname(packageSchemaPath)
         if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
+            fs.mkdirSync(dir, { recursive: true })
         }
-        // Ensure file is created if it doesn't exist
-        if (!fs.existsSync(packageSchemaPath)) {
-            fs.writeFileSync(packageSchemaPath, '');
-            fs.writeFileSync(sizeSchemaPath, '');
-            fs.writeFileSync(locationSchemaPath, '');
-            fs.writeFileSync(urgencySchemaPath, '');
-        }
-        fs.writeFileSync(packageSchemaPath, JSON.stringify(packageSchema, null, 2));
-        fs.writeFileSync(sizeSchemaPath, JSON.stringify(sizeSchema, null, 2));
-        fs.writeFileSync(locationSchemaPath, JSON.stringify(locationSchema, null, 2));
-        fs.writeFileSync(urgencySchemaPath, JSON.stringify(urgencySchema, null, 2));
-        logger.info(`Schema for type ${config.type} has been saved to ${packageSchemaPath}`);
+        fs.writeFileSync(
+            packageSchemaPath,
+            JSON.stringify(schemaWithId, null, 2),
+        )
+        logger.info(
+            `Schema for type ${config.type} has been saved to ${packageSchemaPath}`,
+        )
     } catch (err) {
-        logger.error({ err }, "Error writing schema to file");
+        logger.error({ err }, "Error writing schema to file")
     }
 
-    // Return the file as a json object
     try {
-        if (require.cache[packageSchemaPath]) delete require.cache[packageSchemaPath];
-        const json = require(packageSchemaPath);
-        return json;
+        if (require.cache[packageSchemaPath])
+            delete require.cache[packageSchemaPath]
+        const json = JSON.parse(fs.readFileSync(packageSchemaPath, "utf8"))
+        return json
     } catch (err) {
-        logger.error({ err, attemptedPath: packageSchemaPath }, "Failed to load generated schema JSON");
-        throw err;
+        logger.error(
+            { err, attemptedPath: packageSchemaPath },
+            "Failed to load generated schema JSON",
+        )
+        throw err
     }
-} 
+}

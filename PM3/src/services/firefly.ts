@@ -1,5 +1,6 @@
 import FireFly from "@hyperledger/firefly-sdk"
 import { logger } from "../logger"
+import { PrivatePackage } from "../types/package"
 
 type JsonSchema = {
     $schema?: string
@@ -17,6 +18,44 @@ const ff = new FireFly({
     host: process.env["FIREFLY_URL"] || "http://localhost:8000",
     namespace: process.env["FIREFLY_NAMESPACE"] || "default",
 })
+
+export const broadcastPackage = async (
+    data: object,
+    datatype: { name: string; version: string },
+    topics: string[],
+) => {
+    try {
+        const res = await ff.sendBroadcast({
+            data: [{ value: data, datatype }],
+            header: { tag: "PackageBroadcast", topics: topics },
+        })
+        logger.info({ res }, "Broadcast sent")
+        return res
+    } catch (err) {
+        logger.error({ err }, "Broadcast failed")
+        throw err
+    }
+}
+
+export const uploadPackage = async (pkg: PrivatePackage, version: string) => {
+    const res = await ff.uploadData({
+        datatype: { name: "PrivatePackage", version: version },
+        value: pkg,
+    })
+    return res
+}
+
+export const getLocalPackage = async (id: string) => {
+    try {
+        const res = await ff.getData(id)
+        if (!res || !res.value) {
+            logger.warn({ id }, "No package data found")
+        }
+        return res?.value
+    } catch (err) {
+        logger.error({ err }, "Failed to get package data")
+    }
+}
 
 export const createContractAPI = async () => {
     const res = await ff.createContractAPI(

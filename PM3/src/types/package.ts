@@ -19,6 +19,7 @@ export enum Urgency {
 }
 
 export interface PrivatePackage {
+    id: string
     pickupLocation: Location
     dropLocation: Location
     address: string
