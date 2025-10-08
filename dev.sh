@@ -14,6 +14,80 @@ function errorln() {
   echo -e "\033[1;31m$1\033[0m"
 }
 
+# Register users with roles in the Fabric test network CAs
+function registerRoles() {
+
+  infoln "==============================="
+  infoln "Registering users with roles..."
+  infoln "==============================="
+
+  local NET=${NETWORKDIR}
+  # host:port ONLY (no scheme here)
+  local ORG1_CA="localhost:7054"
+  local ORG2_CA="localhost:8054"
+  local ORG1_CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
+  local ORG2_CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
+
+  # ---- Org1: enroll CA registrar ----
+  export FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org1.example.com/"
+  fabric-ca-client enroll \
+    -u "https://admin:adminpw@${ORG1_CA}" \
+    --tls.certfiles "${ORG1_CA_TLS}"
+
+  # Register transporter1 with role=transporter (embedded in ECert)
+  fabric-ca-client register \
+    --id.name transporter1 \
+    --id.secret transporterpw \
+    --id.type client \
+    --id.affiliation org1.department1 \
+    --id.attrs 'role=transporter:ecert' \
+    -u "https://${ORG1_CA}" \
+    --tls.certfiles "${ORG1_CA_TLS}"
+
+  # Enroll transporter1 -> creates MSP with signcerts containing role
+  fabric-ca-client enroll \
+    -u "https://transporter1:transporterpw@${ORG1_CA}" \
+    --mspdir "${NET}/organizations/peerOrganizations/org1.example.com/users/transporter1@org1.example.com/msp" \
+    --tls.certfiles "${ORG1_CA_TLS}"
+
+  # ---- Org2: enroll CA registrar ----
+  export FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/"
+  fabric-ca-client enroll \
+    -u "https://admin:adminpw@${ORG2_CA}" \
+    --tls.certfiles "${ORG2_CA_TLS}"
+
+  # Register ombud1 with role=ombud
+  fabric-ca-client register \
+    --id.name ombud1 \
+    --id.secret ombudpw \
+    --id.type client \
+    --id.affiliation org2.department1 \
+    --id.attrs 'role=ombud:ecert' \
+    -u "https://${ORG2_CA}" \
+    --tls.certfiles "${ORG2_CA_TLS}"
+
+  # Enroll ombud1
+  fabric-ca-client enroll \
+    -u "https://ombud1:ombudpw@${ORG2_CA}" \
+    --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/ombud1@org2.example.com/msp" \
+    --tls.certfiles "${ORG2_CA_TLS}"
+
+  # (Optional) Give Admin@org2 the pm3 role and reenroll
+  fabric-ca-client identity modify admin \
+    --type client \
+    --attrs 'role=pm3:ecert' \
+    -u "https://${ORG2_CA}" \
+    --tls.certfiles "${ORG2_CA_TLS}"
+
+  FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/" \
+  fabric-ca-client reenroll \
+    --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp" \
+    --enrollment.attrs "role" \
+    -u "https://${ORG2_CA}" \
+    --tls.certfiles "${ORG2_CA_TLS}"
+
+  echo "Roles registered and enrolled (Org1: transporter1, Org2: ombud1, Admin@org2 has role=pm3)."
+}
 # Start the fabric test network using the network.sh script. Setting the channel name to pm3.
 # if the network is already running, this will do nothing.
 function networkUp() {
@@ -35,13 +109,13 @@ function networkUp() {
   pushd ${NETWORKDIR} >/dev/null
 
   ./network.sh up createChannel -ca -c ${CHANNEL_NAME}
-
   # Make sure to deploy the firefly chaincode so that if we start a firefly instance later it will work
   infoln "=============================="
   infoln "Deploying Firefly chaincode..."
   infoln "=============================="
   ./deploy_firefly_chaincode.sh
   popd >/dev/null
+  registerRoles()
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
