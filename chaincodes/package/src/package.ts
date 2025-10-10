@@ -39,15 +39,17 @@ export enum TransferStatus {
     EXPIRED = "expired",
 }
 
-export type TransferTerms = {
-    proposalId: string
-    pkgId: string
-    fromMSP: string
-    toMSP: string
-    termsHash: string
-    createdISO: string
-    expiryISO: string
+export type Transfer = {
+    terms: {
+        proposalId: string
+        pkgId: string
+        fromMSP: string
+        toMSP: string
+        createdISO: string
+        expiryISO: string | null | undefined
+    }
     status: TransferStatus
+    hash: string
 }
 
 export type PrivatePackage = {
