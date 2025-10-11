@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { PackageContract } from "../src/packageContract"
 import { MockContext } from "./helpers/mockContext"
-import { PrivatePackage, Status, Urgency } from "../src/package"
+import { PublicPackage, PrivatePackage, Status, Urgency } from "../src/package"
 
 // Mock the fabric-contract-api decorators before importing classes that use them
 vi.mock("fabric-contract-api", async (importOriginal) => {
@@ -36,6 +36,14 @@ const pii: PrivatePackage = {
     urgency: Urgency.MEDIUM,
 }
 
+const CreatePackage = (
+    contract: PackageContract,
+    ctx: MockContext,
+    packageData: PublicPackage
+) => {
+    // @ts-ignore
+    return contract.CreatePackage(ctx, packageData)
+}
 // Helper function to call UpdatePackageStatus with proper typing
 const UpdatePackageStatus = (
     contract: PackageContract,
@@ -78,9 +86,33 @@ describe("PackageContract (unit)", () => {
         })
     })
 
-    // Ombud role tests
+    describe("Ombud role", () => {
+        it("should create package", async () => {
+            // input only needs id; contract fills the rest
+            const packageData: PublicPackage = { id: "pkg1" } as any
 
-    // pm3
+            await CreatePackage(c, ctxOmbud, packageData)
 
-    // transporter
+            // world state written?
+            const buf = await ctxOmbud.stub.getState("pkg1")
+            expect(buf.length).toBeGreaterThan(0)
+
+            // basic shape checks from contract behavior
+            const stored = JSON.parse(buf.toString())
+            expect(stored.id).toBe("pkg1")
+            expect(stored.status).toBe(Status.PENDING) // contract sets PENDING
+            expect(stored.ownerOrgMSP).toBe("Org0MSP") // caller MSP from ctxOmbud
+            expect(typeof stored.dataHash).toBe("string")
+            expect(stored.dataHash.length).toBeGreaterThan(0)
+
+            // optional: event emitted
+            const ev = ctxOmbud.stub.events.at(-1)
+            expect(ev?.name).toBe("CreatePackage")
+
+            // Check role?
+            expect(ctxOmbud.clientIdentity.getAttributeValue("role")).toBe(
+                "ombud"
+            )
+        })
+    })
 })
