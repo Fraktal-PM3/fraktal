@@ -239,6 +239,9 @@ function fireflyUp() {
   cp -f ${FRAKTALDIR}/config/docker-compose.override.yml ${HOME}/.firefly/stacks/dev
 
   ff start dev --no-rollback -v
+
+  buildChaincode
+  deployChaincode
 }
 
 function networkDown() {
