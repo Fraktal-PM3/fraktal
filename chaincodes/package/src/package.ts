@@ -22,7 +22,7 @@ export enum Urgency {
 
 export enum Status {
     PENDING = "pending",
-    BROADCASTED = "broadcasted",
+    READY_FOR_PICKUP = "ready_for_pickup",
     PICKED_UP = "picked_up",
     IN_TRANSIT = "in_transit",
     DELIVERED = "delivered",
@@ -30,16 +30,26 @@ export enum Status {
     FAILED = "failed",
 }
 
-export type TransferTerms = {
-    id: string
-    fromMSP: string
-    toMSP: string
-    // No PII here either, just the business fields needed for consent:
-    price?: number
-    conditions?: string
-    expiry?: string // ISO
-    termsHash: string // hash of the exact terms or full doc sections as needed
-    salt: string
+export enum TransferStatus {
+    PROPOSED = "proposed",
+    ACCEPTED = "accepted",
+    EXECUTED = "executed",
+    CANCELLED = "cancelled",
+    REJECTED = "rejected",
+    EXPIRED = "expired",
+}
+
+export type Transfer = {
+    terms: {
+        proposalId: string
+        pkgId: string
+        fromMSP: string
+        toMSP: string
+        createdISO: string
+        expiryISO: string | null | undefined
+    }
+    status: TransferStatus
+    hash: string
 }
 
 export type PrivatePackage = {

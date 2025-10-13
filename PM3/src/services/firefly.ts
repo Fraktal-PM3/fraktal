@@ -2,23 +2,23 @@ import FireFly from "@hyperledger/firefly-sdk"
 import { logger } from "../logger"
 
 const ff = new FireFly({
-    host: process.env["FIREFLY_URL"] || "http://localhost:8001",
+    host: process.env["FIREFLY_URL"] || "http://localhost:8000",
     namespace: process.env["FIREFLY_NAMESPACE"] || "default",
 })
 
 export const createContractAPI = async () => {
     const res = await ff.createContractAPI({
-        interface: { id: "e4469a90-2936-4372-b6d6-379aa2d95c0b" },
-        location: {channel: "pm3", chaincode: "asset_transfer"},
-        name: "asset_transfer",
+        interface: { id: "ec09ab27-c7b8-42c2-989a-24191b9ab956" },
+        location: {channel: "pm3", chaincode: "pm3package"},
+        name: "pm3package",
     }, { publish: true })
     logger.info({ res }, "Fetched contract APIs")
     return res
 }
 
 export const getContractAPI = async () => {
-    const res = await ff.getContractAPI("asset_transfer")
-
+    const res = await ff.getContractAPI("pm3package")
+    
     logger.info({ res }, "Fetched contract APIs")
 
     return res
