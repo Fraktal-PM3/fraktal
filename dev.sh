@@ -365,8 +365,20 @@ function fireflyUp() {
     --chaincode firefly -p 8000
   popd >/dev/null
 
+  # Build custom IPFS image
+  buildIPFSImage
+
+  # Get or generate IPFS peer IDs
+  getIPFSPeerIDs ${HOME}/.firefly/stacks/dev
+
+  infoln "Using IPFS Peer IDs:"
+  infoln "  Node 0: ${IPFS_PEER_0_ID}"
+  infoln "  Node 1: ${IPFS_PEER_1_ID}"
+
+  # Copy docker-compose override
   cp -f ${FRAKTALDIR}/config/docker-compose.override.yml ${HOME}/.firefly/stacks/dev
 
+  # Start FireFly with peer IDs as environment variables
   ff start dev --no-rollback -v
 
   buildChaincode
