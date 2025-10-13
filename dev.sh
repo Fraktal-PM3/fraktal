@@ -3,16 +3,17 @@ NETWORKDIR=${FRAKTALDIR}/fabric-samples/test-network
 CHANNEL_NAME="pm3"
 CONTAINER_CLI=docker
 export PATH=${FRAKTALDIR}/fabric-samples/bin:$PATH
+export FABRIC_CFG_PATH=${FRAKTALDIR}/fabric-samples/config/
 CC_NAME=${CC_NAME:-pm3package}
 CC_VERSION=${CC_VERSION:-1.0}
 CC_SEQUENCE=${CC_SEQUENCE:-1}
-CC_LANG=${CC_LANG:-javascript}   # we prebuild TS -> JS, so use javascript
+CC_LANG=${CC_LANG:-javascript} # we prebuild TS -> JS, so use javascript
 CC_PATH=${CC_PATH:-${FRAKTALDIR}/chaincodes/package}
 
 case "${CC_LANG}" in
-  node|Node|NODE)       CC_LANG=javascript ;;
-  js|JS|JavaScript)     CC_LANG=javascript ;;
-  ts|TS|TypeScript)     CC_LANG=typescript ;;
+node | Node | NODE) CC_LANG=javascript ;;
+js | JS | JavaScript) CC_LANG=javascript ;;
+ts | TS | TypeScript) CC_LANG=typescript ;;
 esac
 
 pushd ${FRAKTALDIR} >/dev/null
@@ -68,73 +69,89 @@ function registerRoles() {
   infoln "Registering users with roles..."
   infoln "==============================="
 
-  local NET=${NETWORKDIR}
-  # host:port ONLY (no scheme here)
-  local ORG1_CA="localhost:7054"
-  local ORG2_CA="localhost:8054"
-  local ORG1_CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
-  local ORG2_CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
+  # Give Admin@org1 the ombud role using updateUserRole function
+  infoln "Updating Admin@org1 with ombud role..."
+  updateUserRole "Admin" "ombud" "1"
 
-  # ---- Org1: enroll CA registrar ----
-  export FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org1.example.com/"
-  fabric-ca-client enroll \
-    -u "https://admin:adminpw@${ORG1_CA}" \
-    --tls.certfiles "${ORG1_CA_TLS}"
+  # Give Admin@org2 the transporter role using updateUserRole function
+  infoln "Updating Admin@org2 with transporter role..."
+  updateUserRole "Admin" "transporter" "2"
 
-  # Register transporter1 with role=transporter (embedded in ECert)
-  fabric-ca-client register \
-    --id.name transporter1 \
-    --id.secret transporterpw \
-    --id.type client \
-    --id.affiliation org1.department1 \
-    --id.attrs 'role=transporter:ecert' \
-    -u "https://${ORG1_CA}" \
-    --tls.certfiles "${ORG1_CA_TLS}"
-
-  # Enroll transporter1 -> creates MSP with signcerts containing role
-  fabric-ca-client enroll \
-    -u "https://transporter1:transporterpw@${ORG1_CA}" \
-    --mspdir "${NET}/organizations/peerOrganizations/org1.example.com/users/transporter1@org1.example.com/msp" \
-    --tls.certfiles "${ORG1_CA_TLS}"
-
-  # ---- Org2: enroll CA registrar ----
-  export FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/"
-  fabric-ca-client enroll \
-    -u "https://admin:adminpw@${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  # Register ombud1 with role=ombud
-  fabric-ca-client register \
-    --id.name ombud1 \
-    --id.secret ombudpw \
-    --id.type client \
-    --id.affiliation org2.department1 \
-    --id.attrs 'role=ombud:ecert' \
-    -u "https://${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  # Enroll ombud1
-  fabric-ca-client enroll \
-    -u "https://ombud1:ombudpw@${ORG2_CA}" \
-    --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/ombud1@org2.example.com/msp" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  # (Optional) Give Admin@org2 the pm3 role and reenroll
-  fabric-ca-client identity modify admin \
-    --type client \
-    --attrs 'role=pm3:ecert' \
-    -u "https://${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/" \
-    fabric-ca-client reenroll \
-    --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp" \
-    --enrollment.attrs "role" \
-    -u "https://${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  echo "Roles registered and enrolled (Org1: transporter1, Org2: ombud1, Admin@org2 has role=pm3)."
+  infoln "Roles registered and enrolled (Org1: Admin=ombud, Org2: Admin=transporter)."
 }
+
+# Update role for an existing user without creating new keys
+function updateUserRole() {
+  local username=$1
+  local new_role=$2
+  local org=$3
+
+  if [[ -z "${username}" || -z "${new_role}" || -z "${org}" ]]; then
+    errorln "Usage: updateUserRole <username> <new_role> <org_number>"
+    errorln "Example: updateUserRole transporter1 manager 1"
+    return 1
+  fi
+
+  infoln "==============================="
+  infoln "Updating role for ${username} in Org${org} to: ${new_role}"
+  infoln "==============================="
+
+  local NET=${NETWORKDIR}
+  local CA_ADDRESS=""
+  local CA_TLS=""
+  local MSP_PATH=""
+  local USER_MSP_PATH=""
+
+  if [[ "${org}" == "1" ]]; then
+    CA_ADDRESS="localhost:7054"
+    CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
+    MSP_PATH="${NET}/organizations/peerOrganizations/org1.example.com/"
+    USER_MSP_PATH="${MSP_PATH}/users/${username}@org1.example.com/msp"
+  elif [[ "${org}" == "2" ]]; then
+    CA_ADDRESS="localhost:8054"
+    CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
+    MSP_PATH="${NET}/organizations/peerOrganizations/org2.example.com/"
+    USER_MSP_PATH="${MSP_PATH}/users/${username}@org2.example.com/msp"
+  else
+    errorln "Invalid org number: ${org}. Must be 1 or 2."
+    return 1
+  fi
+
+  # Check if user MSP exists
+  if [[ ! -d "${USER_MSP_PATH}" ]]; then
+    errorln "User MSP directory not found: ${USER_MSP_PATH}"
+    errorln "Make sure the user ${username} has been registered and enrolled first."
+    return 1
+  fi
+
+  # Enroll as CA admin first
+  export FABRIC_CA_CLIENT_HOME="${MSP_PATH}"
+  infoln "Enrolling as CA admin..."
+  fabric-ca-client enroll \
+    -u "https://admin:adminpw@${CA_ADDRESS}" \
+    --tls.certfiles "${CA_TLS}"
+
+  # Modify the user's identity to add the new role
+  infoln "Modifying identity for ${username}..."
+  fabric-ca-client identity modify "${username}" \
+    --type client \
+    --attrs "role=${new_role}:ecert" \
+    -u "https://${CA_ADDRESS}" \
+    --tls.certfiles "${CA_TLS}"
+
+  # Reenroll the user to get a new certificate with the updated role
+  infoln "Re-enrolling ${username} with new role..."
+  FABRIC_CA_CLIENT_HOME="${MSP_PATH}" \
+    fabric-ca-client reenroll \
+    --mspdir "${USER_MSP_PATH}" \
+    --enrollment.attrs "role" \
+    -u "https://${CA_ADDRESS}" \
+    --tls.certfiles "${CA_TLS}"
+
+  infoln "Successfully updated ${username}'s role to: ${new_role}"
+  infoln "Certificate has been re-issued with the new role attribute."
+}
+
 # Start the fabric test network using the network.sh script. Setting the channel name to pm3.
 # if the network is already running, this will do nothing.
 function networkUp() {
@@ -190,8 +207,9 @@ function fireflyUp() {
     exit 1
   fi
 
-  ORG1_KEYFILE=$(ls ${ORG1_KEYSTORE}/* | head -n 1)
-  ORG2_KEYFILE=$(ls ${ORG2_KEYSTORE}/* | head -n 1)
+  # Get the most recently modified key file (in case of re-enrollment)
+  ORG1_KEYFILE=$(ls -t ${ORG1_KEYSTORE}/* | head -n 1)
+  ORG2_KEYFILE=$(ls -t ${ORG2_KEYSTORE}/* | head -n 1)
 
   if [[ -z "${ORG1_KEYFILE}" || -z "${ORG2_KEYFILE}" ]]; then
     errorln "Fabric keystore files not found. Make sure the fabric test network is running."
@@ -331,6 +349,7 @@ function printHelp() {
   echo "  status      Show the status of the PM3 test network and/or Firefly containers"
   echo "  install     Install prerequisites for the PM3 test network"
   echo "  deploycc    Build and deploy the PM3 chaincode to the Fabric network"
+  echo "  updaterole  Update role for an existing user (usage: $0 updaterole <username> <new_role> <org_number>)"
   echo ""
   echo "Options:"
   echo "  ff,firefly  Operate on Firefly containers only"
@@ -338,6 +357,10 @@ function printHelp() {
   echo "  -h, --help  Show this help message"
   echo ""
   echo "If neither firefly nor fabric is specified, both will be operated on."
+  echo ""
+  echo "Examples:"
+  echo "  $0 updaterole transporter1 manager 1         # Update transporter1 in Org1 to manager role"
+  echo "  $0 updaterole ombud1 auditor 2               # Update ombud1 in Org2 to auditor role"
 }
 
 # Parse commandline args
@@ -425,6 +448,17 @@ elif [[ "${MODE}" == "deploycc" ]]; then
   # Build and deploy the PM3 chaincode
   buildChaincode
   deployChaincode
+elif [[ "${MODE}" == "updaterole" ]]; then
+  # Parse additional arguments for updaterole command
+  if [[ $# -lt 3 ]]; then
+    errorln "updaterole requires 3 arguments: <username> <new_role> <org_number>"
+    echo "Example: $0 updaterole transporter1 manager 1"
+    exit 1
+  fi
+  USERNAME=$1
+  NEW_ROLE=$2
+  ORG_NUM=$3
+  updateUserRole "${USERNAME}" "${NEW_ROLE}" "${ORG_NUM}"
 else
   echo "Unknown mode: ${MODE}"
   printHelp
