@@ -5,7 +5,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { PackageContract } from "../src/packageContract"
 import { MockContext } from "./helpers/mockContext"
 import { PublicPackage, PrivatePackage, Status, Urgency } from "../src/package"
-import { create } from "domain"
 
 // Mock the fabric-contract-api decorators before importing classes that use them
 vi.mock("fabric-contract-api", async (importOriginal) => {
@@ -87,88 +86,134 @@ describe("PackageContract (unit)", () => {
         })
     })
 
-    describe("Ombud role", () => {
-        it("should create package", async () => {
-            // input only needs id; contract fills the rest
-            const packageData: PublicPackage = { id: "pkg1" } as any
-            await CreatePackage(c, ctxOmbud, packageData)
+    describe("Package Creation tests", () => {
+        describe("Ombud role", () => {
+            it("should create package", async () => {
+                // input only needs id; contract fills the rest
+                const packageData: PublicPackage = { id: "pkg1" } as any
+                await CreatePackage(c, ctxOmbud, packageData)
 
-            // duplicate id fails -- move this to separate test
-            const packageDataDuplicate: PublicPackage = { id: "pkg1" } as any
-            await CreatePackage(c, ctxOmbud, packageDataDuplicate).catch(
-                (err) => {
-                    expect(err.message).toBe("The package pkg1 already exists")
-                }
-            )
+                // duplicate id fails -- move this to separate test
+                const packageDataDuplicate: PublicPackage = {
+                    id: "pkg1",
+                } as any
+                await CreatePackage(c, ctxOmbud, packageDataDuplicate).catch(
+                    (err) => {
+                        expect(err.message).toBe(
+                            "The package pkg1 already exists"
+                        )
+                    }
+                )
 
-            // Since createPackage returns void, we check state change and world state and event emission
+                // Since createPackage returns void, we check state change and world state and event emission
 
-            // world state written?
-            const buf = await ctxOmbud.stub.getState("pkg1")
-            expect(buf.length).toBeGreaterThan(0)
+                // world state written?
+                const buf = await ctxOmbud.stub.getState("pkg1")
+                expect(buf.length).toBeGreaterThan(0)
 
-            // basic shape checks from contract behavior
-            const stored = JSON.parse(buf.toString())
-            expect(stored.id).toBe("pkg1")
-            expect(stored.status).toBe(Status.PENDING) // contract sets PENDING
-            expect(stored.ownerOrgMSP).toBe("Org0MSP") // caller MSP from ctxOmbud
-            expect(typeof stored.dataHash).toBe("string")
-            expect(stored.dataHash.length).toBeGreaterThan(0)
+                // basic shape checks from contract behavior
+                const stored = JSON.parse(buf.toString())
+                expect(stored.id).toBe("pkg1")
+                expect(stored.status).toBe(Status.PENDING) // contract sets PENDING
+                expect(stored.ownerOrgMSP).toBe("Org0MSP") // caller MSP from ctxOmbud
+                expect(typeof stored.dataHash).toBe("string")
+                expect(stored.dataHash.length).toBeGreaterThan(0)
 
-            // optional: event emitted
-            const ev = ctxOmbud.stub.events.at(-1)
-            expect(ev?.name).toBe("CreatePackage")
+                // optional: event emitted
+                const ev = ctxOmbud.stub.events.at(-1)
+                expect(ev?.name).toBe("CreatePackage")
 
-            // Check role?
-            expect(ctxOmbud.clientIdentity.getAttributeValue("role")).toBe(
-                "ombud"
-            )
-        })
-
-        it("should fail to create package with missing PII", async () => {
-            const ctxOmbudNoPii = new MockContext({
-                mspId: "Org0MSP",
-                attrs: { role: "ombud" },
-                transient: {}, // no pii
-            })
-            const packageData: PublicPackage = { id: "pkg-no-pii" } as any
-            await CreatePackage(c, ctxOmbudNoPii, packageData).catch((err) => {
-                expect(err.message).toBe(
-                    "Missing transient field 'pii' (must be JSON of PrivatePackage)"
+                // Check role?
+                expect(ctxOmbud.clientIdentity.getAttributeValue("role")).toBe(
+                    "ombud"
                 )
             })
-        })
-        it("should fail when pii is invalid JSON", async () => {
-            const ctxOmbudInvalidPii = new MockContext({
-                mspId: "Org0MSP",
-                attrs: { role: "ombud" },
-                transient: { pii: "invalid-json" }, // invalid JSON
+
+            it("should fail to create package with missing PII", async () => {
+                const ctxOmbudNoPii = new MockContext({
+                    mspId: "Org0MSP",
+                    attrs: { role: "ombud" },
+                    transient: {}, // no pii
+                })
+                const packageData: PublicPackage = { id: "pkg-no-pii" } as any
+                await CreatePackage(c, ctxOmbudNoPii, packageData).catch(
+                    (err) => {
+                        expect(err.message).toBe(
+                            "Missing transient field 'pii' (must be JSON of PrivatePackage)"
+                        )
+                    }
+                )
             })
-            const packageData: PublicPackage = { id: "pkg-invalid-json" } as any
-            await expect(
-                CreatePackage(c, ctxOmbudInvalidPii, packageData)
-            ).rejects.toThrow(/Invalid JSON format|not valid JSON/i) // Cant be too specific due to JSON.parse error messages varying
+            it("should fail when pii is invalid JSON", async () => {
+                const ctxOmbudInvalidPii = new MockContext({
+                    mspId: "Org0MSP",
+                    attrs: { role: "ombud" },
+                    transient: { pii: "invalid-json" }, // invalid JSON
+                })
+                const packageData: PublicPackage = {
+                    id: "pkg-invalid-json",
+                } as any
+                await expect(
+                    CreatePackage(c, ctxOmbudInvalidPii, packageData)
+                ).rejects.toThrow(/Invalid JSON format|not valid JSON/i) // Cant be too specific due to JSON.parse error messages varying
+            })
+        })
+        describe("PM3 role", () => {
+            it("PM3 should fail to create package", async () => {
+                const packageData: PublicPackage = { id: "pkg2" } as any
+                await CreatePackage(c, ctxPM3, packageData).catch((err) => {
+                    expect(err.message).toBe(
+                        "The caller is not authorized to issue packages"
+                    )
+                })
+            })
+        })
+
+        describe("transporter role", () => {
+            it("transporter should fail to create package", async () => {
+                const packageData: PublicPackage = { id: "pkg3" } as any
+                await CreatePackage(c, ctxTransporter, packageData).catch(
+                    (err) => {
+                        expect(err.message).toBe(
+                            "The caller is not authorized to issue packages"
+                        )
+                    }
+                )
+            })
         })
     })
-    describe("PM3 role", () => {
-        it("PM3 should fail to create package", async () => {
-            const packageData: PublicPackage = { id: "pkg2" } as any
-            await CreatePackage(c, ctxPM3, packageData).catch((err) => {
-                expect(err.message).toBe(
-                    "The caller is not authorized to issue packages"
-                )
-            })
-        })
-    })
 
-    describe("transporter role", () => {
-        it("transporter should fail to create package", async () => {
-            const packageData: PublicPackage = { id: "pkg3" } as any
-            await CreatePackage(c, ctxTransporter, packageData).catch((err) => {
-                expect(err.message).toBe(
-                    "The caller is not authorized to issue packages"
-                )
+    describe("Package update tests", () => {
+        describe("Ombud role", () => {
+            it("should update package status", async () => {
+                const packageData: PublicPackage = { id: "pkg-update" } as any
+                await CreatePackage(c, ctxOmbud, packageData)
+                const createdBuf = await ctxOmbud.stub.getState("pkg-update")
+                const created = JSON.parse(createdBuf.toString())
+                expect(created.ownerOrgMSP).toBe("Org0MSP")
+                expect(created.status).toBe(Status.PENDING)
+
+                // prettier-ignore
+                await UpdatePackageStatus(c, ctxOmbud, "pkg-update", Status.READY_FOR_PICKUP)
+                const updatedBuf = await ctxOmbud.stub.getState("pkg-update")
+                const updated = JSON.parse(updatedBuf.toString())
+                expect(updated.status).toBe(Status.READY_FOR_PICKUP)
+                expect(updated.ownerOrgMSP).toBe("Org0MSP") // still same owner
+            })
+            it("should reject update package status when not authorized", async () => {
+                // prettier-ignore
+                const packageData: PublicPackage = { id: "pkg-update-noauth" } as any
+                await CreatePackage(c, ctxOmbud, packageData)
+                // Make both contexts share the same in-memory ledger
+                // @ts-ignore
+                ctxPM3.stub = ctxOmbud.stub
+                // prettier-ignore
+                await expect(
+                    UpdatePackageStatus(c, ctxPM3, "pkg-update-noauth", Status.READY_FOR_PICKUP)
+                ).rejects.toThrow(/The caller is not authorized to update the package/)
             })
         })
+        describe.skip("PM3 role", () => {})
+        describe.skip("transporter role", () => {})
     })
 })
