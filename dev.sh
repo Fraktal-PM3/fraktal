@@ -2,6 +2,7 @@ FRAKTALDIR=$(cd "$(dirname "$0")" && pwd)
 NETWORKDIR=${FRAKTALDIR}/fabric-samples/test-network
 CHANNEL_NAME="pm3"
 CONTAINER_CLI=docker
+export PATH=${FRAKTALDIR}/fabric-samples/bin:$PATH
 CC_NAME=${CC_NAME:-pm3package}
 CC_VERSION=${CC_VERSION:-1.0}
 CC_SEQUENCE=${CC_SEQUENCE:-1}
@@ -126,7 +127,7 @@ function registerRoles() {
     --tls.certfiles "${ORG2_CA_TLS}"
 
   FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/" \
-  fabric-ca-client reenroll \
+    fabric-ca-client reenroll \
     --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp" \
     --enrollment.attrs "role" \
     -u "https://${ORG2_CA}" \

@@ -1,0 +1,96 @@
+{
+  "$id": "http://localhost:3000/schemas/private-package.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/PrivatePackage",
+  "definitions": {
+    "PrivatePackage": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "pickupLocation": {
+          "$ref": "#/definitions/Location"
+        },
+        "dropLocation": {
+          "$ref": "#/definitions/Location"
+        },
+        "address": {
+          "type": "string"
+        },
+        "size": {
+          "$ref": "#/definitions/Size"
+        },
+        "weightKg": {
+          "type": "number"
+        },
+        "urgency": {
+          "$ref": "#/definitions/Urgency"
+        }
+      },
+      "required": [
+        "id",
+        "pickupLocation",
+        "dropLocation",
+        "address",
+        "size",
+        "weightKg",
+        "urgency"
+      ],
+      "additionalProperties": false
+    },
+    "Location": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number"
+        },
+        "lng": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "name",
+        "address",
+        "lat",
+        "lng"
+      ],
+      "additionalProperties": false
+    },
+    "Size": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number"
+        },
+        "height": {
+          "type": "number"
+        },
+        "depth": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "depth"
+      ],
+      "additionalProperties": false
+    },
+    "Urgency": {
+      "type": "string",
+      "enum": [
+        "high",
+        "medium",
+        "low",
+        "none"
+      ]
+    }
+  }
+}

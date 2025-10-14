@@ -24,6 +24,7 @@ export default defineConfig([
         },
         rules: {
             "prettier/prettier": "error",
+            "eol-last": ["error", "always"],
         },
     },
 ])
