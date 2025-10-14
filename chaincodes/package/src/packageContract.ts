@@ -12,7 +12,7 @@ import { createHash } from "crypto"
 export class PackageContract extends Contract {
     // CreatePackage issues a new package to the world state with given details.
     @Transaction()
-    public async CreatePackage(ctx: Context,packageData: PublicPackage): Promise<void> {
+    public async CreatePackage(ctx: Context, packageData: PublicPackage): Promise<void> {
         if (!packageData.id || typeof packageData.id !== "string") {
             throw new Error("packageData.id must be a non-empty string")
         }
