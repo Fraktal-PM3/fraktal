@@ -25,7 +25,6 @@ jobs:
       - name: Build Docusaurus
         run: npm run build
         working-directory: docs
-        working-directory: docs
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
