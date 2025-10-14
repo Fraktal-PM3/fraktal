@@ -3,16 +3,17 @@ NETWORKDIR=${FRAKTALDIR}/fabric-samples/test-network
 CHANNEL_NAME="pm3"
 CONTAINER_CLI=docker
 export PATH=${FRAKTALDIR}/fabric-samples/bin:$PATH
+export FABRIC_CFG_PATH=${FRAKTALDIR}/fabric-samples/config/
 CC_NAME=${CC_NAME:-pm3package}
 CC_VERSION=${CC_VERSION:-1.0}
 CC_SEQUENCE=${CC_SEQUENCE:-1}
-CC_LANG=${CC_LANG:-javascript}   # we prebuild TS -> JS, so use javascript
+CC_LANG=${CC_LANG:-javascript} # we prebuild TS -> JS, so use javascript
 CC_PATH=${CC_PATH:-${FRAKTALDIR}/chaincodes/package}
 
 case "${CC_LANG}" in
-  node|Node|NODE)       CC_LANG=javascript ;;
-  js|JS|JavaScript)     CC_LANG=javascript ;;
-  ts|TS|TypeScript)     CC_LANG=typescript ;;
+node | Node | NODE) CC_LANG=javascript ;;
+js | JS | JavaScript) CC_LANG=javascript ;;
+ts | TS | TypeScript) CC_LANG=typescript ;;
 esac
 
 pushd ${FRAKTALDIR} >/dev/null
@@ -37,7 +38,7 @@ function buildChaincode() {
   fi
   pushd "${CC_PATH}" >/dev/null
   npm ci
-  npm run build
+  npm package
   popd >/dev/null
 }
 
@@ -61,6 +62,47 @@ function deployChaincode() {
   return ${rc}
 }
 
+# Enroll CA admins for both organizations
+function enrollCaAdmins() {
+  infoln "==============================="
+  infoln "Enrolling CA admins..."
+  infoln "==============================="
+
+  local NET=${NETWORKDIR}
+
+  # Enroll CA admin for Org1
+  infoln "Enrolling CA admin for Org1..."
+  local CA_ADMIN_HOME_ORG1="${HOME}/.fabric-ca-client/org1"
+  mkdir -p "${CA_ADMIN_HOME_ORG1}"
+  FABRIC_CA_CLIENT_HOME="${CA_ADMIN_HOME_ORG1}" \
+    fabric-ca-client enroll \
+    -u "https://admin:adminpw@localhost:7054" \
+    --tls.certfiles "${NET}/organizations/fabric-ca/org1/tls-cert.pem" \
+    >/dev/null 2>&1
+
+  if [[ $? -eq 0 ]]; then
+    infoln "✓ CA admin for Org1 enrolled successfully"
+  else
+    errorln "Failed to enroll CA admin for Org1"
+  fi
+
+  # Enroll CA admin for Org2
+  infoln "Enrolling CA admin for Org2..."
+  local CA_ADMIN_HOME_ORG2="${HOME}/.fabric-ca-client/org2"
+  mkdir -p "${CA_ADMIN_HOME_ORG2}"
+  FABRIC_CA_CLIENT_HOME="${CA_ADMIN_HOME_ORG2}" \
+    fabric-ca-client enroll \
+    -u "https://admin:adminpw@localhost:8054" \
+    --tls.certfiles "${NET}/organizations/fabric-ca/org2/tls-cert.pem" \
+    >/dev/null 2>&1
+
+  if [[ $? -eq 0 ]]; then
+    infoln "✓ CA admin for Org2 enrolled successfully"
+  else
+    errorln "Failed to enroll CA admin for Org2"
+  fi
+}
+
 # Register users with roles in the Fabric test network CAs
 function registerRoles() {
 
@@ -68,73 +110,157 @@ function registerRoles() {
   infoln "Registering users with roles..."
   infoln "==============================="
 
-  local NET=${NETWORKDIR}
-  # host:port ONLY (no scheme here)
-  local ORG1_CA="localhost:7054"
-  local ORG2_CA="localhost:8054"
-  local ORG1_CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
-  local ORG2_CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
+  # Give admin@org1 the ombud role using updateUserRole function
+  infoln "Updating admin@org1 with ombud role..."
+  updateUserRole "admin" "ombud" "1"
 
-  # ---- Org1: enroll CA registrar ----
-  export FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org1.example.com/"
-  fabric-ca-client enroll \
-    -u "https://admin:adminpw@${ORG1_CA}" \
-    --tls.certfiles "${ORG1_CA_TLS}"
+  # Give admin@org2 the transporter role using updateUserRole function
+  infoln "Updating admin@org2 with transporter role..."
+  updateUserRole "admin" "transporter" "2"
 
-  # Register transporter1 with role=transporter (embedded in ECert)
-  fabric-ca-client register \
-    --id.name transporter1 \
-    --id.secret transporterpw \
-    --id.type client \
-    --id.affiliation org1.department1 \
-    --id.attrs 'role=transporter:ecert' \
-    -u "https://${ORG1_CA}" \
-    --tls.certfiles "${ORG1_CA_TLS}"
-
-  # Enroll transporter1 -> creates MSP with signcerts containing role
-  fabric-ca-client enroll \
-    -u "https://transporter1:transporterpw@${ORG1_CA}" \
-    --mspdir "${NET}/organizations/peerOrganizations/org1.example.com/users/transporter1@org1.example.com/msp" \
-    --tls.certfiles "${ORG1_CA_TLS}"
-
-  # ---- Org2: enroll CA registrar ----
-  export FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/"
-  fabric-ca-client enroll \
-    -u "https://admin:adminpw@${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  # Register ombud1 with role=ombud
-  fabric-ca-client register \
-    --id.name ombud1 \
-    --id.secret ombudpw \
-    --id.type client \
-    --id.affiliation org2.department1 \
-    --id.attrs 'role=ombud:ecert' \
-    -u "https://${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  # Enroll ombud1
-  fabric-ca-client enroll \
-    -u "https://ombud1:ombudpw@${ORG2_CA}" \
-    --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/ombud1@org2.example.com/msp" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  # (Optional) Give Admin@org2 the pm3 role and reenroll
-  fabric-ca-client identity modify admin \
-    --type client \
-    --attrs 'role=pm3:ecert' \
-    -u "https://${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  FABRIC_CA_CLIENT_HOME="${NET}/organizations/peerOrganizations/org2.example.com/" \
-    fabric-ca-client reenroll \
-    --mspdir "${NET}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp" \
-    --enrollment.attrs "role" \
-    -u "https://${ORG2_CA}" \
-    --tls.certfiles "${ORG2_CA_TLS}"
-
-  echo "Roles registered and enrolled (Org1: transporter1, Org2: ombud1, Admin@org2 has role=pm3)."
+  infoln "Roles registered and enrolled (Org1: Admin=ombud, Org2: Admin=transporter)."
 }
+
+# Update role for an existing user without creating new keys
+function updateUserRole() {
+  local username=$1
+  local new_role=$2
+  local org=$3
+
+  if [[ -z "${username}" || -z "${new_role}" || -z "${org}" ]]; then
+    errorln "Usage: updateUserRole <username> <new_role> <org_number>"
+    errorln "Example: updateUserRole user1 manager 1"
+    return 1
+  fi
+
+  infoln "==============================="
+  infoln "Updating role for ${username} in Org${org} to: ${new_role}"
+  infoln "==============================="
+
+  local NET=${NETWORKDIR}
+  local CA_ADDRESS=""
+  local CA_TLS=""
+  local MSP_PATH=""
+  local USER_MSP_PATH=""
+  local CA_IDENTITY_ID=""
+  local FS_USERNAME=""
+
+  # Map common filesystem names to CA identity IDs
+  # CA uses lowercase IDs, but filesystem uses capitalized names
+  case "${username}" in
+    Admin|admin)
+      CA_IDENTITY_ID="admin"
+      FS_USERNAME="Admin"
+      ;;
+    User1|user1)
+      CA_IDENTITY_ID="user1"
+      FS_USERNAME="User1"
+      ;;
+    *)
+      # For custom users, assume they match
+      CA_IDENTITY_ID="${username}"
+      FS_USERNAME="${username}"
+      ;;
+  esac
+
+  if [[ "${org}" == "1" ]]; then
+    CA_ADDRESS="localhost:7054"
+    CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
+    MSP_PATH="${NET}/organizations/peerOrganizations/org1.example.com/"
+    USER_MSP_PATH="${MSP_PATH}/users/${FS_USERNAME}@org1.example.com/msp"
+  elif [[ "${org}" == "2" ]]; then
+    CA_ADDRESS="localhost:8054"
+    CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
+    MSP_PATH="${NET}/organizations/peerOrganizations/org2.example.com/"
+    USER_MSP_PATH="${MSP_PATH}/users/${FS_USERNAME}@org2.example.com/msp"
+  else
+    errorln "Invalid org number: ${org}. Must be 1 or 2."
+    return 1
+  fi
+
+  # Check if user MSP exists
+  if [[ ! -d "${USER_MSP_PATH}" ]]; then
+    errorln "User MSP directory not found: ${USER_MSP_PATH}"
+    errorln "Make sure the user ${username} has been registered and enrolled first."
+    return 1
+  fi
+
+  # Modify the user's identity to add the new role
+  # Must use CA Admin credentials to modify identities
+  local CA_ADMIN_HOME=""
+  if [[ "${org}" == "1" ]]; then
+    CA_ADMIN_HOME="${HOME}/.fabric-ca-client/org1"
+  else
+    CA_ADMIN_HOME="${HOME}/.fabric-ca-client/org2"
+  fi
+
+  infoln "Modifying identity for ${username} (CA ID: ${CA_IDENTITY_ID})..."
+  FABRIC_CA_CLIENT_HOME="${CA_ADMIN_HOME}" \
+    fabric-ca-client identity modify "${CA_IDENTITY_ID}" \
+    --type client \
+    --attrs "role=${new_role}:ecert" \
+    -u "https://${CA_ADDRESS}" \
+    --tls.certfiles "${CA_TLS}"
+
+  # Reenroll the user to get a new certificate with the updated role
+  infoln "Re-enrolling ${username} with new role..."
+  FABRIC_CA_CLIENT_HOME="${MSP_PATH}" \
+    fabric-ca-client reenroll \
+    --mspdir "${USER_MSP_PATH}" \
+    --enrollment.attrs "role" \
+    -u "https://${CA_ADDRESS}" \
+    --tls.certfiles "${CA_TLS}"
+
+  infoln "Successfully updated ${username}'s role to: ${new_role}"
+  infoln "Certificate has been re-issued with the new role attribute."
+}
+
+# List all identities registered in the Fabric CA for the given organization
+function listIdentities() {
+  local org=$1
+
+  if [[ -z "${org}" ]]; then
+    errorln "Usage: listIdentities <org_number>"
+    errorln "Example: listIdentities 1"
+    return 1
+  fi
+
+  infoln "==============================="
+  infoln "Listing identities for Org${org}"
+  infoln "==============================="
+
+  local NET=${NETWORKDIR}
+  local CA_ADDRESS=""
+  local CA_TLS=""
+  local CA_ADMIN_HOME=""
+
+  if [[ "${org}" == "1" ]]; then
+    CA_ADDRESS="localhost:7054"
+    CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
+    CA_ADMIN_HOME="${HOME}/.fabric-ca-client/org1"
+  elif [[ "${org}" == "2" ]]; then
+    CA_ADDRESS="localhost:8054"
+    CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
+    CA_ADMIN_HOME="${HOME}/.fabric-ca-client/org2"
+  else
+    errorln "Invalid org number: ${org}. Must be 1 or 2."
+    return 1
+  fi
+
+  # Check if CA Admin has been enrolled
+  if [[ ! -d "${CA_ADMIN_HOME}/msp" ]]; then
+    errorln "CA Admin not enrolled for Org${org}"
+    errorln "Run './dev.sh up' to enroll CA admins automatically."
+    return 1
+  fi
+
+  # List identities using the pre-enrolled CA Admin credentials
+  FABRIC_CA_CLIENT_HOME="${CA_ADMIN_HOME}" \
+    fabric-ca-client identity list \
+    -u "https://${CA_ADDRESS}" \
+    --tls.certfiles "${CA_TLS}"
+}
+
 # Start the fabric test network using the network.sh script. Setting the channel name to pm3.
 # if the network is already running, this will do nothing.
 function networkUp() {
@@ -162,7 +288,64 @@ function networkUp() {
   infoln "=============================="
   ./deploy_firefly_chaincode.sh
   popd >/dev/null
+  enrollCaAdmins
   registerRoles
+}
+
+# Build the custom IPFS Docker image
+function buildIPFSImage() {
+  infoln "==============================="
+  infoln "Building custom IPFS image..."
+  infoln "==============================="
+
+  pushd ${FRAKTALDIR}/docker/ipfs >/dev/null
+  docker build -t fraktal-ipfs:latest .
+  local rc=$?
+  popd >/dev/null
+
+  if [[ ${rc} -ne 0 ]]; then
+    errorln "Failed to build IPFS image"
+    exit 1
+  fi
+
+  infoln "Custom IPFS image built successfully"
+}
+
+# Get or generate persistent IPFS peer IDs
+function getIPFSPeerIDs() {
+  local stack_dir=$1
+  local peer_file="${stack_dir}/ipfs_peer_ids.env"
+
+  # Check if we have existing peer IDs
+  if [[ -f "${peer_file}" ]]; then
+    infoln "Loading existing IPFS peer IDs..."
+    source "${peer_file}"
+    export IPFS_PEER_0_ID
+    export IPFS_PEER_1_ID
+    return 0
+  fi
+
+  infoln "Generating new IPFS peer IDs..."
+
+  # Generate peer IDs by running temporary IPFS containers
+  # Use --entrypoint to bypass custom entrypoint and run ipfs directly
+  # Redirect all init output to /dev/null and only capture the peer ID
+  IPFS_PEER_0_ID=$(docker run --rm --entrypoint sh fraktal-ipfs:latest -c "ipfs init >/dev/null 2>&1 && ipfs config Identity.PeerID")
+  IPFS_PEER_1_ID=$(docker run --rm --entrypoint sh fraktal-ipfs:latest -c "ipfs init >/dev/null 2>&1 && ipfs config Identity.PeerID")
+
+  # Save to file for persistence
+  mkdir -p "${stack_dir}"
+  cat >"${peer_file}" <<EOF
+# IPFS Peer IDs for Fraktal PM3
+# Generated: $(date)
+export IPFS_PEER_0_ID="${IPFS_PEER_0_ID}"
+export IPFS_PEER_1_ID="${IPFS_PEER_1_ID}"
+EOF
+
+  export IPFS_PEER_0_ID
+  export IPFS_PEER_1_ID
+
+  infoln "Peer IDs generated and saved to ${peer_file}"
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
@@ -190,8 +373,9 @@ function fireflyUp() {
     exit 1
   fi
 
-  ORG1_KEYFILE=$(ls ${ORG1_KEYSTORE}/* | head -n 1)
-  ORG2_KEYFILE=$(ls ${ORG2_KEYSTORE}/* | head -n 1)
+  # Get the most recently modified key file (in case of re-enrollment)
+  ORG1_KEYFILE=$(ls -t ${ORG1_KEYSTORE}/* | head -n 1)
+  ORG2_KEYFILE=$(ls -t ${ORG2_KEYSTORE}/* | head -n 1)
 
   if [[ -z "${ORG1_KEYFILE}" || -z "${ORG2_KEYFILE}" ]]; then
     errorln "Fabric keystore files not found. Make sure the fabric test network is running."
@@ -325,12 +509,14 @@ function printHelp() {
   echo "Usage: $0 <mode> [ff|firefly|fb|fabric] [-h|--help]"
   echo ""
   echo "Modes:"
-  echo "  up          Start the PM3 test network and/or Firefly containers"
-  echo "  restart     Restart the PM3 test network and/or Firefly containers"
-  echo "  down        Stop and remove the PM3 test network and/or Firefly containers"
-  echo "  status      Show the status of the PM3 test network and/or Firefly containers"
-  echo "  install     Install prerequisites for the PM3 test network"
-  echo "  deploycc    Build and deploy the PM3 chaincode to the Fabric network"
+  echo "  up             Start the PM3 test network and/or Firefly containers"
+  echo "  restart        Restart the PM3 test network and/or Firefly containers"
+  echo "  down           Stop and remove the PM3 test network and/or Firefly containers"
+  echo "  status         Show the status of the PM3 test network and/or Firefly containers"
+  echo "  install        Install prerequisites for the PM3 test network"
+  echo "  deploycc       Build and deploy the PM3 chaincode to the Fabric network"
+  echo "  updaterole     Update role for an existing user (usage: $0 updaterole <username> <new_role> <org_number>)"
+  echo "  listidentities List all identities in the CA for an org (usage: $0 listidentities <org_number>)"
   echo ""
   echo "Options:"
   echo "  ff,firefly  Operate on Firefly containers only"
@@ -338,6 +524,12 @@ function printHelp() {
   echo "  -h, --help  Show this help message"
   echo ""
   echo "If neither firefly nor fabric is specified, both will be operated on."
+  echo ""
+  echo "Examples:"
+  echo "  $0 updaterole transporter1 manager 1         # Update transporter1 in Org1 to manager role"
+  echo "  $0 updaterole ombud1 auditor 2               # Update ombud1 in Org2 to auditor role"
+  echo "  $0 listidentities 1                          # List all identities registered in Org1's CA"
+  echo "  $0 listidentities 2                          # List all identities registered in Org2's CA"
 }
 
 # Parse commandline args
@@ -353,32 +545,35 @@ fi
 firefly_selected=false
 fabric_selected=false
 
-while [[ $# -ge 1 ]]; do
-  case "$1" in
-  ff)
-    firefly_selected=true
-    ;;
-  firefly)
-    firefly_selected=true
-    ;;
-  fb)
-    fabric_selected=true
-    ;;
-  fabric)
-    fabric_selected=true
-    ;;
-  -h | --help)
-    printHelp $MODE
-    exit 0
-    ;;
-  *)
-    echo "Unknown subcommand: $1"
-    printHelp
-    exit 1
-    ;;
-  esac
-  shift
-done
+# Commands that take positional arguments should skip the firefly/fabric parsing loop
+if [[ "${MODE}" != "updaterole" && "${MODE}" != "listidentities" ]]; then
+  while [[ $# -ge 1 ]]; do
+    case "$1" in
+    ff)
+      firefly_selected=true
+      ;;
+    firefly)
+      firefly_selected=true
+      ;;
+    fb)
+      fabric_selected=true
+      ;;
+    fabric)
+      fabric_selected=true
+      ;;
+    -h | --help)
+      printHelp $MODE
+      exit 0
+      ;;
+    *)
+      echo "Unknown subcommand: $1"
+      printHelp
+      exit 1
+      ;;
+    esac
+    shift
+  done
+fi
 
 if [[ "${fabric_selected}" == false && "${firefly_selected}" == false ]]; then
   fabric_selected=true
@@ -420,11 +615,29 @@ elif [[ "${MODE}" == "install" ]]; then
     install
   fi
 elif [[ "${MODE}" == "deploycc" ]]; then
-  # Ensure Fabric network is up first
-  networkUp
   # Build and deploy the PM3 chaincode
   buildChaincode
   deployChaincode
+elif [[ "${MODE}" == "updaterole" ]]; then
+  # Parse additional arguments for updaterole command
+  if [[ $# -lt 3 ]]; then
+    errorln "updaterole requires 3 arguments: <username> <new_role> <org_number>"
+    echo "Example: $0 updaterole transporter1 manager 1"
+    exit 1
+  fi
+  USERNAME=$1
+  NEW_ROLE=$2
+  ORG_NUM=$3
+  updateUserRole "${USERNAME}" "${NEW_ROLE}" "${ORG_NUM}"
+elif [[ "${MODE}" == "listidentities" ]]; then
+  # Parse additional arguments for listidentities command
+  if [[ $# -lt 1 ]]; then
+    errorln "listidentities requires 1 argument: <org_number>"
+    echo "Example: $0 listidentities 1"
+    exit 1
+  fi
+  ORG_NUM=$1
+  listIdentities "${ORG_NUM}"
 else
   echo "Unknown mode: ${MODE}"
   printHelp
