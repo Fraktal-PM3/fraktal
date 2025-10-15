@@ -27,6 +27,60 @@ function errorln() {
   echo -e "\033[1;31m$1\033[0m"
 }
 
+# Build the custom IPFS Docker image
+
+function buildIPFSImage() {
+  infoln "==============================="
+  infoln "Building custom IPFS image..."
+  infoln "==============================="
+
+  pushd ${FRAKTALDIR}/docker/ipfs >/dev/null
+  docker build -t fraktal-ipfs:latest .
+  local rc=$?
+  popd >/dev/null
+
+  if [[ ${rc} -ne 0 ]]; then
+    errorln "Failed to build IPFS image"
+    exit 1
+  fi
+  infoln "Custom IPFS image built successfully"
+}
+
+# Get or generate persistent IPFS peer IDs
+function getIPFSPeerIDs() {
+  local stack_dir=$1
+  local peer_file="${stack_dir}/ipfs_peer_ids.env"
+
+  # Check if we have existing peer IDs
+  if [[ -f "${peer_file}" ]]; then
+    infoln "Loading existing IPFS peer IDs..."
+    source "${peer_file}"
+    export IPFS_PEER_0_ID
+    export IPFS_PEER_1_ID
+    return 0
+  fi
+  infoln "Generating new IPFS peer IDs..."
+
+  # Generate peer IDs by running temporary IPFS containers
+  # Use --entrypoint to bypass custom entrypoint and run ipfs directly
+  # Redirect all init output to /dev/null and only capture the peer ID
+  IPFS_PEER_0_ID=$(docker run --rm --entrypoint sh fraktal-ipfs:latest -c "ipfs init >/dev/null 2>&1 && ipfs config Identity.PeerID")
+  IPFS_PEER_1_ID=$(docker run --rm --entrypoint sh fraktal-ipfs:latest -c "ipfs init >/dev/null 2>&1 && ipfs config Identity.PeerID")
+
+  # Save to file for persistence
+  mkdir -p "${stack_dir}"
+  cat >"${peer_file}" <<
+  # IPFS Peer IDs for Fraktal PM3
+  # Generated: $(date)
+  
+  export IPFS_PEER_0_ID="${IPFS_PEER_0_ID}"
+  export IPFS_PEER_1_ID="${IPFS_PEER_1_ID}"
+  export IPFS_PEER_0_ID
+  export IPFS_PEER_1_ID
+
+  infoln "Peer IDs generated and saved to ${peer_file}"
+}
+
 # Build the PM3 chaincode (TypeScript -> dist JS)
 function buildChaincode() {
   infoln "==============================="
@@ -38,7 +92,7 @@ function buildChaincode() {
   fi
   pushd "${CC_PATH}" >/dev/null
   npm ci
-  npm package
+  npm run package
   popd >/dev/null
 }
 
@@ -148,19 +202,19 @@ function updateUserRole() {
   # Map common filesystem names to CA identity IDs
   # CA uses lowercase IDs, but filesystem uses capitalized names
   case "${username}" in
-    Admin|admin)
-      CA_IDENTITY_ID="admin"
-      FS_USERNAME="Admin"
-      ;;
-    User1|user1)
-      CA_IDENTITY_ID="user1"
-      FS_USERNAME="User1"
-      ;;
-    *)
-      # For custom users, assume they match
-      CA_IDENTITY_ID="${username}"
-      FS_USERNAME="${username}"
-      ;;
+  Admin | admin)
+    CA_IDENTITY_ID="admin"
+    FS_USERNAME="Admin"
+    ;;
+  User1 | user1)
+    CA_IDENTITY_ID="user1"
+    FS_USERNAME="User1"
+    ;;
+  *)
+    # For custom users, assume they match
+    CA_IDENTITY_ID="${username}"
+    FS_USERNAME="${username}"
+    ;;
   esac
 
   if [[ "${org}" == "1" ]]; then
