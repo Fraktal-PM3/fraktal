@@ -44,7 +44,7 @@ const config: Config = {
           // Please change this to your repo.
           // Remove this to remove the "edit this page" links.
           editUrl:
-            'https://github.com/Fraktal-PM3/fraktal/docs',
+            'https://github.com/Fraktal-PM3/fraktal/tree/main/docs',
           showLastUpdateAuthor: true,
           showLastUpdateTime: true,
         },

@@ -164,12 +164,8 @@ curl -sSLO https://raw.githubusercontent.com/hyperledger/fabric/main/scripts/ins
 ./install-fabric.sh docker binary
 
 # Add Fabric binaries to PATH
-echo 'export PATH=$PATH:$HOME/go/src/github.com/<your_github_userid>/fabric-samples/bin' >> ~/.bashrc
+echo 'export PATH=$PATH:$HOME/go/src/github.com/<your_github_userid>/bin' >> ~/.bashrc
 source ~/.bashrc
-
-# Verify installation
-cd fabric-samples/test-network
-./network.sh --help
 ```
 
 :::tip Version Selection
