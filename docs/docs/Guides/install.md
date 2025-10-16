@@ -3,9 +3,6 @@ sidebar_position: 1
 sidebar_label: Installation
 title: Installation Guide
 description: Complete guide to setting up the development environment for the distributed hash ledger project
-last_update:
-  date: 16/10/2025
-  author: Hugo Hedlund
 ---
 
 # Installation Guide
