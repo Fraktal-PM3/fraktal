@@ -213,6 +213,42 @@ describe("PackageContract (unit)", () => {
                 ).rejects.toThrow(/The caller is not authorized to update the package/)
             })
         })
+        describe.skip("PM3 role", () => {
+            // cant actually test this since we have to transfer ownership status inorder for PM3 to update to succeded
+            it("PM3 should sucessfully update package status to succeded", async () => {
+                // prettier-ignore
+                const packageData: PublicPackage = { id: "pkg-update-pm3" } as any
+                await CreatePackage(c, ctxOmbud, packageData)
+                // ts-ignore
+                ctxPM3.stub = ctxOmbud.stub // share ledger
+                // prettier-ignore
+                await UpdatePackageStatus(c, ctxOmbud, "pkg-update-pm3", Status.READY_FOR_PICKUP)
+                // prettier-ignore
+                await UpdatePackageStatus(c, ctxOmbud, "pkg-update-pm3", Status.PICKED_UP)
+                // prettier-ignore
+                await UpdatePackageStatus(c, ctxOmbud, "pkg-update-pm3", Status.IN_TRANSIT)
+                // prettier-ignore
+                await UpdatePackageStatus(c, ctxOmbud, "pkg-update-pm3", Status.DELIVERED)
+                // prettier-ignore
+                await UpdatePackageStatus(c, ctxPM3, "pkg-update-pm3", Status.SUCCEEDED)
+            })
+        })
+
+        describe.skip("transporter role", () => {})
+    })
+
+    describe.skip("Delete package tests", () => {
+        describe.skip("Ombud role", () => {})
+        describe.skip("PM3 role", () => {})
+        describe.skip("transporter role", () => {})
+    })
+    describe.skip("Propose transfer tests", () => {
+        describe.skip("Ombud role", () => {})
+        describe.skip("PM3 role", () => {})
+        describe.skip("transporter role", () => {})
+    })
+    describe.skip("Accept transfer tests", () => {
+        describe.skip("Ombud role", () => {})
         describe.skip("PM3 role", () => {})
         describe.skip("transporter role", () => {})
     })
