@@ -7,7 +7,7 @@ import { MockContext } from "./helpers/mockContext"
 import { PublicPackage, PrivatePackage, Status, Urgency } from "../src/package"
 
 // Mock the fabric-contract-api decorators before importing classes that use them
-vi.mock("fabric-contract-api", async (importOriginal) => {
+vi.mock("fabric-contract-api", async (importOriginal: any) => {
     const actual = await importOriginal()
     const actualAny = actual as any
     return {
