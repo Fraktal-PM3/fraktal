@@ -215,11 +215,11 @@ describe("PackageContract (unit)", () => {
         })
         describe.skip("PM3 role", () => {
             // cant actually test this since we have to transfer ownership status inorder for PM3 to update to succeded
-            it("PM3 should sucessfully update package status to succeded", async () => {
+            it("PM3 should successfully update package status to succeded", async () => {
                 // prettier-ignore
                 const packageData: PublicPackage = { id: "pkg-update-pm3" } as any
                 await CreatePackage(c, ctxOmbud, packageData)
-                // ts-ignore
+                // @ts-ignore
                 ctxPM3.stub = ctxOmbud.stub // share ledger
                 // prettier-ignore
                 await UpdatePackageStatus(c, ctxOmbud, "pkg-update-pm3", Status.READY_FOR_PICKUP)
