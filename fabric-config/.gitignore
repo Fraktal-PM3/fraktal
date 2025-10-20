@@ -1,0 +1,37 @@
+# Binaries
+build/
+fabric-config
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test coverage
+*.out
+coverage.html
+
+# Network artifacts
+network-config/
+*.block
+*.tx
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fabric artifacts
+*.pem
+*.crt
+*.key
+wallet/
