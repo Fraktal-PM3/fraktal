@@ -188,7 +188,7 @@ func CreatePeer(org *config.Organization, name string, port int, peerCount int) 
 		ChaincodePort:  port + 1,
 		OperationsPort: port + 1000,
 		TLSEnabled:     true,
-		MSPConfigPath:  filepath.Join(org.CryptoPath, "peers", name+"."+org.Domain, "msp"),
+		MSPConfigPath:  filepath.Join(org.Path, "peers", name+"."+org.Domain, "msp"),
 		MSPID:          org.MSPID,
 	}
 
@@ -201,108 +201,54 @@ func CreatePeer(org *config.Organization, name string, port int, peerCount int) 
 	return peer
 }
 
-// GenerateCoreYAML generates the core.yaml configuration for a peer
-func GenerateCoreYAML(peer *config.PeerConfig, org *config.Organization) (*CoreConfig, error) {
-	// Use FQDN for peer hostname to match TLS certificate
-	peerHost := fmt.Sprintf("%s.%s", peer.Name, org.Domain)
-
-	core := &CoreConfig{
-		Peer: PeerSection{
-			ID:                     peer.Name,
-			NetworkID:              "pm3",
-			ListenAddress:          fmt.Sprintf("0.0.0.0:%d", peer.Port),
-			ChaincodeListenAddress: fmt.Sprintf("0.0.0.0:%d", peer.ChaincodePort),
-			ChaincodeAddress:       fmt.Sprintf("%s:%d", peerHost, peer.ChaincodePort),
-			Address:                fmt.Sprintf("%s:%d", peerHost, peer.Port),
-			AddressAutoDetect:      false,
-			Keepalive: KeepaliveSection{
-				MinInterval: "60s",
-				Client: KeepaliveClientSection{
-					Interval: "60s",
-					Timeout:  "20s",
-				},
-				DeliveryClient: KeepaliveClientSection{
-					Interval: "60s",
-					Timeout:  "20s",
-				},
-			},
-			Gossip: GossipSection{
-				Bootstrap:                peer.GossipBootstrap,
-				UseLeaderElection:        true,
-				OrgLeader:                false,
-				Endpoint:                 fmt.Sprintf("%s:%d", peerHost, peer.Port),
-				ExternalEndpoint:         fmt.Sprintf("%s:%d", peerHost, peer.Port),
-				PropagateIterations:      1,
-				PropagatePeerNum:         3,
-				PullInterval:             "4s",
-				RequestStateInfoInterval: "4s",
-				PublishStateInfoInterval: "4s",
-			},
-			TLS: TLSSection{
-				Enabled:            peer.TLSEnabled,
-				ClientAuthRequired: false,
-				Cert: CertSection{
-					File: filepath.Join(peer.MSPConfigPath, "tls", "server.crt"),
-				},
-				Key: KeySection{
-					File: filepath.Join(peer.MSPConfigPath, "tls", "server.key"),
-				},
-				RootCert: RootCertSection{
-					File: filepath.Join(peer.MSPConfigPath, "tls", "ca.crt"),
-				},
-				ClientRootCAs: ClientRootCAsSection{
-					Files: []string{
-						filepath.Join(peer.MSPConfigPath, "tls", "ca.crt"),
-					},
-				},
-			},
-			BCCSP: BCCSPSection{
-				Default: "SW",
-				SW: SWSection{
-					Hash:     "SHA2",
-					Security: 256,
-				},
-			},
-			MSPConfigPath: peer.MSPConfigPath,
-			LocalMSPID:    peer.MSPID,
-		},
-		VM: VMSection{
-			Endpoint: "unix:///var/run/docker.sock",
-			Docker: DockerVMSection{
-				TLS: DockerTLSSection{
-					Enabled: false,
-				},
-				AttachStdout: false,
-			},
-		},
-		Chaincode: ChaincodeSection{
-			Mode:           "net",
-			Keepalive:      0,
-			StartupTimeout: "300s",
-			ExecuteTimeout: "30s",
-			Logging: ChaincodeLoggingSection{
-				Level:  "info",
-				Shim:   "warning",
-				Format: "%{color}%{time:2006-01-02 15:04:05.000 MST} [%{module}] %{shortfunc} -> %{level:.4s} %{id:03x}%{color:reset} %{message}",
-			},
-			System: map[string]string{
-				"_lifecycle": "enable",
-				"cscc":       "enable",
-				"lscc":       "enable",
-				"qscc":       "enable",
-			},
-		},
-		Ledger: LedgerSection{
-			State: StateSection{
-				StateDatabase: "goleveldb",
-			},
-			History: HistorySection{
-				EnableHistoryDatabase: true,
-			},
-		},
+func LoadBaseCoreConfig(configPath string) (*CoreConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read base core config: %w", err)
 	}
 
+	var core CoreConfig
+	if err := yaml.Unmarshal(data, &core); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal core config: %w", err)
+	}
+
+	return &core, nil
+}
+
+func InitializeCoreConfig(baseConfigPath string, peer *config.PeerConfig, org *config.Organization) (*CoreConfig, error) {
+	core, err := LoadBaseCoreConfig(baseConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	peerHost := fmt.Sprintf("%s.%s", peer.Name, org.Domain)
+
+	core.Peer.ID = peer.Name
+	core.Peer.ListenAddress = fmt.Sprintf("0.0.0.0:%d", peer.Port)
+	core.Peer.ChaincodeListenAddress = fmt.Sprintf("0.0.0.0:%d", peer.ChaincodePort)
+	core.Peer.ChaincodeAddress = fmt.Sprintf("%s:%d", peerHost, peer.ChaincodePort)
+	core.Peer.Address = fmt.Sprintf("%s:%d", peerHost, peer.Port)
+
+	core.Peer.Gossip.Bootstrap = peer.GossipBootstrap
+	core.Peer.Gossip.Endpoint = fmt.Sprintf("%s:%d", peerHost, peer.Port)
+	core.Peer.Gossip.ExternalEndpoint = fmt.Sprintf("%s:%d", peerHost, peer.Port)
+
+	// TODO: Might be unnecessary?
+	// mspPath := peer.MSPConfigPath
+	// tlsPath := filepath.Join(filepath.Dir(mspPath), "tls")
+	// core.Peer.TLS.Cert.File = filepath.Join(tlsPath, "server.crt")
+	// core.Peer.TLS.Key.File = filepath.Join(tlsPath, "server.key")
+	// core.Peer.TLS.RootCert.File = filepath.Join(tlsPath, "ca.crt")
+	// core.Peer.TLS.ClientRootCAs.Files = []string{filepath.Join(tlsPath, "ca.crt")}
+	// core.Peer.MSPConfigPath = peer.MSPConfigPath
+
+	core.Peer.LocalMSPID = peer.MSPID
+
 	return core, nil
+}
+
+func GenerateCoreYAML(peer *config.PeerConfig, org *config.Organization) (*CoreConfig, error) {
+	return InitializeCoreConfig("config/core.yaml", peer, org)
 }
 
 // WriteCoreYAML writes the core.yaml configuration to a file
@@ -311,7 +257,7 @@ func WriteCoreYAML(core *CoreConfig, path string) error {
 		return fmt.Errorf("core config cannot be nil")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -321,7 +267,7 @@ func WriteCoreYAML(core *CoreConfig, path string) error {
 	}
 
 	// Security: Use restrictive permissions for config files
-	if err := os.WriteFile(path, data, 0640); err != nil {
+	if err := os.WriteFile(path, data, 0o640); err != nil {
 		return fmt.Errorf("failed to write core config: %w", err)
 	}
 
@@ -370,10 +316,10 @@ func CreatePeerMSP(peer *config.PeerConfig, org *config.Organization) error {
 
 	for _, dir := range dirs {
 		// Security: Use restrictive permissions for keystore and tls directories
-		perm := os.FileMode(0755)
+		perm := os.FileMode(0o755)
 		baseName := filepath.Base(dir)
 		if baseName == "keystore" || baseName == "tls" {
-			perm = 0700
+			perm = 0o700
 		}
 		if err := os.MkdirAll(dir, perm); err != nil {
 			return fmt.Errorf("failed to create peer MSP directory %s: %w", dir, err)
@@ -410,7 +356,7 @@ func CreatePeerMSP(peer *config.PeerConfig, org *config.Organization) error {
 		return fmt.Errorf("failed to marshal MSP config: %w", err)
 	}
 
-	if err := os.WriteFile(configYAMLPath, data, 0644); err != nil {
+	if err := os.WriteFile(configYAMLPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write MSP config.yaml: %w", err)
 	}
 

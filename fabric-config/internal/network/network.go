@@ -60,7 +60,6 @@ func NewNetwork(basePath, channelName string) *Network {
 	netConfig := config.DefaultNetworkConfig()
 	netConfig.BasePath = basePath
 	netConfig.ChannelName = channelName
-	netConfig.Channel.Name = channelName
 
 	return &Network{
 		Config: netConfig,
@@ -132,7 +131,7 @@ func (n *Network) AddOrganization(ctx context.Context, tlsCA *config.Organizatio
 }
 
 // Initialize initializes the network with root organization and CA
-func (n *Network) Initialize() error {
+func (n *Network) Initialize(numPeers int, numOrderers int) error {
 	fmt.Println("Initializing Fabric network...")
 
 	// Ensure base directory is properly set up
@@ -219,7 +218,7 @@ func (n *Network) AddOrg(org *config.Organization) {
 
 // AddPeers adds a specified number of peers to the network
 func (n *Network) AddPeers(count int) error {
-	if n.Config.RootOrg == nil {
+	if n.Config.Orgs[0] == nil {
 		return fmt.Errorf("network not initialized - run Initialize() first")
 	}
 
@@ -238,32 +237,31 @@ func (n *Network) AddPeers(count int) error {
 		peerName := fmt.Sprintf("peer%d", currentPeerIndex)
 		peerPort := defaultPeerStartPort + currentPeerIndex
 
-		// Create peer configuration with correct port allocation
 		peerConfig := &config.PeerConfig{
 			Name:           peerName,
-			Organization:   n.Config.RootOrg.Name,
+			Organization:   n.Config.Orgs[0].Name,
 			Port:           peerPort,
 			ChaincodePort:  defaultPeerChaincodeStartPort + currentPeerIndex,
 			OperationsPort: defaultPeerOpsStartPort + currentPeerIndex,
 			TLSEnabled:     true,
-			MSPConfigPath:  filepath.Join(n.Config.RootOrg.CryptoPath, "peers", peerName+"."+n.Config.RootOrg.Domain, "msp"),
-			MSPID:          n.Config.RootOrg.MSPID,
+			MSPConfigPath:  filepath.Join(n.Config.Orgs[0].Path, "peers", peerName+"."+n.Config.Orgs[0].Domain, "msp"),
+			MSPID:          n.Config.Orgs[0].MSPID,
 		}
 
 		// Set gossip bootstrap for non-first peers
 		if currentPeerIndex > 0 {
-			peerConfig.GossipBootstrap = fmt.Sprintf("peer0.%s:%d", n.Config.RootOrg.Domain, defaultPeerStartPort)
+			peerConfig.GossipBootstrap = fmt.Sprintf("peer0.%s:%d", n.Config.Orgs[0].Domain, defaultPeerStartPort)
 		}
 
 		n.Config.Peers = append(n.Config.Peers, peerConfig)
 
 		// Create peer MSP structure
-		if err := peer.CreatePeerMSP(peerConfig, n.Config.RootOrg); err != nil {
+		if err := peer.CreatePeerMSP(peerConfig, n.Config.Orgs[0]); err != nil {
 			return fmt.Errorf("failed to create peer MSP for %s: %w", peerName, err)
 		}
 
 		// Generate core.yaml
-		coreConfig, err := peer.GenerateCoreYAML(peerConfig, n.Config.RootOrg)
+		coreConfig, err := peer.GenerateCoreYAML(peerConfig, n.Config.Orgs[0])
 		if err != nil {
 			return fmt.Errorf("failed to generate core.yaml for %s: %w", peerName, err)
 		}
@@ -281,7 +279,7 @@ func (n *Network) AddPeers(count int) error {
 
 // AddOrderers adds a specified number of orderers to the network
 func (n *Network) AddOrderers(count int) error {
-	if n.Config.RootOrg == nil {
+	if n.Config.Orgs[0] == nil {
 		return fmt.Errorf("network not initialized - run Initialize() first")
 	}
 
@@ -303,26 +301,26 @@ func (n *Network) AddOrderers(count int) error {
 		// Create orderer configuration with correct port allocation
 		ordererConfig := &config.OrdererConfig{
 			Name:           ordererName,
-			Organization:   n.Config.RootOrg.Name,
+			Organization:   n.Config.Orgs[0].Name,
 			Port:           ordererPort,
 			AdminPort:      defaultOrdererAdminStartPort + currentOrdererIndex,
 			OperationsPort: defaultOrdererOpsStartPort + currentOrdererIndex,
 			TLSEnabled:     true,
 			OrdererType:    "etcdraft",
-			MSPConfigPath:  filepath.Join(n.Config.RootOrg.CryptoPath, "orderers", ordererName+"."+n.Config.RootOrg.Domain, "msp"),
-			MSPID:          n.Config.RootOrg.MSPID,
-			GenesisBlock:   filepath.Join(n.Config.RootOrg.CryptoPath, "system-genesis-block", "genesis.block"),
+			MSPConfigPath:  filepath.Join(n.Config.Orgs[0].Path, "orderers", ordererName+"."+n.Config.Orgs[0].Domain, "msp"),
+			MSPID:          n.Config.Orgs[0].MSPID,
+			GenesisBlock:   filepath.Join(n.Config.Orgs[0].Path, "system-genesis-block", "genesis.block"),
 		}
 
 		n.Config.Orderers = append(n.Config.Orderers, ordererConfig)
 
 		// Create orderer MSP structure
-		if err := orderer.CreateOrdererMSP(ordererConfig, n.Config.RootOrg); err != nil {
+		if err := orderer.CreateOrdererMSP(ordererConfig, n.Config.Orgs[0]); err != nil {
 			return fmt.Errorf("failed to create orderer MSP for %s: %w", ordererName, err)
 		}
 
 		// Generate orderer.yaml
-		ordererYAMLConfig, err := orderer.GenerateOrdererYAML(ordererConfig, n.Config.RootOrg)
+		ordererYAMLConfig, err := orderer.GenerateOrdererYAML(ordererConfig, n.Config.Orgs[0])
 		if err != nil {
 			return fmt.Errorf("failed to generate orderer.yaml for %s: %w", ordererName, err)
 		}
@@ -336,7 +334,7 @@ func (n *Network) AddOrderers(count int) error {
 	}
 
 	// Create genesis block directory
-	genesisBlockDir := filepath.Join(n.Config.RootOrg.CryptoPath, "system-genesis-block")
+	genesisBlockDir := filepath.Join(n.Config.Orgs[0].Path, "system-genesis-block")
 	if err := os.MkdirAll(genesisBlockDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create genesis block directory: %w", err)
 	}
@@ -352,10 +350,10 @@ func (n *Network) GenerateChannelArtifacts() error {
 
 	fmt.Printf("Generating channel artifacts for '%s'...\n", n.Config.ChannelName)
 
-	// Generate configtx.yaml
-	configTx, err := channel.GenerateConfigTx(n.Config)
+	baseConfigPath := "config/configtx.yaml"
+	configTx, err := channel.InitializeConfigTx(baseConfigPath, n.Config)
 	if err != nil {
-		return fmt.Errorf("failed to generate configtx: %w", err)
+		return fmt.Errorf("failed to initialize configtx: %w", err)
 	}
 
 	configTxPath := filepath.Join(n.Config.BasePath, "config", "configtx.yaml")
@@ -396,7 +394,7 @@ func (n *Network) CreateChannel() error {
 
 	// Join orderers to channel
 	for _, ord := range n.Config.Orderers {
-		if err := orderer.JoinChannel(ord, n.Config.RootOrg, n.Config.ChannelName, channelBlockPath); err != nil {
+		if err := orderer.JoinChannel(ord, n.Config.Orgs[0], n.Config.ChannelName, channelBlockPath); err != nil {
 			return fmt.Errorf("failed to join orderer %s to channel: %w", ord.Name, err)
 		}
 		fmt.Printf("  ✓ Orderer '%s' joined channel '%s'\n", ord.Name, n.Config.ChannelName)
@@ -407,7 +405,7 @@ func (n *Network) CreateChannel() error {
 		// Pass the first orderer as well for peer to fetch blocks if needed
 		var ordererEndpoint string
 		if len(n.Config.Orderers) > 0 {
-			ordererEndpoint = fmt.Sprintf("orderer0.%s:%d", n.Config.RootOrg.Domain, n.Config.Orderers[0].Port)
+			ordererEndpoint = fmt.Sprintf("orderer0.%s:%d", n.Config.Orgs[0].Domain, n.Config.Orderers[0].Port)
 		}
 		if err := peer.JoinChannel(p, n.Config.ChannelName, channelBlockPath, n.Config.BasePath, ordererEndpoint); err != nil {
 			return fmt.Errorf("failed to join peer %s to channel: %w", p.Name, err)
@@ -424,12 +422,12 @@ func (n *Network) PrintSummary() {
 	fmt.Println("FABRIC NETWORK CONFIGURATION SUMMARY")
 	fmt.Println(repeat("=", 60))
 
-	if n.Config.RootOrg != nil {
+	if n.Config.Orgs[0] != nil {
 		fmt.Printf("\nRoot Organization:\n")
-		fmt.Printf("  Name:   %s\n", n.Config.RootOrg.Name)
-		fmt.Printf("  MSPID:  %s\n", n.Config.RootOrg.MSPID)
-		fmt.Printf("  Domain: %s\n", n.Config.RootOrg.Domain)
-		fmt.Printf("  CA:     %s:%d\n", n.Config.RootOrg.CA.Host, n.Config.RootOrg.CA.Port)
+		fmt.Printf("  Name:   %s\n", n.Config.Orgs[0].Name)
+		fmt.Printf("  MSPID:  %s\n", n.Config.Orgs[0].MSPID)
+		fmt.Printf("  Domain: %s\n", n.Config.Orgs[0].Domain)
+		fmt.Printf("  CA:     %s:%d\n", n.Config.Orgs[0].CA.Host, n.Config.Orgs[0].CA.Port)
 	}
 
 	fmt.Printf("\nChannel:\n")
@@ -466,96 +464,4 @@ func repeat(s string, count int) string {
 		builder.WriteString(s)
 	}
 	return builder.String()
-}
-
-// DiscoverExistingNetwork scans the directory structure and populates the network config
-func (n *Network) DiscoverExistingNetwork() error {
-	orgPath := filepath.Join(n.Config.BasePath, "organizations", "rootorg")
-
-	// Check if root org exists
-	if _, err := os.Stat(orgPath); os.IsNotExist(err) {
-		return nil // No existing network found
-	}
-
-	// Setup root organization
-	adminPassword := os.Getenv("FABRIC_CA_ADMIN_PASSWORD")
-	if adminPassword == "" {
-		adminPassword = "adminpw"
-	}
-
-	n.Config.RootOrg = &config.Organization{
-		Name:       "RootOrg",
-		MSPID:      "RootOrgMSP",
-		Domain:     "rootorg.pm3.org",
-		CryptoPath: orgPath,
-		CA: &config.CAConfig{
-			Name:          "ca.rootorg.pm3.org",
-			Host:          "localhost",
-			Port:          defaultCAPort,
-			AdminUser:     "admin",
-			AdminPassword: adminPassword,
-			TLSEnabled:    true,
-		},
-	}
-
-	// Discover peers
-	peersPath := filepath.Join(orgPath, "peers")
-	if entries, err := os.ReadDir(peersPath); err == nil {
-		for i, entry := range entries {
-			if entry.IsDir() && strings.HasPrefix(entry.Name(), "peer") {
-				peerName := strings.Split(entry.Name(), ".")[0]
-				peerPort := defaultPeerStartPort + i
-
-				peerConfig := &config.PeerConfig{
-					Name:           peerName,
-					Organization:   n.Config.RootOrg.Name,
-					Port:           peerPort,
-					ChaincodePort:  defaultPeerChaincodeStartPort + i,
-					OperationsPort: defaultPeerOpsStartPort + i,
-					TLSEnabled:     true,
-					MSPConfigPath:  filepath.Join(peersPath, entry.Name(), "msp"),
-					MSPID:          n.Config.RootOrg.MSPID,
-				}
-
-				// Set gossip bootstrap for non-first peers
-				if i > 0 {
-					peerConfig.GossipBootstrap = fmt.Sprintf("peer0.%s:%d", n.Config.RootOrg.Domain, defaultPeerStartPort)
-				}
-
-				n.Config.Peers = append(n.Config.Peers, peerConfig)
-			}
-		}
-	}
-
-	// Discover orderers
-	orderersPath := filepath.Join(orgPath, "orderers")
-	if entries, err := os.ReadDir(orderersPath); err == nil {
-		for i, entry := range entries {
-			if entry.IsDir() && strings.HasPrefix(entry.Name(), "orderer") {
-				ordererName := strings.Split(entry.Name(), ".")[0]
-				ordererPort := defaultOrdererStartPort + i
-
-				ordererConfig := &config.OrdererConfig{
-					Name:           ordererName,
-					Organization:   n.Config.RootOrg.Name,
-					Port:           ordererPort,
-					AdminPort:      defaultOrdererAdminStartPort + i,
-					OperationsPort: defaultOrdererOpsStartPort + i,
-					TLSEnabled:     true,
-					MSPConfigPath:  filepath.Join(orderersPath, entry.Name(), "msp"),
-					MSPID:          n.Config.RootOrg.MSPID,
-				}
-
-				n.Config.Orderers = append(n.Config.Orderers, ordererConfig)
-			}
-		}
-	}
-
-	if n.Config.RootOrg != nil {
-		n.Config.Channel.Organizations = []*config.Organization{n.Config.RootOrg}
-		fmt.Printf("Discovered network: %d peer(s), %d orderer(s)\n",
-			len(n.Config.Peers), len(n.Config.Orderers))
-	}
-
-	return nil
 }

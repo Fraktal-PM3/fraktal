@@ -21,11 +21,11 @@ func GetOrdererServiceDefinition(ordererConfig *config.OrdererConfig, org *confi
 
 	// Paths
 	mspPath := ordererConfig.MSPConfigPath
-	ordererDataPath := filepath.Join(org.CryptoPath, "orderers", ordererConfig.Name+"."+org.Domain, "data")
-	genesisBlockPath := filepath.Join(org.CryptoPath, "system-genesis-block", "genesis.block")
+	ordererDataPath := filepath.Join(org.Path, "orderers", ordererConfig.Name+"."+org.Domain, "data")
+	genesisBlockPath := filepath.Join(org.Path, "system-genesis-block", "genesis.block")
 
 	// Extract base path from CryptoPath (remove "/organizations/rootorg" suffix)
-	basePath := filepath.Dir(filepath.Dir(org.CryptoPath))
+	basePath := filepath.Dir(filepath.Dir(org.Path))
 
 	// Orderer config directory path
 	ordererConfigPath := filepath.Join(basePath, "config", ordererConfig.Name)

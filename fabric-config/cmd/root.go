@@ -2,10 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/ltu/fraktal/fabric-config/internal/logger"
 )
 
 var (
@@ -54,6 +58,14 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Failed to load .env file: %w", err)
+	}
+
+	// Initialize logger with verbose flag
+	logger.InitLogger(verbose)
+
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)

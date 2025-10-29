@@ -121,92 +121,66 @@ func CreateOrderer(org *config.Organization, name string, port int, ordererCount
 		OperationsPort: port + 1000,
 		TLSEnabled:     true,
 		OrdererType:    "etcdraft",
-		MSPConfigPath:  filepath.Join(org.CryptoPath, "orderers", name+"."+org.Domain, "msp"),
+		MSPConfigPath:  filepath.Join(org.Path, "orderers", name+"."+org.Domain, "msp"),
 		MSPID:          org.MSPID,
-		GenesisBlock:   filepath.Join(org.CryptoPath, "system-genesis-block", "genesis.block"),
+		GenesisBlock:   filepath.Join(org.Path, "system-genesis-block", "genesis.block"),
 	}
 
 	return orderer
 }
 
-// GenerateOrdererYAML generates the orderer.yaml configuration
-func GenerateOrdererYAML(ord *config.OrdererConfig, org *config.Organization) (*OrdererConfig, error) {
-	// Use container paths for orderer.yaml (MSP and TLS are mounted in the container)
-	containerMSPPath := "/var/hyperledger/orderer/msp"
-	containerTLSPath := "/var/hyperledger/orderer/tls"
-
-	ordererConfig := &OrdererConfig{
-		General: GeneralSection{
-			ListenAddress: "0.0.0.0",
-			ListenPort:    ord.Port,
-			TLS: TLSSection{
-				Enabled:     ord.TLSEnabled,
-				PrivateKey:  filepath.Join(containerTLSPath, "server.key"),
-				Certificate: filepath.Join(containerTLSPath, "server.crt"),
-				RootCAs: []string{
-					filepath.Join(containerTLSPath, "ca.crt"),
-				},
-				ClientAuthRequired: false,
-				ClientRootCAs: []string{
-					filepath.Join(containerTLSPath, "ca.crt"),
-				},
-			},
-			Cluster: ClusterSection{
-				ClientCertificate: filepath.Join(containerTLSPath, "server.crt"),
-				ClientPrivateKey:  filepath.Join(containerTLSPath, "server.key"),
-				RootCAs: []string{
-					filepath.Join(containerTLSPath, "ca.crt"),
-				},
-				SendBufferSize:          100,
-				DialTimeout:             "5s",
-				RPCTimeout:              "7s",
-				ReplicationBufferSize:   20971520,
-				ReplicationPullTimeout:  "5s",
-				ReplicationRetryTimeout: "5s",
-			},
-			BootstrapMethod: "none",
-			LocalMSPDir:     containerMSPPath,
-			LocalMSPID:      ord.MSPID,
-			BCCSP: BCCSPSection{
-				Default: "SW",
-				SW: SWSection{
-					Hash:     "SHA2",
-					Security: 256,
-				},
-			},
-		},
-		FileLedger: FileLedgerSection{
-			Location: "/var/hyperledger/production/orderer",
-		},
-		Consensus: ConsensusSection{
-			WALDir:  "/var/hyperledger/production/orderer/etcdraft/wal",
-			SnapDir: "/var/hyperledger/production/orderer/etcdraft/snapshot",
-		},
-		Operations: OperationsSection{
-			ListenAddress: fmt.Sprintf("0.0.0.0:%d", ord.OperationsPort),
-			TLS: TLSSubSection{
-				Enabled:            false,
-				ClientAuthRequired: false,
-			},
-		},
-		Admin: AdminSection{
-			ListenAddress: fmt.Sprintf("0.0.0.0:%d", ord.AdminPort),
-			TLS: TLSSubSection{
-				Enabled:            true,
-				Certificate:        filepath.Join(containerTLSPath, "server.crt"),
-				PrivateKey:         filepath.Join(containerTLSPath, "server.key"),
-				ClientAuthRequired: true,
-				ClientRootCAs: []string{
-					filepath.Join(containerTLSPath, "ca.crt"),
-				},
-			},
-		},
-		ChannelParticipation: ChannelParticipationSection{
-			Enabled: true,
-		},
+// LoadBaseOrdererConfig loads the orderer.yaml configuration
+func LoadBaseOrdererConfig(configPath string) (*OrdererConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read base orderer config: %w", err)
 	}
 
+	var ordererConfig OrdererConfig
+	if err := yaml.Unmarshal(data, &ordererConfig); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal orderer config: %w", err)
+	}
+
+	return &ordererConfig, nil
+}
+
+func InitializeOrdererConfig(baseConfigPath string, ord *config.OrdererConfig, org *config.Organization) (*OrdererConfig, error) {
+	ordererConfig, err := LoadBaseOrdererConfig(baseConfigPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// containerMSPPath := "/var/hyperledger/orderer/msp"
+	// containerTLSPath := "/var/hyperledger/orderer/tls"
+
+	ordererConfig.General.ListenPort = ord.Port
+
+	// NOTE: Might not be necessary
+	// ordererConfig.General.TLS.PrivateKey = filepath.Join(containerTLSPath, "server.key")
+	// ordererConfig.General.TLS.Certificate = filepath.Join(containerTLSPath, "server.crt")
+	// ordererConfig.General.TLS.RootCAs = []string{filepath.Join(containerTLSPath, "ca.crt")}
+	// ordererConfig.General.TLS.ClientRootCAs = []string{filepath.Join(containerTLSPath, "ca.crt")}
+	//
+	// ordererConfig.General.Cluster.ClientCertificate = filepath.Join(containerTLSPath, "server.crt")
+	// ordererConfig.General.Cluster.ClientPrivateKey = filepath.Join(containerTLSPath, "server.key")
+	// ordererConfig.General.Cluster.RootCAs = []string{filepath.Join(containerTLSPath, "ca.crt")}
+	// ordererConfig.General.LocalMSPDir = containerMSPPath
+
+	ordererConfig.General.LocalMSPID = ord.MSPID
+
+	ordererConfig.Operations.ListenAddress = fmt.Sprintf("0.0.0.0:%d", ord.OperationsPort)
+
+	ordererConfig.Admin.ListenAddress = fmt.Sprintf("0.0.0.0:%d", ord.AdminPort)
+	// NOTE: Needs to be set if amdin tls is specified
+	// ordererConfig.Admin.TLS.Certificate = filepath.Join(containerTLSPath, "server.crt")
+	// ordererConfig.Admin.TLS.PrivateKey = filepath.Join(containerTLSPath, "server.key")
+	// ordererConfig.Admin.TLS.ClientRootCAs = []string{filepath.Join(containerTLSPath, "ca.crt")}
+
 	return ordererConfig, nil
+}
+
+func GenerateOrdererYAML(ord *config.OrdererConfig, org *config.Organization) (*OrdererConfig, error) {
+	return InitializeOrdererConfig("config/orderer.yaml", ord, org)
 }
 
 // WriteOrdererYAML writes the orderer.yaml configuration to a file
@@ -215,7 +189,7 @@ func WriteOrdererYAML(ordererConfig *OrdererConfig, path string) error {
 		return fmt.Errorf("orderer config cannot be nil")
 	}
 
-	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 
@@ -225,7 +199,7 @@ func WriteOrdererYAML(ordererConfig *OrdererConfig, path string) error {
 	}
 
 	// Security: Use restrictive permissions for config files
-	if err := os.WriteFile(path, data, 0640); err != nil {
+	if err := os.WriteFile(path, data, 0o640); err != nil {
 		return fmt.Errorf("failed to write orderer config: %w", err)
 	}
 
@@ -274,10 +248,10 @@ func CreateOrdererMSP(ord *config.OrdererConfig, org *config.Organization) error
 
 	for _, dir := range dirs {
 		// Security: Use restrictive permissions for keystore and tls directories
-		perm := os.FileMode(0755)
+		perm := os.FileMode(0o755)
 		baseName := filepath.Base(dir)
 		if baseName == "keystore" || baseName == "tls" {
-			perm = 0700
+			perm = 0o700
 		}
 		if err := os.MkdirAll(dir, perm); err != nil {
 			return fmt.Errorf("failed to create orderer MSP directory %s: %w", dir, err)
@@ -314,7 +288,7 @@ func CreateOrdererMSP(ord *config.OrdererConfig, org *config.Organization) error
 		return fmt.Errorf("failed to marshal MSP config: %w", err)
 	}
 
-	if err := os.WriteFile(configYAMLPath, data, 0644); err != nil {
+	if err := os.WriteFile(configYAMLPath, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write MSP config.yaml: %w", err)
 	}
 

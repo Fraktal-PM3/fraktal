@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/ltu/fraktal/fabric-config/internal/ca"
 	"github.com/ltu/fraktal/fabric-config/internal/config"
 	"github.com/ltu/fraktal/fabric-config/internal/docker"
+	"github.com/ltu/fraktal/fabric-config/internal/logger"
 	"github.com/ltu/fraktal/fabric-config/internal/orderer"
 	"github.com/ltu/fraktal/fabric-config/internal/peer"
 )
@@ -32,7 +34,7 @@ func (n *Network) GenerateDockerCompose() error {
 	})
 
 	for _, org := range n.Config.Orgs {
-		orgService := ca.GetCAServiceDefinition(org, networkName, n.Config.BasePath)
+		orgService := ca.GetCAServiceDefinition(org, networkName, org.Path)
 		composeConfig.AddServiceDefinition(orgService)
 	}
 
@@ -276,4 +278,35 @@ func (n *Network) ShowLogs(ctx context.Context, follow bool, services ...string)
 func (n *Network) ListContainers(ctx context.Context) (string, error) {
 	dm := docker.NewDockerManager()
 	return dm.ListContainers(ctx)
+}
+
+// CheckCAServer checks if the CA server for the given organization is running
+func (n *Network) CheckCAServer(ctx context.Context, org *config.Organization) error {
+	if org == nil {
+		return fmt.Errorf("organization cannot be nil")
+	}
+
+	logger.Debug("checking CA server status", "org", org.Name)
+
+	dm := docker.NewDockerManager()
+
+	// Build container name following the pattern used in StartCA
+	caServiceName := fmt.Sprintf("%s_ca", org.Name)
+
+	// Check if container exists and get its status
+	statusOutput, err := dm.RunDockerCommandBuffered(ctx, "",
+		"inspect", "-f", "{{.State.Status}}", caServiceName)
+	if err != nil {
+		logger.Error("CA server not running or does not exist", "caService", caServiceName, "error", err)
+		return fmt.Errorf("CA server %s is not running or does not exist: %w", caServiceName, err)
+	}
+
+	status := strings.TrimSpace(statusOutput)
+	if status != "running" {
+		logger.Error("CA server not in running state", "caService", caServiceName, "status", status)
+		return fmt.Errorf("CA server %s is not running (status: %s)", caServiceName, status)
+	}
+
+	logger.Info("CA server is running", "caService", caServiceName, "org", org.Name)
+	return nil
 }

@@ -56,7 +56,7 @@ type CAConfig struct {
 }
 
 type OperationsConfig struct {
-	ListenAddress int
+	ListenAddress string
 }
 
 // CSRConfig represents Certificate Signing Request configuration
@@ -171,32 +171,11 @@ type OrdererConfig struct {
 // DefaultNetworkConfig creates a default network configuration
 func DefaultNetworkConfig() *NetworkConfig {
 	fabricBinPath := os.Getenv("FABRIC_BIN_PATH")
-	if fabricBinPath == "" {
-		fabricBinPath = ""
-	}
 
 	return &NetworkConfig{
 		BasePath:      "./network-config",
 		ChannelName:   "pm3",
 		FabricBinPath: fabricBinPath,
-		Channel: &ChannelConfig{
-			Name:              "pm3",
-			OrdererType:       "etcdraft",
-			BatchTimeout:      2 * time.Second,
-			MaxMessageCount:   10,
-			AbsoluteMaxBytes:  103809024, // 99 MB
-			PreferredMaxBytes: 524288,    // 512 KB
-			Capabilities: &Capabilities{
-				Channel:     []string{"V2_0"},
-				Orderer:     []string{"V2_0"},
-				Application: []string{"V2_5"},
-			},
-			Policies: &Policies{
-				Readers:     "ANY Readers",
-				Writers:     "ANY Writers",
-				Admins:      "MAJORITY Admins",
-				Endorsement: "MAJORITY Endorsement",
-			},
-		},
+		Channel:       &ChannelConfig{},
 	}
 }

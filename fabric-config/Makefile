@@ -44,7 +44,7 @@ install: build
 # Run a simple example
 run-example: build
 	@echo "Running example network setup..."
-	@$(BUILD_DIR)/$(BINARY_NAME) init --peers 2 --orderers 1 --start
+	@$(BUILD_DIR)/$(BINARY_NAME) init --peers 2 --orderers 1 -v
 
 # Run init only
 init: build

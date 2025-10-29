@@ -6,7 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ltu/fraktal/fabric-config/internal/enrollment"
+	"github.com/ltu/fraktal/fabric-config/internal/config"
+	"github.com/ltu/fraktal/fabric-config/internal/logger"
 	"github.com/ltu/fraktal/fabric-config/internal/network"
 	"github.com/spf13/cobra"
 )
@@ -51,91 +52,33 @@ This command creates the basic network structure including:
 		}
 
 		net := network.NewNetwork(basePath, initOptions.channelName)
-		if err := net.Initialize(); err != nil {
+		if err := net.Initialize(initOptions.numPeers, initOptions.numOrderers); err != nil {
 			return fmt.Errorf("failed to initialize network: %w", err)
 		}
-		fmt.Println("\n✓ Base network configuration initialized successfully!")
-
-		fmt.Println("\nAdding peers to configuration...")
-		if err := net.AddPeers(initOptions.numPeers); err != nil {
-			return fmt.Errorf("failed to initialize peer configuration: %w", err)
-		}
-		fmt.Println("\n✓ Peer configuration initialized successfully!")
-
-		fmt.Println("\nAdding orderers to configuration...")
-		if err := net.AddOrderers(initOptions.numOrderers); err != nil {
-			return fmt.Errorf("failed to initialize orderer configuration: %w", err)
-		}
-		fmt.Println("\n✓ Orderer configuration initialized successfully!")
-
-		net.PrintSummary()
-
-		if err := net.GenerateDockerCompose(); err != nil {
-			return fmt.Errorf("failed to generate docker-compose: %w", err)
-		}
-		fmt.Println("\n✓ Docker-compose configuration initialized successfully!")
-
-		// Now that we have the base configuration we need to enroll org, peers, orderers and users.
-		ctx := context.Background()
-		net.StartCA(ctx)
-
-		if err := enrollment.EnrollOrganization(net.Config.RootOrg); err != nil {
-			return fmt.Errorf("failed to enroll root org: %w", err)
-		}
-		fmt.Println("\n✓ Enrolled root org successfully!")
-
-		fmt.Println("\nEnrolling peers...")
-		for _, peer := range net.Config.Peers {
-			if err := enrollment.EnrollPeer(peer, net.Config.RootOrg); err != nil {
-				return fmt.Errorf("failed to enroll peer: %w", err)
-			}
-		}
-		fmt.Println("\n✓ Enrolled peers successfully!")
-
-		fmt.Println("\nEnrolling orderers...")
-		for _, orderer := range net.Config.Orderers {
-			if err := enrollment.EnrollOrderer(orderer, net.Config.RootOrg); err != nil {
-				return fmt.Errorf("failed to enroll orderer: %w", err)
-			}
-		}
-		fmt.Println("\n✓ Enrolled orderers successfully!")
-
-		fmt.Println("\nEnrolling users...")
-		if err := enrollment.EnrollOrgAdmin(net.Config.RootOrg); err != nil {
-			return fmt.Errorf("failed to enroll admin user: %w", err)
-		}
-		if err := enrollment.EnrollOrgUser(net.Config.RootOrg); err != nil {
-			return fmt.Errorf("failed to enroll user: %w", err)
-		}
-		fmt.Println("\n✓ Enrolled users successfully!")
-
-		net.StopCA(ctx)
-
-		// Now that orderers are enrolled with TLS certs, generate channel artifacts
-		fmt.Println("\nGenerating channel artifacts (requires TLS certificates)...")
-		if err := net.GenerateChannelArtifacts(); err != nil {
-			return fmt.Errorf("failed to generate channel artifacts: %w", err)
-		}
-		fmt.Println("\n✓ Channel artifacts generated successfully!")
 
 		// Start network before creating channel (orderers must be running for osnadmin)
 		if initOptions.start {
-			fmt.Println("\n=== Starting Network ===")
+			logger.Info("starting network")
 			ctx := context.Background()
 			if err := net.StartNetwork(ctx); err != nil {
 				return fmt.Errorf("failed to start network: %w", err)
 			}
-			fmt.Println("\n✓ Network started successfully!")
+			logger.Info("network started successfully")
 
 			// Create channel and join orderers/peers (requires running orderers)
-			fmt.Println("\nCreating channel and joining orderers/peers...")
+			logger.Info("creating channel and joining orderers/peers")
 			if err := net.CreateChannel(); err != nil {
 				return fmt.Errorf("failed to create channel: %w", err)
 			}
-			fmt.Println("\n✓ Channel created and nodes joined successfully!")
+			logger.Info("channel created and nodes joined successfully")
 		} else {
-			fmt.Println("\nNetwork is configured but not started.")
-			fmt.Println("To complete setup: 'fabric-config start' then 'fabric-config create-channel'")
+			logger.Info("network is configured but not started")
+			logger.Info("to complete setup run: 'fabric-config start' then 'fabric-config create-channel'")
+		}
+
+		// Put a json of the network config in the basePath so that we can restore our configuration.
+		if err := config.WriteStack(*net.Config); err != nil {
+			return err
 		}
 
 		return nil
@@ -144,8 +87,8 @@ This command creates the basic network structure including:
 
 func init() {
 	initCmd.Flags().StringVarP(&initOptions.channelName, "channel", "c", defaultChannelName, "channel name")
-	initCmd.Flags().IntVar(&initOptions.numPeers, "peers", 1, "number of peer nodes to create")
-	initCmd.Flags().IntVar(&initOptions.numOrderers, "orderers", 1, "number of orderer nodes to create")
+	initCmd.Flags().IntVar(&initOptions.numPeers, "peers", 1, "number of peer nodes to create under the rootorg")
+	initCmd.Flags().IntVar(&initOptions.numOrderers, "orderers", 1, "number of orderer nodes to create under the rootorg")
 	initCmd.Flags().BoolVar(&initOptions.start, "start", false, "start the network after setup")
 
 	rootCmd.AddCommand(initCmd)

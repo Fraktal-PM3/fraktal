@@ -14,7 +14,7 @@ const (
 )
 
 // GetCAServiceDefinition returns Docker service definition for CA
-func GetCAServiceDefinition(org *config.Organization, networkName string, basePath string) *docker.ServiceDefinition {
+func GetCAServiceDefinition(org *config.Organization, networkName string, orgPath string) *docker.ServiceDefinition {
 	serviceName := fmt.Sprintf("%s_ca", org.Name)
 	containerName := fmt.Sprintf("%s_fabric_ca", org.Name)
 	volumeName := fmt.Sprintf("%s_ca", org.Name)
@@ -30,7 +30,7 @@ func GetCAServiceDefinition(org *config.Organization, networkName string, basePa
 			docker.PortMapping(org.CA.Port, org.CA.Port),
 		},
 		Volumes: []string{
-			docker.BindMount(basePath, "/etc/hyperledger/fabric-ca-server", false),
+			docker.BindMount(orgPath, "/etc/hyperledger/fabric-ca-server", false),
 		},
 		Command: []string{
 			"sh", "-c",

@@ -26,10 +26,10 @@ func GetPeerServiceDefinition(peerConfig *config.PeerConfig, org *config.Organiz
 	mspPath := peerConfig.MSPConfigPath
 	// Get the peer's directory (which contains both msp and tls subdirectories)
 	peerDir := filepath.Dir(mspPath) // This gets the peer0.example.com directory
-	peerDataPath := filepath.Join(org.CryptoPath, "peers", peerConfig.Name+"."+org.Domain, "data")
+	peerDataPath := filepath.Join(org.Path, "peers", peerConfig.Name+"."+org.Domain, "data")
 
 	// Extract base path from CryptoPath (remove "/organizations/rootorg" suffix)
-	basePath := filepath.Dir(filepath.Dir(org.CryptoPath))
+	basePath := filepath.Dir(filepath.Dir(org.Path))
 
 	// Peer config directory path
 	peerConfigPath := filepath.Join(basePath, "config", peerConfig.Name)

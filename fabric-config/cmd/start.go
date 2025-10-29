@@ -3,7 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
+	"github.com/ltu/fraktal/fabric-config/internal/config"
+	"github.com/ltu/fraktal/fabric-config/internal/network"
 	"github.com/spf13/cobra"
 )
 
@@ -22,20 +25,26 @@ The network will run in detached mode (background).`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		basePath := GetBasePath(cmd)
 
-		net := loadOrCreateNetwork(basePath)
-
-		if err := net.DiscoverExistingNetwork(); err != nil {
-			return fmt.Errorf("failed to discover network: %w", err)
+		// Ensure that basePath exists
+		if _, err := os.Stat(basePath); os.IsNotExist(err) {
+			return fmt.Errorf("the provided basepath does not exist : %w", err)
+		}
+		config, err := config.LoadStack(basePath)
+		if err != nil {
+			return err
+		}
+		net := network.Network{
+			Config: config,
 		}
 
-		if net.Config.RootOrg == nil {
+		if net.Config.Orgs[0] == nil {
 			return fmt.Errorf("no network found - run 'fabric-config init' first")
 		}
 
 		ctx := context.Background()
 
 		// Start CA first and wait for it to initialize
-		if err := net.StartCA(ctx); err != nil {
+		if err := net.StartCA(ctx, net.Config.Orgs[0].Name); err != nil {
 			return fmt.Errorf("failed to start CA: %w", err)
 		}
 

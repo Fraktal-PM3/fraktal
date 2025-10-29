@@ -1,12 +1,14 @@
 package ca
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	"github.com/ltu/fraktal/fabric-config/internal/config"
+	"github.com/ltu/fraktal/fabric-config/internal/logger"
 	"github.com/ltu/fraktal/fabric-config/internal/utils"
 	"gopkg.in/yaml.v2"
 )
@@ -28,7 +30,7 @@ type CAServer struct {
 }
 
 type Operations struct {
-	ListenAddress int `yaml:"listenAddress,omitempty"`
+	ListenAddress string `yaml:"listenAddress,omitempty"`
 }
 
 // TLSConfig represents TLS configuration
@@ -148,7 +150,7 @@ func (ca *CAServer) NewCAConfig(caType config.CAType, name string, path string, 
 		},
 	}
 
-	if ca.Operations.ListenAddress > 0 {
+	if ca.Operations.ListenAddress != "" {
 		org.Operations = &config.OperationsConfig{
 			ListenAddress: ca.Operations.ListenAddress,
 		}
@@ -258,31 +260,46 @@ func (ca *CAServer) NewCAConfig(caType config.CAType, name string, path string, 
 
 // WriteConfig writes the CA configuration to a file
 func (ca *CAServer) WriteConfig(path string) error {
+	logger.Debug("writing CA config", "path", path, "port", ca.Port, "caName", ca.CA.Name)
+
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		logger.Error("failed to create config directory", "error", err, "path", filepath.Dir(path))
 		return err
 	}
+
 	data, err := yaml.Marshal(ca)
 	if err != nil {
+		logger.Error("failed to marshal CA config to YAML", "error", err)
 		return err
 	}
+
 	if err := os.WriteFile(path, data, 0o755); err != nil {
+		logger.Error("failed to write config file", "error", err, "path", path)
 		return err
 	}
+
+	logger.Debug("CA config written successfully", "path", path)
 	return nil
 }
 
 // CreateRootOrgTLSCA creates the root organization CA
 func CreateRootOrgTLSCA(basePath string, fabricBinPath string) (*config.Organization, error) {
+	logger.Debug("creating root organization TLS CA", "basePath", basePath, "fabricBinPath", fabricBinPath)
+
 	adminPassword := os.Getenv("FABRIC_CA_ADMIN_PASSWORD")
 	if adminPassword == "" {
+		logger.Error("FABRIC_CA_ADMIN_PASSWORD environment variable not set")
 		return nil, fmt.Errorf("FABRIC_CA_ADMIN_PASSWORD environment variable must be set (minimum 8 characters)")
 	}
 	if len(adminPassword) < 8 {
+		logger.Error("FABRIC_CA_ADMIN_PASSWORD too short", "minLength", 8, "actualLength", len(adminPassword))
 		return nil, fmt.Errorf("FABRIC_CA_ADMIN_PASSWORD must be at least 8 characters long")
 	}
 
-	caPath := filepath.Join(basePath, "organization", "root-ca-server", "tls-ca")
+	caPath := filepath.Join(basePath, "organizations", "server", "root-ca-server", "tls-ca")
+	logger.Debug("creating CA directory", "caPath", caPath)
 	if err := os.MkdirAll(caPath, 0o755); err != nil {
+		logger.Error("failed to create CA directory", "error", err, "caPath", caPath)
 		return nil, fmt.Errorf("failed to create base ca directory:\n %w", err)
 	}
 
@@ -291,20 +308,25 @@ func CreateRootOrgTLSCA(basePath string, fabricBinPath string) (*config.Organiza
 	if fabricBinPath != "" {
 		caServerCmd = filepath.Join(fabricBinPath, "fabric-ca-server")
 	}
+	logger.Debug("initializing fabric-ca-server", "cmd", caServerCmd, "adminID", adminID)
+
 	cmd := exec.Command(caServerCmd, "init",
 		"-b",
 		adminID+":"+adminPassword)
 	cmd.Dir = caPath
 
 	if err := cmd.Run(); err != nil {
+		logger.Error("fabric-ca-server init failed", "error", err, "caPath", caPath)
 		return nil, fmt.Errorf("failed to run fabric-ca-server init:\n %w", err)
 	}
 
 	// Unmarshal yaml file that it created
 	configYaml := filepath.Join(caPath, "fabric-ca-server-config.yaml")
+	logger.Debug("reading fabric-ca-server config", "configPath", configYaml)
 
 	yamlFile, err := os.ReadFile(configYaml)
 	if err != nil {
+		logger.Error("failed to read config YAML", "error", err, "configPath", configYaml)
 		return nil, fmt.Errorf("error reading fabric-ca-server-config.yaml!\n %w", err)
 	}
 
@@ -312,10 +334,12 @@ func CreateRootOrgTLSCA(basePath string, fabricBinPath string) (*config.Organiza
 
 	err = yaml.Unmarshal(yamlFile, caServer)
 	if err != nil {
+		logger.Error("failed to unmarshal config YAML", "error", err)
 		return nil, fmt.Errorf("error unmarshalling fabric-ca-server-config.yaml! %w", err)
 	}
 
 	// Now we modify the CA server config
+	logger.Debug("modifying CA server configuration", "port", 9000, "tlsEnabled", true, "caName", "pm3-tls-ca")
 	caServer.Port = 9000
 	caServer.TLS.Enabled = true
 	caServer.CA.Name = "pm3-tls-ca"
@@ -323,38 +347,71 @@ func CreateRootOrgTLSCA(basePath string, fabricBinPath string) (*config.Organiza
 	delete(caServer.Signing.Profiles, "ca")
 
 	// Remove old ca-cert.pem file and msp to regenerate with new configs.
+	logger.Debug("cleaning up existing msp and ca-cert files")
 	if err := os.RemoveAll(filepath.Join(caPath, "msp")); err != nil {
+		logger.Error("failed to remove msp directory", "error", err, "mspPath", filepath.Join(caPath, "msp"))
 		return nil, fmt.Errorf("could not remove msp path:\n %w", err)
 	}
 
 	if err := os.Remove(filepath.Join(caPath, "ca-cert.pem")); err != nil {
+		logger.Error("failed to remove ca-cert.pem", "error", err)
 		return nil, fmt.Errorf("could not remove ca-cert.pem:\n %w", err)
 	}
 
-	if err := caServer.WriteConfig(caPath); err != nil {
+	if err := caServer.WriteConfig(filepath.Join(caPath, "fabric-ca-server-config.yaml")); err != nil {
+		logger.Error("failed to write CA config", "error", err)
 		return nil, fmt.Errorf("could not write root tls ca config file:\n %w", err)
 	}
 
+	logger.Info("root organization TLS CA created successfully", "caName", "pm3_org_tls", "caPath", caPath)
 	return caServer.NewCAConfig(config.TLS, "pm3_org_tls", caPath, "tls-ca.pm3.org"), nil
 }
 
+func CreateIntermediateCA(net *config.NetworkConfig, tlsCA *config.Organization, fabricBinPath string, name string) (*config.Organization, error) {
+	logger.Debug("creating intermediate CA", "name", name)
+
+	// Create directory structure if it does not exist
+	intPath := filepath.Join(net.BasePath, "organizations", "server", fmt.Sprintf("int-%s-ca", name))
+	if err := os.MkdirAll(intPath, 0o755); err != nil {
+		return nil, err
+	}
+
+	// Make sure intermediate CA Boostrap identity is registered and enrolled!
+
+	// Then do everything as normal!
+
+	// THEN REMEMBER TO USE THESE INTERMEDIATES WHEN REGESTERING OTHER ORGS!!!!!!!!!
+	// THESE INTERMEDIATES SHOULD PROBABLY HAVE A SPECIAL ROLE IN THE NETWORK CONFIG SO THEY CAN BE EASILY FOUND!!!!
+
+	return nil, nil
+}
+
 func EnrollBootstrapUserTLSCA(net *config.NetworkConfig, rootOrg *config.Organization) error {
+	logger.Debug("enrolling bootstrap user with TLS CA", "rootOrgName", rootOrg.Name, "basePath", net.BasePath)
+
 	// Ensure paths are created
 	tlsCAPath := filepath.Join(net.BasePath, "organizations", "client", "tls-ca")
 	tlsRootPath := filepath.Join(net.BasePath, "organizations", "client", "tls-root-cert")
 
+	logger.Debug("creating TLS CA directories", "tlsCAPath", tlsCAPath, "tlsRootPath", tlsRootPath)
 	if err := os.MkdirAll(tlsCAPath, 0o755); err != nil {
+		logger.Error("failed to create TLS CA directory", "error", err, "path", tlsCAPath)
 		return err
 	}
 	if err := os.MkdirAll(tlsRootPath, 0o755); err != nil {
+		logger.Error("failed to create TLS root directory", "error", err, "path", tlsRootPath)
 		return err
 	}
 
 	// Copy ca-cert.pem from server
+	logger.Debug("copying CA certificate", "source", filepath.Join(rootOrg.Path, "ca-cert.pem"), "dest", filepath.Join(tlsRootPath, "tls-ca-cert.pem"))
 	if err := utils.CopyFile(filepath.Join(rootOrg.Path, "ca-cert.pem"), filepath.Join(tlsRootPath, "tls-ca-cert.pem")); err != nil {
+		logger.Error("failed to copy CA certificate", "error", err)
 		return err
 	}
 
+	logger.Debug("enrolling with fabric-ca-client", "caHost", rootOrg.CA.Host, "caPort", rootOrg.CA.Port, "profile", "tls")
+	clientHome := filepath.Join(net.BasePath, "organizations", "client")
 	cmd := exec.Command("fabric-ca-client", "enroll",
 		"-d",
 		"-u", fmt.Sprintf("https://%s:%s@%s:%d", rootOrg.CA.AdminUser, rootOrg.CA.AdminPassword, rootOrg.CA.Host, rootOrg.CA.Port),
@@ -362,24 +419,34 @@ func EnrollBootstrapUserTLSCA(net *config.NetworkConfig, rootOrg *config.Organiz
 		"--enrollment.profile", "tls",
 		"--csr.hosts", "localhost,*.pm3.org",
 		"--mspdir", "tls-ca/tlsadmin/msp")
-	cmd.Dir = filepath.Join(net.BasePath, "organizations", "client")
-	cmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+net.FabricBinPath)
+	var outb, errb bytes.Buffer
+	cmd.Dir = clientHome
+	cmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+clientHome)
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
 
 	if err := cmd.Run(); err != nil {
+		logger.Error("fabric-ca-client enroll failed", "error", err, outb.String(), errb.String())
 		return err
 	}
 
+	logger.Info("bootstrap user enrolled successfully with TLS CA", "user", "tlsadmin")
 	return nil
 }
 
 func RegAndEnrollOrgCABootrapID(net *config.NetworkConfig, rootOrg *config.Organization, orgIdentifier string) (*EnrollConfig, error) {
+	logger.Debug("registering and enrolling org CA bootstrap ID", "orgIdentifier", orgIdentifier, "rootOrg", rootOrg.Name)
+
 	tlsCAPath := filepath.Join(net.BasePath, "organizations", "client", "tls-ca")
 	tlsRootPath := filepath.Join(net.BasePath, "organizations", "client", "tls-root-cert")
 
+	logger.Debug("validating TLS CA paths", "tlsCAPath", tlsCAPath, "tlsRootPath", tlsRootPath)
 	if _, err := os.Stat(tlsCAPath); os.IsNotExist(err) {
+		logger.Error("TLS CA path does not exist", "path", tlsCAPath)
 		return nil, fmt.Errorf("could not find organizations/client/tls-ca, have you created the TLS CA?\n %w", err)
 	}
 	if _, err := os.Stat(tlsRootPath); os.IsNotExist(err) {
+		logger.Error("TLS root path does not exist", "path", tlsRootPath)
 		return nil, fmt.Errorf("could not find organizations/client/tls-root-cert, have you created the TLS CA?\n %w", err)
 	}
 
@@ -390,20 +457,27 @@ func RegAndEnrollOrgCABootrapID(net *config.NetworkConfig, rootOrg *config.Organ
 		KeyStorePath: "",
 	}
 
+	logger.Debug("registering org CA admin identity", "adminName", enrollConfig.Name)
+	clientHome := filepath.Join(net.BasePath, "organizations", "client")
 	cmd := exec.Command("fabric-ca-client", "register",
 		"-d",
 		"--id.name", enrollConfig.Name,
 		"--id.secret", enrollConfig.Password,
-		"-u", fmt.Sprintf("https://%s:%s", rootOrg.CA.Host, rootOrg.CA.Port),
+		"-u", fmt.Sprintf("https://%s:%d", rootOrg.CA.Host, rootOrg.CA.Port),
 		"--tls.certfiles", "tls-root-cert/tls-ca-cert.pem",
 		"--mspdir", "tls-ca/tlsadmin/msp")
-	cmd.Dir = filepath.Join(net.BasePath, "organizations", "client")
-	cmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+net.FabricBinPath)
+	var outb, errb bytes.Buffer
+	cmd.Dir = clientHome
+	cmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+clientHome)
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
 
 	if err := cmd.Run(); err != nil {
+		logger.Error("fabric-ca-client register failed", "error", err, outb.String(), errb.String())
 		return nil, err
 	}
 
+	logger.Debug("enrolling org CA admin identity", "adminName", enrollConfig.Name)
 	enrollCmd := exec.Command("fabric-ca-client", "enroll",
 		"-d",
 		"-u", fmt.Sprintf("https://%s:%s@%s:%d", enrollConfig.Name, enrollConfig.Password, rootOrg.CA.Host, rootOrg.CA.Port),
@@ -411,46 +485,63 @@ func RegAndEnrollOrgCABootrapID(net *config.NetworkConfig, rootOrg *config.Organ
 		"--enrollment.profile", "tls",
 		"--csr.hosts", "localhost,*.pm3.org",
 		"--mspdir", fmt.Sprintf("tls-ca/%s/msp", enrollConfig.Name))
-	enrollCmd.Dir = filepath.Join(net.BasePath, "organizations", "client")
-	enrollCmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+net.FabricBinPath)
+	var outbEnroll, errbEnroll bytes.Buffer
+	enrollCmd.Dir = clientHome
+	enrollCmd.Env = append(enrollCmd.Env, "FABRIC_CA_CLIENT_HOME="+clientHome)
+	enrollCmd.Stdout = &outbEnroll
+	enrollCmd.Stderr = &errbEnroll
 
 	if err := enrollCmd.Run(); err != nil {
+		logger.Error("fabric-ca-client register failed", "error", err, outbEnroll.String(), errbEnroll.String())
 		return nil, err
 	}
 
 	// Rename keystore key file for ease of reference
+	logger.Debug("processing keystore files", "adminName", enrollConfig.Name)
 	keyStorePath := filepath.Join(net.BasePath, "organizations", "client", "tls-ca", enrollConfig.Name, "msp", "keystore")
 	key, err := utils.FindFirstFile(keyStorePath)
 	if err != nil {
+		logger.Error("failed to find keystore file", "error", err, "keystorePath", keyStorePath)
 		return nil, err
 	}
 
+	logger.Debug("renaming key file", "oldPath", key, "newPath", filepath.Join(keyStorePath, "key.pem"))
 	if err := os.Rename(key, filepath.Join(keyStorePath, "key.pem")); err != nil {
+		logger.Error("failed to rename key file", "error", err)
 		return nil, err
 	}
 
 	enrollConfig.KeyStorePath = filepath.Join(keyStorePath, "key.pem")
 	enrollConfig.CertPath = filepath.Join(net.BasePath, "organizations", "client", "tls-ca", enrollConfig.Name, "msp", "signcerts", "cert.pem")
 
+	logger.Info("org CA bootstrap ID registered and enrolled successfully", "orgIdentifier", orgIdentifier, "adminName", enrollConfig.Name)
 	return enrollConfig, nil
 }
 
 func CreateOrgWithEnroll(net *config.NetworkConfig, enrollConfig *EnrollConfig, orgName string, domain string) (*config.Organization, error) {
+	logger.Debug("creating organization with enrollment", "orgName", orgName, "domain", domain)
+
 	// Create directory structure
-	orgPath := filepath.Join(net.BasePath, "organizations", orgName)
+	orgPath := filepath.Join(net.BasePath, "organizations", "server", orgName)
+	logger.Debug("creating org directory", "orgPath", orgPath)
 	if err := os.MkdirAll(orgPath, 0o755); err != nil {
+		logger.Error("failed to create org directory", "error", err, "orgPath", orgPath)
 		return nil, err
 	}
 	tlsPath := filepath.Join(orgPath, "tls")
 	if err := os.MkdirAll(tlsPath, 0o755); err != nil {
+		logger.Error("failed to create TLS directory", "error", err, "tlsPath", tlsPath)
 		return nil, err
 	}
 
 	// Copy certificate and key
+	logger.Debug("copying enrollment certificates", "certPath", enrollConfig.CertPath, "keyPath", enrollConfig.KeyStorePath)
 	if err := utils.CopyFile(enrollConfig.CertPath, filepath.Join(tlsPath, "cert.pem")); err != nil {
+		logger.Error("failed to copy certificate", "error", err)
 		return nil, err
 	}
 	if err := utils.CopyFile(enrollConfig.KeyStorePath, filepath.Join(tlsPath, "key.pem")); err != nil {
+		logger.Error("failed to copy key", "error", err)
 		return nil, err
 	}
 
@@ -459,18 +550,22 @@ func CreateOrgWithEnroll(net *config.NetworkConfig, enrollConfig *EnrollConfig, 
 	if net.FabricBinPath != "" {
 		caServerCmd = filepath.Join(net.FabricBinPath, "fabric-ca-server")
 	}
+	logger.Debug("initializing fabric-ca-server", "cmd", caServerCmd, "adminName", enrollConfig.Name)
 	initCmd := exec.Command(caServerCmd, "init", "-b", fmt.Sprintf("%s:%s", enrollConfig.Name, enrollConfig.Password))
 	initCmd.Dir = orgPath
 
 	if err := initCmd.Run(); err != nil {
+		logger.Error("fabric-ca-server init failed", "error", err)
 		return nil, fmt.Errorf("failed to run fabric-ca-server init:\n %w", err)
 	}
 
 	// Unmarshal yaml file that it created
 	configYaml := filepath.Join(orgPath, "fabric-ca-server-config.yaml")
+	logger.Debug("reading fabric-ca-server config", "configPath", configYaml)
 
 	yamlFile, err := os.ReadFile(configYaml)
 	if err != nil {
+		logger.Error("failed to read config YAML", "error", err)
 		return nil, fmt.Errorf("error reading fabric-ca-server-config.yaml!\n %w", err)
 	}
 
@@ -478,11 +573,14 @@ func CreateOrgWithEnroll(net *config.NetworkConfig, enrollConfig *EnrollConfig, 
 
 	err = yaml.Unmarshal(yamlFile, caServer)
 	if err != nil {
+		logger.Error("failed to unmarshal config YAML", "error", err)
 		return nil, fmt.Errorf("error unmarshalling fabric-ca-server-config.yaml! %w", err)
 	}
 
 	// Now we modify the CA server config
-	caServer.Port = 9000 + len(net.Orgs)
+	port := 9000 + len(net.Orgs)
+	logger.Debug("modifying CA server configuration", "port", port, "caName", orgName, "tlsEnabled", true)
+	caServer.Port = port
 	caServer.TLS.Enabled = true
 	caServer.TLS.CertFile = "tls/cert.pem"
 	caServer.TLS.KeyFile = "tls/key.pem"
@@ -494,29 +592,40 @@ func CreateOrgWithEnroll(net *config.NetworkConfig, enrollConfig *EnrollConfig, 
 	delete(caServer.Signing.Profiles, "ca")
 
 	// Remove old ca-cert.pem file and msp to regenerate with new configs.
+	logger.Debug("cleaning up existing msp and ca-cert files")
 	if err := os.RemoveAll(filepath.Join(orgPath, "msp")); err != nil {
+		logger.Error("failed to remove msp directory", "error", err)
 		return nil, fmt.Errorf("could not remove msp path:\n %w", err)
 	}
 
 	if err := os.Remove(filepath.Join(orgPath, "ca-cert.pem")); err != nil {
+		logger.Error("failed to remove ca-cert.pem", "error", err)
 		return nil, fmt.Errorf("could not remove ca-cert.pem:\n %w", err)
 	}
 
-	if err := caServer.WriteConfig(orgPath); err != nil {
+	if err := caServer.WriteConfig(filepath.Join(orgPath, "fabric-ca-server-config.yaml")); err != nil {
+		logger.Error("failed to write CA config", "error", err)
 		return nil, fmt.Errorf("could not write root tls ca config file:\n %w", err)
 	}
 
+	logger.Info("organization created with enrollment successfully", "orgName", orgName, "port", port, "domain", domain)
 	return caServer.NewCAConfig(config.TLS, orgName, orgPath,
 		orgName+"."+domain), nil
 }
 
 func EnrollOrgAdmin(net *config.NetworkConfig, org *config.Organization) error {
+	logger.Debug("enrolling organization admin", "orgName", org.Name, "adminUser", org.CA.AdminUser)
+
 	// Create org client directory
 	orgClientPath := filepath.Join(net.BasePath, "organizations", "client", org.Name)
+	logger.Debug("creating org client directory", "path", orgClientPath)
 	if err := os.MkdirAll(orgClientPath, 0o755); err != nil {
+		logger.Error("failed to create org client directory", "error", err, "path", orgClientPath)
 		return err
 	}
 
+	logger.Debug("enrolling admin user with fabric-ca-client", "caHost", org.CA.Host, "caPort", org.CA.Port, "adminUser", org.CA.AdminUser)
+	clientHome := filepath.Join(net.BasePath, "organizations", "client")
 	cmd := exec.Command("fabric-ca-client", "enroll",
 		"-d",
 		"-u", fmt.Sprintf("https://%s:%s@%s:%d", org.CA.AdminUser, org.CA.AdminPassword, org.CA.Host, org.CA.Port),
@@ -524,12 +633,17 @@ func EnrollOrgAdmin(net *config.NetworkConfig, org *config.Organization) error {
 		"--enrollment.profile", "tls",
 		"--csr.hosts", "localhost,*.pm3.org",
 		"--mspdir", filepath.Join(org.Name, org.CA.AdminUser, "msp"))
-	cmd.Dir = filepath.Join(net.BasePath, "organizations", "client")
-	cmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+net.FabricBinPath)
+	var outb, errb bytes.Buffer
+	cmd.Dir = clientHome
+	cmd.Env = append(cmd.Env, "FABRIC_CA_CLIENT_HOME="+clientHome)
+	cmd.Stdout = &outb
+	cmd.Stderr = &errb
 
 	if err := cmd.Run(); err != nil {
+		logger.Error("fabric-ca-client enroll failed", "error", err, outb.String(), errb.String())
 		return err
 	}
 
+	logger.Info("organization admin enrolled successfully", "orgName", org.Name, "adminUser", org.CA.AdminUser)
 	return nil
 }
