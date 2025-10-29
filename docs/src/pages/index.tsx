@@ -19,7 +19,7 @@ function HomepageHeader() {
         <div className={styles.buttons}>
           <Link
             className="button button--secondary button--lg"
-            to="/fraktal/docs/Guides/install">
+            to="/fraktal/docs/Development/Chaincode/development_env">
             Install guide
           </Link>
         </div>

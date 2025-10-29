@@ -114,7 +114,7 @@ const config: Config = {
           items: [
             {
               label: 'Documentation',
-              to: 'docs/category/guides',
+              to: 'docs/category/chaincode-development',
             },
           ],
         },
