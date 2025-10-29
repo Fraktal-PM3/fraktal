@@ -14,3 +14,7 @@ jspm_packages/
 # Compiled TypeScript files
 dist
 
+*.zip
+core.yaml
+*shrinkwrap.json
+
