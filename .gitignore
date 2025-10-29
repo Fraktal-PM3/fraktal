@@ -1,3 +1,5 @@
 *_ks
 config/ccp-org1.yml
 config/ccp-org2.yml
+.DS_Store
+fabric-samples
