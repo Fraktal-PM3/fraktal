@@ -152,7 +152,7 @@ export class PackageContract extends Contract {
     @Returns("boolean")
     public async PackageExists(ctx: Context, id: string): Promise<boolean> {
         const data = await ctx.stub.getState(id)
-        return data.length > 0
+        return !!data && data.length > 0
     }
 
     // ProposeTransfer creates a transfer proposal for an asset to another organization.
