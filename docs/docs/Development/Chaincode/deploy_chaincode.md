@@ -106,7 +106,7 @@ You should see the `pm3package.zip` file in your current directory.
 Deploy the packaged chaincode to your FireFly stack using the FireFly CLI:
 
 ```bash
-ff deploy fabric dev pm3package.zip firefly pm3package X.Y
+ff deploy fabric dev ./pm3package.zip firefly pm3package X.Y
 ```
 
 **Parameters explained:**
