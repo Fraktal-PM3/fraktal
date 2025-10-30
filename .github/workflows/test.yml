@@ -1,0 +1,37 @@
+name: Run Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "chaincodes/package/**"
+      - ".github/workflows/test.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "chaincodes/package/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: chaincodes/package/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: chaincodes/package
+
+      - name: Run tests
+        run: npm test
+        working-directory: chaincodes/package
