@@ -12,14 +12,14 @@ import { createHash } from "crypto"
 export class PackageContract extends Contract {
     // CreatePackage issues a new package to the world state with given details.
     @Transaction()
-    public async CreatePackage(ctx: Context, packageData: PublicPackage): Promise<void> {
-        if (!packageData.id || typeof packageData.id !== "string") {
+    public async CreatePackage(ctx: Context, packageID: string): Promise<void> {
+        if (!packageID || packageID.trim() === "") {
             throw new Error("packageData.id must be a non-empty string")
         }
 
-        const exists = await this.PackageExists(ctx, packageData.id)
+        const exists = await this.PackageExists(ctx, packageID)
         if (exists) {
-            throw new Error(`The package ${packageData.id} already exists`)
+            throw new Error(`The package ${packageID} already exists`)
         }
 
         const ownerOrgMSPID = callerMSP(ctx)
@@ -45,14 +45,14 @@ export class PackageContract extends Contract {
         const dataHash = createHash("sha256").update(canonicalPII).digest("hex")
 
         const newPackage: PublicPackage = {
-            ...packageData,
+            id: packageID,
             status: Status.PENDING,
             ownerOrgMSP: ownerOrgMSPID,
             dataHash,
         }
 
         const stateBuffer = Buffer.from(stringify(sortKeysRecursive(newPackage)))
-        await ctx.stub.putState(packageData.id, stateBuffer)
+        await ctx.stub.putState(packageID, stateBuffer)
         ctx.stub.setEvent("CreatePackage", stateBuffer)
     }
 

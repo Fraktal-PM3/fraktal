@@ -37,8 +37,10 @@ function buildChaincode() {
     exit 1
   fi
   pushd "${CC_PATH}" >/dev/null
+  rm -rf dist node_modules
+  npm install
   npm ci
-  npm package
+  npm run package
   popd >/dev/null
 }
 

@@ -1,20 +1,19 @@
 {
     "compilerOptions": {
-        "target": "ES2020",
-        "module": "Node16",
-        "moduleResolution": "node16",
+        "target": "ES2019",
+        "module": "CommonJS",
+        "moduleResolution": "Node",
+        "rootDir": "src",
+        "outDir": "dist",
+        "esModuleInterop": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "sourceMap": false,
         "experimentalDecorators": true,
         "emitDecoratorMetadata": true,
-        "declaration": true,
-        "declarationMap": true,
-        "sourceMap": true,
-        "outDir": "dist",
-        "strict": true,
-        "noUnusedLocals": true,
-        "noImplicitReturns": true,
-        "forceConsistentCasingInFileNames": true,
-        "esModuleInterop": true,
-        "skipLibCheck": true
+        "useDefineForClassFields": false
     },
-    "include": ["src"]
+    "include": [
+        "src"
+    ],
 }
