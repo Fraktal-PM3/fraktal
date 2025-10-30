@@ -1,9 +1,9 @@
 import { Context } from "fabric-contract-api"
 import {
-    PrivatePackage,
-    PublicPackage,
+    BlockchainPackage,
+    PackageDetails,
     Status,
-    Urgency,
+    Urgency
 } from "./package"
 
 export const callerMSP = (ctx: Context) => {
@@ -43,27 +43,28 @@ export const isAllowedTransition = (from: Status, to: Status): boolean => {
     return edges[from].includes(to)
 }
 
-export const validateJSONToPublicPackage = (json: string) => {
+export const validateJSONToBlockchainPackage = (json: string) => {
     try {
-        const packageData = JSON.parse(json) as PublicPackage
-        const parsedPackage: PublicPackage = {
-            id: packageData.id,
+        const packageData = JSON.parse(json) as BlockchainPackage
+        const parsedPackage: BlockchainPackage = {
+            externalId: packageData.externalId,
             ownerOrgMSP: packageData.ownerOrgMSP,
             status: packageData.status,
-            dataHash: packageData.dataHash,
+            packageDetailsHash: packageData.packageDetailsHash,
         }
         return parsedPackage
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PublicPackage: ${(e as Error).message}`,
+            `Invalid JSON format for BlockchainPackage: ${(e as Error).message}`,
         )
     }
 }
 
-export const validateJSONToPrivatePackage = (json: string) => {
+
+export const validateJSONToPackageDetails = (json: string) => {
     try {
-        const packageData = JSON.parse(json) as PrivatePackage
-        const parsedPackage: PrivatePackage = {
+        const packageData = JSON.parse(json) as PackageDetails
+        const parsedPackage: PackageDetails = {
             pickupLocation: packageData.pickupLocation,
             dropLocation: packageData.dropLocation,
             address: packageData.address,
@@ -77,4 +78,13 @@ export const validateJSONToPrivatePackage = (json: string) => {
             `Invalid JSON format for PrivatePackage: ${(e as Error).message}`,
         )
     }
+}
+
+/**
+ * Get the implicit private data collection name for an organization.
+ * Implicit collections follow the naming pattern: _implicit_org_<MSPID>
+ * Each organization has its own implicit collection that only they can access.
+ */
+export const getImplicitCollection = (mspID: string): string => {
+    return `_implicit_org_${mspID}`
 }
