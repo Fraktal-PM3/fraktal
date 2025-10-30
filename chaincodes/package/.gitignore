@@ -18,3 +18,9 @@ dist
 core.yaml
 *shrinkwrap.json
 
+*.zip
+core.yaml
+*shrinkwrap.json
+
+#Testing
+.vite/
