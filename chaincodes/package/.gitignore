@@ -22,5 +22,13 @@ core.yaml
 core.yaml
 *shrinkwrap.json
 
-#Testing
+*.zip
+core.yaml
+*shrinkwrap.json
+
+*.zip
+core.yaml
+*shrinkwrap.json
+
+# Testing
 .vite/
