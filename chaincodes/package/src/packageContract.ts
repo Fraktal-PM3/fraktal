@@ -27,7 +27,7 @@ export class PackageContract extends Contract {
     @Transaction()
     public async CreatePackage(ctx: Context, packageID: string): Promise<void> {
         if (!packageID || packageID.trim() === "") {
-            throw new Error("packageData.id must be a non-empty string")
+            throw new Error("packageID must be a non-empty string")
         }
 
         const exists = await this.PackageExists(ctx, packageID)
