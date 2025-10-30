@@ -14,5 +14,7 @@ jspm_packages/
 # Compiled TypeScript files
 dist
 
-# Testing
-.vite/
+*.zip
+core.yaml
+*shrinkwrap.json
+
