@@ -59,6 +59,9 @@ Install the chaincode dependencies and create the package:
 # Install npm dependencies
 npm install
 
+# Build chaincode
+npm run package
+
 # Package the chaincode
 peer lifecycle chaincode package \
   --lang node \
