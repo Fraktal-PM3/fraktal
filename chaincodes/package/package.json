@@ -27,7 +27,8 @@
         "fabric-contract-api": "~2.5",
         "fabric-shim": "~2.5",
         "json-stringify-deterministic": "^1.0.0",
-        "sort-keys-recursive": "^2.1.0"
+        "sort-keys-recursive": "^2.1.0",
+        "zod": "^4.1.12"
     },
     "devDependencies": {
         "@eslint/js": "^9.3.0",
