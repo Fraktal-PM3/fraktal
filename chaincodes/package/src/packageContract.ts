@@ -12,6 +12,7 @@ import {
     BlockchainPackageSchema,
     PackageDetails,
     PackagePII,
+    PrivateTransferTerms,
     Status,
     TransferTerms,
 } from "./package"
@@ -26,6 +27,7 @@ import {
     validateJSONToPrivateTransferTerms,
     validateJSONToTransferTerms,
 } from "./utils"
+import crypto from "crypto"
 
 @Info({
     title: "PackageContract",
