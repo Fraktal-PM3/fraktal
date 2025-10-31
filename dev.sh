@@ -193,9 +193,48 @@ function networkUp() {
   infoln "=============================="
   infoln "Deploying Firefly chaincode..."
   infoln "=============================="
-  ./deploy_firefly_chaincode.sh
+  installfireflychaincode
   popd >/dev/null
   enrollCaAdmins
+}
+
+function installfireflychaincode() {
+  cd ../../firefly/smart_contracts/fabric/firefly-go
+  GO111MODULE=on go mod vendor
+  cd ../../../../fabric-samples/test-network
+
+  export PATH=${PWD}/../bin:$PATH
+  export FABRIC_CFG_PATH=$PWD/../config/
+
+  peer lifecycle chaincode package firefly.tar.gz --path ../../firefly/smart_contracts/fabric/firefly-go --lang golang --label firefly_1.0
+
+  export CORE_PEER_TLS_ENABLED=true
+  export CORE_PEER_LOCALMSPID="Org1MSP"
+  export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+  export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+  export CORE_PEER_ADDRESS=localhost:7051
+
+  peer lifecycle chaincode install firefly.tar.gz
+
+  export CORE_PEER_LOCALMSPID="Org2MSP"
+  export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+  export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+  export CORE_PEER_ADDRESS=localhost:9051
+
+  peer lifecycle chaincode install firefly.tar.gz
+
+  export CC_PACKAGE_ID=$(peer lifecycle chaincode queryinstalled --output json | jq --raw-output ".installed_chaincodes[0].package_id")
+
+  peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID pm3 --name firefly --version 1.0 --package-id $CC_PACKAGE_ID --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+
+  export CORE_PEER_LOCALMSPID="Org1MSP"
+  export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+  export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+  export CORE_PEER_ADDRESS=localhost:7051
+
+  peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID pm3 --name firefly --version 1.0 --package-id $CC_PACKAGE_ID --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+
+  peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID pm3 --name firefly --version 1.0 --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
@@ -257,7 +296,7 @@ function fireflyUp() {
 
   # Check if stack exists already and remove it if so
   FF_LIST_OUTPUT=$(ff list)
-  if [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
+  ef [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
     ff stop dev
     ff remove dev
   fi
@@ -350,7 +389,7 @@ function install() {
 
   if [[ -f "${CA_COMPOSE_FILE}" ]]; then
     # Add CA hostname and CSR configuration
-    cat >> "${CA_COMPOSE_FILE}" << 'EOF'
+    cat >>"${CA_COMPOSE_FILE}" <<'EOF'
 services:
   ca_org1:
     hostname: ca_org1
