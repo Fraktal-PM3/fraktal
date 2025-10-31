@@ -5,6 +5,7 @@ import {
     PackageDetailsSchema,
     PackagePIISchema,
     Status,
+    TransferTerms,
     Urgency
 } from "./package"
 
@@ -56,7 +57,6 @@ export const validateJSONToBlockchainPackage = (json: string) => {
         )
     }
 }
-
 
 export const validateJSONToPackageDetails = (json: string) => {
     try {
