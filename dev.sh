@@ -296,7 +296,7 @@ function fireflyUp() {
 
   # Check if stack exists already and remove it if so
   FF_LIST_OUTPUT=$(ff list)
-  ef [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
+  if [[ "$FF_LIST_OUTPUT" != "FireFly Stacks:" ]] && echo "$FF_LIST_OUTPUT" | grep -q "dev"; then
     ff stop dev
     ff remove dev
   fi
