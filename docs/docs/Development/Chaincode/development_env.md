@@ -2,16 +2,16 @@
 sidebar_position: 1
 sidebar_label: Development Setup
 title: Chaincode Development Setup
-description: Complete guide to setting up your development environment for the distributed hash ledger project
+description: Complete guide to setting up your development environment for the distributed hash ledger project and deploy chaincode.
 ---
 
 # Chaincode Development Setup
 
-This guide walks you through setting up your complete development environment for the distributed hash ledger project. The installation process takes approximately 20-30 minutes.
+This guide provides comprehensive instructions for configuring your development environment for the distributed hash ledger project. The installation process typically requires 20-30 minutes to complete.
 
-## What You'll Install
+## Installation Overview
 
-By the end of this guide, you'll have:
+Upon completion of this guide, your development environment will include:
 
 - **Go** (v1.20+) - Primary programming language
 - **Node.js** (v24.11.0) - JavaScript runtime for chaincode development
@@ -32,7 +32,7 @@ This installation guide has been tested and verified on:
 macOS support is currently untested but should work with minor adjustments.
 :::
 
-### Before You Begin
+### Prerequisites
 
 Ensure you have:
 - A Unix-like environment (Linux or WSL2 on Windows)
@@ -50,7 +50,7 @@ Go version 1.20 or later is required for building and running the project compon
 
 Follow the official installation guide for your operating system:
 
-**[📚 Official Go Installation Guide](https://golang.org/doc/install)**
+**[Official Go Installation Guide](https://golang.org/doc/install)**
 
 ### Verify Installation
 
@@ -93,16 +93,12 @@ You can install Node.js using one of the following methods:
 
 #### Option 1: Using Node Version Manager (nvm) - Recommended
 
+
 nvm allows you to install and manage multiple Node.js versions easily.
 
-**Install nvm:**
-```bash
-# Download and install nvm
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+Install nvm by following the instructions from the official repository: 
+**[Official nvm Repository](https://github.com/nvm-sh/nvm)**
 
-# Load nvm into your current shell session
-source ~/.bashrc
-```
 
 **Install Node.js 24.11.0:**
 ```bash
@@ -122,7 +118,7 @@ Using nvm allows you to switch between different Node.js versions for different 
 
 Download and install Node.js directly from the official website:
 
-**[📚 Official Node.js Downloads](https://nodejs.org/)**
+**[Official Node.js Downloads](https://nodejs.org/)**
 
 Select version 24.11.0 from the downloads page for your operating system.
 
@@ -167,7 +163,7 @@ Docker and Docker Compose are essential for running Hyperledger Fabric and FireF
 
 Follow the official Docker installation guide for your platform:
 
-**[📚 Docker Installation Guides](https://docs.docker.com/engine/install/)**
+**[Docker Installation Guides](https://docs.docker.com/engine/install/)**
 
 **Quick links for common platforms:**
 - [Ubuntu](https://docs.docker.com/engine/install/ubuntu/)
@@ -230,7 +226,7 @@ sudo dnf install jq
 brew install jq
 ```
 
-**[📚 jq Download Guide](https://stedolan.github.io/jq/download/)**
+**[jq Download Guide](https://stedolan.github.io/jq/download/)**
 
 **Verify:**
 ```bash
@@ -291,7 +287,7 @@ echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc
 source ~/.bashrc
 ```
 
-**[📚 FireFly CLI Repository](https://github.com/hyperledger/firefly-cli)**
+**[FireFly CLI Repository](https://github.com/hyperledger/firefly-cli)**
 
 ---
 
@@ -304,9 +300,18 @@ git clone https://github.com/Fraktal-PM3/fraktal.git
 cd fraktal
 ```
 
+### Initialize Project Dependencies
+
+For the project to work correctly, install the necessary submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+
 ---
 
-## Step 7: Install Hyperledger Fabric
+## Step 7: Install Hyperledger Fabric Binaries and Docker Images
 
 This step installs the Hyperledger Fabric binaries and Docker images required for the blockchain network.
 
@@ -319,19 +324,11 @@ The installation script downloads:
 
 ### Run Installation Script
 
-The official Hyperledger Fabric documentation recommends installing fabric-samples in the Go workspace directory.
+The official Hyperledger Fabric documentation recommends installing fabric-samples in the Go workspace directory. However, for this project, we install it directly in the cloned repository using the provided 'dev.sh' script.
 
 ```bash
-./install-fabric.sh
+./dev.sh install
 ```
-
-:::tip Version Selection
-By default, this installs the latest stable version. To install a specific version:
-
-```bash
-./install-fabric.sh --fabric-version 2.5.0
-```
-:::
 
 ### Configure Fabric Binary Path
 
@@ -345,59 +342,97 @@ sudo cp -r fabric-samples/bin/* $GOPATH/bin
 which peer
 ```
 
-**Expected output:** `/home/youruser/go/bin/peer` or similar
+**Expected output:** `.../bin/peer` or similar
 
 :::caution Permission Required
 The `sudo` command is required to copy binaries to the Go bin directory. Ensure you have appropriate permissions.
 :::
 
----
+## Step 8: Create and Start the FireFly Stack
 
-## Verify Your Installation
+To run and manage a FireFly and Hyperledger Fabric stack for development, follow these steps:
 
-Run these commands to verify all components are installed correctly:
+### Start the Stack
+
+To start and initialize a FireFly stack with Hyperledger Fabric, run the following command in the project root directory:
 
 ```bash
-# Go
-go version
-
-# Node.js
-node --version
-
-# npm
-npm --version
-
-# Docker
-docker --version
-docker compose version
-
-# jq
-jq --version
-
-# OpenSSL
-openssl version
-
-# FireFly CLI
-ff version
-
-# Hyperledger Fabric
-peer version
+./dev.sh up
 ```
 
-All commands should return version information without errors.
+This command will setup two organizations with one node each by default, build and deploy the necessary chaincode, and install the custom chaincode located in 'chaincodes/package'. The custom chaincode is automatically instantiated on the network during this process and contains the necessary smart contract logic for managing packages in the distributed hash ledger.
+
+:::info Chaincode Deployment
+The `dev.sh up` script handles the deployment of the custom chaincode to the Fabric network as part of the stack initialization. It ensures that the chaincode is properly installed and instantiated on the peers of both organizations.
+:::
+
+---
+
+### Stop the Stack
+
+:::warning Data Persistence
+Stopping the stack with `dev.sh down` will remove all running containers, networks, and volumes associated with the stack. Any data stored in the blockchain network will be lost.
+:::
+
+To stop and remove the FireFly and Hyperledger Fabric stack, run:
+
+```bash
+./dev.sh down
+```
+
+:::tip Restarting the Stack
+Always run `./dev.sh down` before `./dev.sh up` to ensure a clean state when restarting the stack.
+:::
+
+---
+
+### Accessing FireFly Services
+
+Once the stack is running, you can access various FireFly and Fabric services through the following URLs:
+
+#### FireFly Dashboard
+The FireFly UI provides a web interface for interacting with the blockchain network:
+- **Organization 1:** http://localhost:8000/ui
+- **Organization 2:** http://localhost:8001/ui
+
+The port increments by one for each additional organization.
+
+#### FabConnect API
+The FabConnect REST API provides endpoints for Hyperledger Fabric operations:
+- **Organization 1:** http://localhost:5102/api
+- **Organization 2:** http://localhost:5202/api
+
+The port increments by 100 for each additional organization.
+
+#### FireFly Sandbox
+The FireFly Sandbox provides an interactive environment for testing:
+- **Organization 1:** http://127.0.0.1:5108
+- **Organization 2:** http://127.0.0.1:5208
+
+The port increments by 100 for each additional organization.
+
+#### FireFly API Documentation
+The FireFly API documentation is available through the Swagger UI:
+- **Organization 1:** http://localhost:8000/api
+- **Organization 2:** http://localhost:8001/api
+
+The port increments by one for each additional organization.
+
+:::note Service Availability
+All services will be available once the stack has fully initialized. This may take a few moments after running `./dev.sh up`.
+:::
 
 ---
 
 ## Next Steps
 
-🎉 Congratulations! You've successfully set up the development environment for the distributed hash ledger project.
+You have successfully completed the development environment setup for the distributed hash ledger project.
 
 You can now proceed to:
-- Configure your first blockchain network
-- Deploy chaincode to the network
-- Explore the sample applications
+- Explore the FireFly applications
+- Use the custom FireFly sdk to run blockchain opertations in a custom developed app
 
-Check the next sections in the documentation for detailed instructions on these topics.
+Refer to the subsequent sections in the documentation for detailed instructions on these topics.
 
 ---
 
