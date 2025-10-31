@@ -332,7 +332,6 @@ export class PackageContract extends Contract {
         externalId: string,
         expectedHash: string,
     ): Promise<boolean> {
-        const callerMSPID = callerMSP(ctx)
         console.log(
             `[CheckPacageDetailsAndPIIHash] Called for package: ${externalId}`,
         )
