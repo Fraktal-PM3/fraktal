@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "crypto"
+import crypto, { createHash, randomUUID } from "crypto"
 import {
     Context,
     Contract,
@@ -12,20 +12,20 @@ import {
     BlockchainPackageSchema,
     PackageDetails,
     PackagePII,
-    PrivateTransferTerms,
     Status,
-    TransferTerms,
+    TransferTerms
 } from "./package"
 import {
     callerMSP,
     getImplicitCollection,
     isAllowedTransition,
     requireAttr,
-    validateJSONPII,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
+    validateJSONToPII,
+    validateJSONToPrivateTransferTerms,
+    validateJSONToTransferTerms,
 } from "./utils"
-import crypto from "crypto"
 
 @Info({
     title: "PackageContract",
@@ -64,7 +64,7 @@ export class PackageContract extends Contract {
             )
         }
 
-        const parsedPII = validateJSONPII(piiBuf.toString())
+        const parsedPII = validateJSONToPII(piiBuf.toString())
 
 
 
@@ -101,10 +101,10 @@ export class PackageContract extends Contract {
             externalId,
             Buffer.from(stringify(sortKeysRecursive(storeObject))),
         )
+
         console.log(
             `[CreatePackage] Successfully wrote private data to ${ownerCollection}`,
         )
-
 
         const blockchainPackage = BlockchainPackageSchema.parse({
             externalId: externalId,
@@ -282,7 +282,7 @@ export class PackageContract extends Contract {
 
     // // ProposeTransfer creates a transfer proposal for an asset to another organization.
     @Transaction()
-    public async ProposeTransfer(ctx: Context, externalId: string, toMSP: string, createdISO: string, expiryISO?: string): Promise<void> {
+    public async ProposeTransfer(ctx: Context, externalId: string, toMSP: string, expiryISO?: string): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
             throw new Error(`The package ${externalId} does not exist`)
@@ -300,7 +300,7 @@ export class PackageContract extends Contract {
             externalPackageId: externalId,
             fromMSP: callerMSP(ctx),
             expiryISO: expiryISO || null,
-            createdISO,
+            createdISO: new Date().toISOString(),
             toMSP,
         }
 
@@ -311,9 +311,9 @@ export class PackageContract extends Contract {
         if (!privateTransferTermsData || !privateTransferTermsData.length) {
             throw new Error("Missing transient field 'privateTransferTerms' for private transfer terms")
         }
-        
-        const privateTransferTerms = JSON.parse(privateTransferTermsData.toString())
-        
+
+        const privateTransferTerms = validateJSONToPrivateTransferTerms(privateTransferTermsData.toString())
+
         // Store private data in the recipient organization's implicit collection
         await ctx.stub.putPrivateData(
             toMSPCollection,
@@ -338,8 +338,17 @@ export class PackageContract extends Contract {
         console.log(
             `[CheckPacageDetailsAndPIIHash] Called for package: ${externalId}`,
         )
+
+        const blockchainPackageData = await this.ReadBlockchainPackage(ctx, externalId)
+
+        if (!blockchainPackageData) {
+            throw new Error(`The package ${externalId} does not exist`)
+        }
+
+        const blockchainPackage = validateJSONToBlockchainPackage(blockchainPackageData)
+
         // Read the package details and PII
-        const ownerCollection = getImplicitCollection(callerMSPID)
+        const ownerCollection = getImplicitCollection(blockchainPackage.ownerOrgMSP)
         console.log(
             `[CheckPacageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
         )
@@ -347,6 +356,8 @@ export class PackageContract extends Contract {
             ownerCollection,
             externalId,
         )
+
+        // No need to validate, checked validation on store
         const parsedData = JSON.parse(packageDetailsAndPII.toString()) as {
             salt: string
             packageDetails: PackageDetails
@@ -354,13 +365,13 @@ export class PackageContract extends Contract {
         }
 
         const canonicalPackageInfo = stringify(sortKeysRecursive(parsedData))
-        const packageDetailsHash = createHash("sha256")
+        const dataHash = createHash("sha256")
             .update(canonicalPackageInfo)
             .digest("hex")
 
-        if (packageDetailsHash !== expectedHash) {
+        if (dataHash !== expectedHash) {
             console.log(
-                `[CheckPacageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${packageDetailsHash}`,
+                `[CheckPacageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${dataHash}`,
             )
             return false
         }
@@ -373,7 +384,7 @@ export class PackageContract extends Contract {
         termsId: string,
     ): Promise<string> {
         const termsJSON = await ctx.stub.getState(termsId) // get the package from chaincode state
-        if (termsJSON.length === 0) {
+        if (!termsJSON || termsJSON.length === 0) {
             throw new Error(`The package ${termsId} does not exist`)
         }
         return termsJSON.toString()
@@ -391,7 +402,7 @@ export class PackageContract extends Contract {
 
         const publicTransferTerms = await this.ReadTransferTerms(ctx, termsId) // Verify transfer terms exists
 
-        const parsedTerms = JSON.parse(publicTransferTerms) as TransferTerms
+        const parsedTerms = validateJSONToTransferTerms(publicTransferTerms)
 
         console.log(
             `[ReadPrivateTransferTerms] Tranfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`,
@@ -447,7 +458,7 @@ export class PackageContract extends Contract {
             `[AcceptTransfer] Called by: ${callerMSPID} for proposalId: ${termsId} and externalId: ${externalId}`,
         )
         const publictransferTerms = await this.ReadTransferTerms(ctx, termsId)
-        const parsedTerms = JSON.parse(publictransferTerms) as TransferTerms
+        const parsedTerms = validateJSONToTransferTerms(publictransferTerms)
 
         if (parsedTerms.toMSP !== callerMSPID) {
             console.log(
@@ -487,9 +498,9 @@ export class PackageContract extends Contract {
             ctx,
             termsId,
         )
-        const parsedPrivateTerms = JSON.parse(
+        const parsedPrivateTerms = validateJSONToPrivateTransferTerms(
             privateTransferTerms,
-        ) as PrivateTransferTerms
+        )
         const tmap = ctx.stub.getTransient()
         const transferTermsData = tmap.get("privateTransferTerms")
 
@@ -497,9 +508,9 @@ export class PackageContract extends Contract {
             throw new Error(`Missing transient field 'privateTransferTerms'`)
         }
 
-        const parsedInputPrivateTerms = JSON.parse(
+        const parsedInputPrivateTerms = validateJSONToPrivateTransferTerms(
             transferTermsData.toString(),
-        ) as PrivateTransferTerms
+        )
 
         if (parsedPrivateTerms.price !== parsedInputPrivateTerms.price) {
             console.log(

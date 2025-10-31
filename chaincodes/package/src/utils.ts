@@ -1,11 +1,11 @@
 import { Context } from "fabric-contract-api"
 import {
     BlockchainPackageSchema,
-    PackageDetails,
     PackageDetailsSchema,
     PackagePIISchema,
+    PrivateTransferTermsSchema,
     Status,
-    TransferTerms,
+    TransferTermsSchema,
     Urgency
 } from "./package"
 
@@ -48,9 +48,7 @@ export const isAllowedTransition = (from: Status, to: Status): boolean => {
 
 export const validateJSONToBlockchainPackage = (json: string) => {
     try {
-        const packageData = JSON.parse(json)
-        const parsedPackage = BlockchainPackageSchema.parse(packageData)
-        return parsedPackage
+        return BlockchainPackageSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
             `Invalid JSON format for BlockchainPackage: ${(e as Error).message}`,
@@ -60,10 +58,7 @@ export const validateJSONToBlockchainPackage = (json: string) => {
 
 export const validateJSONToPackageDetails = (json: string) => {
     try {
-
-        const packageData = JSON.parse(json)
-        const parsedPackage: PackageDetails = PackageDetailsSchema.parse(packageData)
-        return parsedPackage
+        return PackageDetailsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
             `Invalid JSON format for PackageDetails: ${(e as Error).message}`,
@@ -71,17 +66,35 @@ export const validateJSONToPackageDetails = (json: string) => {
     }
 }
 
-export const validateJSONPII = (json: string) => {
+export const validateJSONToPII = (json: string) => {
     try {
-        const packageData = JSON.parse(json)
-        const parsedPII = PackagePIISchema.parse(packageData)
-        return parsedPII
+        return PackagePIISchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
             `Invalid JSON format for PackagePII: ${(e as Error).message}`,
         )
     }
 
+}
+
+export const validateJSONToPrivateTransferTerms = (json: string) => {
+    try {
+        return PrivateTransferTermsSchema.parse(JSON.parse(json))
+    } catch (e) {
+        throw new Error(
+            `Invalid JSON format for PrivateTransferTerms: ${(e as Error).message}`,
+        )
+    }
+}
+
+export const validateJSONToTransferTerms = (json: string) => {
+    try {
+        return TransferTermsSchema.parse(JSON.parse(json))
+    } catch (e) {
+        throw new Error(
+            `Invalid JSON format for TransferTerms: ${(e as Error).message}`,
+        )
+    }
 }
 
 /**
