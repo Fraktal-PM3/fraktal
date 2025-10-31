@@ -1,7 +1,9 @@
 import { Context } from "fabric-contract-api"
 import {
-    BlockchainPackage,
+    BlockchainPackageSchema,
     PackageDetails,
+    PackageDetailsSchema,
+    PackagePIISchema,
     Status,
     TransferTerms,
     Urgency
@@ -46,13 +48,8 @@ export const isAllowedTransition = (from: Status, to: Status): boolean => {
 
 export const validateJSONToBlockchainPackage = (json: string) => {
     try {
-        const packageData = JSON.parse(json) as BlockchainPackage
-        const parsedPackage: BlockchainPackage = {
-            externalId: packageData.externalId,
-            ownerOrgMSP: packageData.ownerOrgMSP,
-            status: packageData.status,
-            packageDetailsHash: packageData.packageDetailsHash,
-        }
+        const packageData = JSON.parse(json)
+        const parsedPackage = BlockchainPackageSchema.parse(packageData)
         return parsedPackage
     } catch (e) {
         throw new Error(
@@ -63,21 +60,28 @@ export const validateJSONToBlockchainPackage = (json: string) => {
 
 export const validateJSONToPackageDetails = (json: string) => {
     try {
-        const packageData = JSON.parse(json) as PackageDetails
-        const parsedPackage: PackageDetails = {
-            pickupLocation: packageData.pickupLocation,
-            dropLocation: packageData.dropLocation,
-            address: packageData.address,
-            size: packageData.size,
-            weightKg: packageData.weightKg,
-            urgency: packageData.urgency,
-        }
+
+        const packageData = JSON.parse(json)
+        const parsedPackage: PackageDetails = PackageDetailsSchema.parse(packageData)
         return parsedPackage
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PrivatePackage: ${(e as Error).message}`,
+            `Invalid JSON format for PackageDetails: ${(e as Error).message}`,
         )
     }
+}
+
+export const validateJSONPII = (json: string) => {
+    try {
+        const packageData = JSON.parse(json)
+        const parsedPII = PackagePIISchema.parse(packageData)
+        return parsedPII
+    } catch (e) {
+        throw new Error(
+            `Invalid JSON format for PackagePII: ${(e as Error).message}`,
+        )
+    }
+
 }
 
 /**
