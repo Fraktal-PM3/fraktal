@@ -102,6 +102,4 @@ export class BlockchainPackage {
 
     @Property()
     public packageDetailsHash: string = ""
-
 }
-
