@@ -1,24 +1,5 @@
 import { Object, Property } from "fabric-contract-api"
-
-export type Size = {
-    width: number
-    height: number
-    depth: number
-}
-
-export type Location = {
-    name: string
-    address: string
-    lat: number
-    lng: number
-}
-
-export enum Urgency {
-    HIGH = "high",
-    MEDIUM = "medium",
-    LOW = "low",
-    NONE = "none",
-}
+import z from "zod"
 
 export enum Status {
     PENDING = "pending",
@@ -30,6 +11,13 @@ export enum Status {
     FAILED = "failed",
 }
 
+export enum Urgency {
+    HIGH = "high",
+    MEDIUM = "medium",
+    LOW = "low",
+    NONE = "none",
+}
+
 export enum TransferStatus {
     PROPOSED = "proposed",
     ACCEPTED = "accepted",
@@ -39,35 +27,67 @@ export enum TransferStatus {
     EXPIRED = "expired",
 }
 
-export type PackagePII = { [key: string]: any }
+export const StatusEnumSchema = z.enum(Status)
+export const UrgencyEnumSchema = z.enum(Urgency)
+export const TransferStatusEnumSchema = z.enum(TransferStatus)
 
-export type PrivateTransferTerms = {
-    price: number
-}
+export const SizeSchema = z.object({
+    width: z.number().positive(),
+    height: z.number().positive(),
+    depth: z.number().positive(),
+}).strict()
 
-export type TransferTerms = {
-    externalPackageId: string
-    fromMSP: string
-    toMSP: string
-    createdISO: string
-    expiryISO: string | null | undefined
-}
+export const LocationSchema = z.object({
+    address: z.string().nonempty(),
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+}).strict()
 
-export type Transfer = {
-    terms: TransferTerms
-    status: TransferStatus
-    transferTermsHash: string
-}
+export const PackageDetailsSchema = z.object({
+    pickupLocation: LocationSchema,
+    dropLocation: LocationSchema,
+    address: z.string().nonempty(),
+    size: SizeSchema,
+    weightKg: z.number().positive(),
+    urgency: UrgencyEnumSchema,
+}).strict()
 
+export const TransferTermsSchema = z.object({
+    externalPackageId: z.string().nonempty(),
+    fromMSP: z.string().nonempty(),
+    toMSP: z.string().nonempty(),
+    createdISO: z.iso.datetime(),
+    expiryISO: z.iso.datetime().nullable().optional(),
+}).strict()
 
-export type PackageDetails = {
-    pickupLocation: Location
-    dropLocation: Location
-    address: string
-    size: Size
-    weightKg: number
-    urgency: Urgency
-}
+export const TransferSchema = z.object({
+    terms: TransferTermsSchema,
+    status: TransferStatusEnumSchema,
+    transferTermsHash: z.hash("sha256"),
+}).strict()
+
+export const PrivateTransferTermsSchema = z.object({
+    price: z.number().nonnegative(),
+}).strict()
+
+export const PackagePIISchema = z.record(z.string(), z.any())
+
+export const BlockchainPackageSchema = z.object({
+    externalId: z.string().nonempty(),
+    ownerOrgMSP: z.string().nonempty(),
+    status: StatusEnumSchema,
+    packageDetailsHash: z.hash("sha256"),
+}).strict()
+
+export type Size = z.infer<typeof SizeSchema>
+export type Location = z.infer<typeof LocationSchema>
+export type PackageDetails = z.infer<typeof PackageDetailsSchema>
+export type TransferTerms = z.infer<typeof TransferTermsSchema>
+export type Transfer = z.infer<typeof TransferSchema>
+export type PrivateTransferTerms = z.infer<typeof PrivateTransferTermsSchema>
+export type PackagePII = z.infer<typeof PackagePIISchema>
+export type BlockchainPackageType = z.infer<typeof BlockchainPackageSchema>
+
 
 @Object()
 export class BlockchainPackage {
