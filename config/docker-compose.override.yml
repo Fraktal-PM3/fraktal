@@ -3,3 +3,34 @@ networks:
   default:
     name: fabric_test
     external: true
+# services:
+#   ipfs_0:
+#     container_name: ipfs_0
+#     image: fraktal-ipfs:latest
+#     # sysctls not supported on macOS Docker Desktop
+#     # sysctls:
+#     #   - net.core.rmem_max=2500000
+#     #   - net.core.rmem_default=2500000
+#     environment:
+#       IPFS_SWARM_KEY: |-
+#         /key/swarm/psk/1.0.0/
+#         /base16/
+#         8549ce175a3d5f4a14d55c82c85fa20ca7f6ae87dccf76566a7f53f96015c45c
+#       LIBP2P_FORCE_PNET: "1"
+#       IPFS_PEER_0_ID: ${IPFS_PEER_0_ID}
+#       IPFS_PEER_1_ID: ${IPFS_PEER_1_ID}
+#   ipfs_1:
+#     container_name: ipfs_1
+#     image: fraktal-ipfs:latest
+#     # sysctls not supported on macOS Docker Desktop
+#     # sysctls:
+#     #   - net.core.rmem_max=2500000
+#     #   - net.core.rmem_default=2500000
+#     environment:
+#       IPFS_SWARM_KEY: |-
+#         /key/swarm/psk/1.0.0/
+#         /base16/
+#         8549ce175a3d5f4a14d55c82c85fa20ca7f6ae87dccf76566a7f53f96015c45c
+#       LIBP2P_FORCE_PNET: "1"
+#       IPFS_PEER_0_ID: ${IPFS_PEER_0_ID}
+#       IPFS_PEER_1_ID: ${IPFS_PEER_1_ID}

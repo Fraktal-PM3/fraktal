@@ -27,6 +27,23 @@ function errorln() {
   echo -e "\033[1;31m$1\033[0m"
 }
 
+function buildIPFSImage() {
+  infoln "==============================="
+  infoln "Building custom IPFS image..."
+  infoln "==============================="
+
+  pushd ${FRAKTALDIR}/docker/ipfs >/dev/null
+  docker build -t fraktal-ipfs:latest .
+  local rc=$?
+  popd >/dev/null
+
+  if [[ ${rc} -ne 0 ]]; then
+    errorln "Failed to build IPFS image"
+    exit 1
+  fi
+  infoln "Custom IPFS image built successfully"
+}
+
 # Build the PM3 chaincode (TypeScript -> dist JS)
 function buildChaincode() {
   infoln "==============================="
@@ -105,118 +122,6 @@ function enrollCaAdmins() {
   fi
 }
 
-# Register users with roles in the Fabric test network CAs
-function registerRoles() {
-
-  infoln "==============================="
-  infoln "Registering users with roles..."
-  infoln "==============================="
-
-  # Give admin@org1 the ombud role using updateUserRole function
-  infoln "Updating admin@org1 with ombud role..."
-  updateUserRole "admin" "ombud" "1"
-
-  # Give admin@org2 the transporter role using updateUserRole function
-  infoln "Updating admin@org2 with transporter role..."
-  updateUserRole "admin" "transporter" "2"
-
-  infoln "Roles registered and enrolled (Org1: Admin=ombud, Org2: Admin=transporter)."
-}
-
-# Update role for an existing user without creating new keys
-function updateUserRole() {
-  local username=$1
-  local new_role=$2
-  local org=$3
-
-  if [[ -z "${username}" || -z "${new_role}" || -z "${org}" ]]; then
-    errorln "Usage: updateUserRole <username> <new_role> <org_number>"
-    errorln "Example: updateUserRole user1 manager 1"
-    return 1
-  fi
-
-  infoln "==============================="
-  infoln "Updating role for ${username} in Org${org} to: ${new_role}"
-  infoln "==============================="
-
-  local NET=${NETWORKDIR}
-  local CA_ADDRESS=""
-  local CA_TLS=""
-  local MSP_PATH=""
-  local USER_MSP_PATH=""
-  local CA_IDENTITY_ID=""
-  local FS_USERNAME=""
-
-  # Map common filesystem names to CA identity IDs
-  # CA uses lowercase IDs, but filesystem uses capitalized names
-  case "${username}" in
-    Admin|admin)
-      CA_IDENTITY_ID="admin"
-      FS_USERNAME="Admin"
-      ;;
-    User1|user1)
-      CA_IDENTITY_ID="user1"
-      FS_USERNAME="User1"
-      ;;
-    *)
-      # For custom users, assume they match
-      CA_IDENTITY_ID="${username}"
-      FS_USERNAME="${username}"
-      ;;
-  esac
-
-  if [[ "${org}" == "1" ]]; then
-    CA_ADDRESS="localhost:7054"
-    CA_TLS="${NET}/organizations/fabric-ca/org1/tls-cert.pem"
-    MSP_PATH="${NET}/organizations/peerOrganizations/org1.example.com/"
-    USER_MSP_PATH="${MSP_PATH}/users/${FS_USERNAME}@org1.example.com/msp"
-  elif [[ "${org}" == "2" ]]; then
-    CA_ADDRESS="localhost:8054"
-    CA_TLS="${NET}/organizations/fabric-ca/org2/tls-cert.pem"
-    MSP_PATH="${NET}/organizations/peerOrganizations/org2.example.com/"
-    USER_MSP_PATH="${MSP_PATH}/users/${FS_USERNAME}@org2.example.com/msp"
-  else
-    errorln "Invalid org number: ${org}. Must be 1 or 2."
-    return 1
-  fi
-
-  # Check if user MSP exists
-  if [[ ! -d "${USER_MSP_PATH}" ]]; then
-    errorln "User MSP directory not found: ${USER_MSP_PATH}"
-    errorln "Make sure the user ${username} has been registered and enrolled first."
-    return 1
-  fi
-
-  # Modify the user's identity to add the new role
-  # Must use CA Admin credentials to modify identities
-  local CA_ADMIN_HOME=""
-  if [[ "${org}" == "1" ]]; then
-    CA_ADMIN_HOME="${HOME}/.fabric-ca-client/org1"
-  else
-    CA_ADMIN_HOME="${HOME}/.fabric-ca-client/org2"
-  fi
-
-  infoln "Modifying identity for ${username} (CA ID: ${CA_IDENTITY_ID})..."
-  FABRIC_CA_CLIENT_HOME="${CA_ADMIN_HOME}" \
-    fabric-ca-client identity modify "${CA_IDENTITY_ID}" \
-    --type client \
-    --attrs "role=${new_role}:ecert" \
-    -u "https://${CA_ADDRESS}" \
-    --tls.certfiles "${CA_TLS}"
-
-  # Reenroll the user to get a new certificate with the updated role
-  infoln "Re-enrolling ${username} with new role..."
-  FABRIC_CA_CLIENT_HOME="${MSP_PATH}" \
-    fabric-ca-client reenroll \
-    --mspdir "${USER_MSP_PATH}" \
-    --enrollment.attrs "role" \
-    -u "https://${CA_ADDRESS}" \
-    --tls.certfiles "${CA_TLS}"
-
-  infoln "Successfully updated ${username}'s role to: ${new_role}"
-  infoln "Certificate has been re-issued with the new role attribute."
-}
-
 # List all identities registered in the Fabric CA for the given organization
 function listIdentities() {
   local org=$1
@@ -288,10 +193,48 @@ function networkUp() {
   infoln "=============================="
   infoln "Deploying Firefly chaincode..."
   infoln "=============================="
-  ./deploy_firefly_chaincode.sh
+  installfireflychaincode
   popd >/dev/null
   enrollCaAdmins
-  registerRoles
+}
+
+function installfireflychaincode() {
+  cd ../../firefly/smart_contracts/fabric/firefly-go
+  GO111MODULE=on go mod vendor
+  cd ../../../../fabric-samples/test-network
+
+  export PATH=${PWD}/../bin:$PATH
+  export FABRIC_CFG_PATH=$PWD/../config/
+
+  peer lifecycle chaincode package firefly.tar.gz --path ../../firefly/smart_contracts/fabric/firefly-go --lang golang --label firefly_1.0
+
+  export CORE_PEER_TLS_ENABLED=true
+  export CORE_PEER_LOCALMSPID="Org1MSP"
+  export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+  export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+  export CORE_PEER_ADDRESS=localhost:7051
+
+  peer lifecycle chaincode install firefly.tar.gz
+
+  export CORE_PEER_LOCALMSPID="Org2MSP"
+  export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+  export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+  export CORE_PEER_ADDRESS=localhost:9051
+
+  peer lifecycle chaincode install firefly.tar.gz
+
+  export CC_PACKAGE_ID=$(peer lifecycle chaincode queryinstalled --output json | jq --raw-output ".installed_chaincodes[0].package_id")
+
+  peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID pm3 --name firefly --version 1.0 --package-id $CC_PACKAGE_ID --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+
+  export CORE_PEER_LOCALMSPID="Org1MSP"
+  export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+  export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+  export CORE_PEER_ADDRESS=localhost:7051
+
+  peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID pm3 --name firefly --version 1.0 --package-id $CC_PACKAGE_ID --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+
+  peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID pm3 --name firefly --version 1.0 --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
@@ -367,6 +310,9 @@ function fireflyUp() {
     --chaincode firefly -p 8000
   popd >/dev/null
 
+  # Build custom IPFS image
+  buildIPFSImage
+
   cp -f ${FRAKTALDIR}/config/docker-compose.override.yml ${HOME}/.firefly/stacks/dev
 
   ff start dev --no-rollback -v
@@ -435,6 +381,33 @@ function install() {
   pushd ${NETWORKDIR} >/dev/null
   ./network.sh prereq
   popd >/dev/null
+
+  infoln "==============================="
+  infoln "Configuring CA services..."
+  infoln "==============================="
+  local CA_COMPOSE_FILE="${NETWORKDIR}/compose/docker/docker-compose-ca.yaml"
+
+  if [[ -f "${CA_COMPOSE_FILE}" ]]; then
+    # Add CA hostname and CSR configuration
+    cat >>"${CA_COMPOSE_FILE}" <<'EOF'
+services:
+  ca_org1:
+    hostname: ca_org1
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_org1,localhost
+  ca_org2:
+    hostname: ca_org2
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_org2,localhost
+  ca_orderer:
+    hostname: ca_orderer
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_orderer,localhost
+EOF
+    infoln "✓ CA configuration added successfully"
+  else
+    errorln "CA compose file not found: ${CA_COMPOSE_FILE}"
+  fi
 }
 
 function networkStatus() {
