@@ -1,4 +1,4 @@
-import { createHash } from "crypto"
+import { createHash, randomUUID } from "crypto"
 import {
     Context,
     Contract,
@@ -8,7 +8,7 @@ import {
 } from "fabric-contract-api"
 import stringify from "json-stringify-deterministic"
 import sortKeysRecursive from "sort-keys-recursive"
-import { BlockchainPackage, PackagePII, Status } from "./package"
+import { BlockchainPackage, PackagePII, Status, TransferTerms } from "./package"
 import {
     callerMSP,
     getImplicitCollection,
@@ -17,8 +17,6 @@ import {
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
 } from "./utils"
-
-
 
 @Info({
     title: "PackageContract",
@@ -53,8 +51,6 @@ export class PackageContract extends Contract {
         }
 
         const parsedPII = JSON.parse(piiBuf.toString()) as PackagePII
-
-
 
         const packageDetails = tmap.get("packageDetails")
         if (!packageDetails) {
@@ -94,9 +90,6 @@ export class PackageContract extends Contract {
         await ctx.stub.putState(externalId, stateBuffer)
         ctx.stub.setEvent("CreatePackage", eventBuffer)
     }
-
-
-
 
     // ReadPackage returns the package stored in the world state with given id.
     @Transaction(false)
@@ -143,10 +136,6 @@ export class PackageContract extends Contract {
         console.log(`[ReadPackageDetailsAndPII] SUCCESS: Retrieved private data for ${externalId}`)
         return privateBuf.toString()
     }
-
-
-
-
 
     @Transaction()
     public async UpdatePackageStatus(
@@ -224,125 +213,45 @@ export class PackageContract extends Contract {
 
     // // ProposeTransfer creates a transfer proposal for an asset to another organization.
     // @Transaction()
-    // public async ProposeTransfer(ctx: Context, pkgId: string): Promise<void> {
-    //     const packageJSON = await this.ReadBlockchainPackage(ctx, pkgId)
-    //     const packageData = JSON.parse(packageJSON) as PublicPackage
+    public async ProposeTransfer(ctx: Context, externalId: string, toMSP: string, createdISO: string, expiryISO?: string): Promise<void> {
+        const exists = await this.PackageExists(ctx, externalId)
+        if (!exists) {
+            throw new Error(`The package ${externalId} does not exist`)
+        }
 
-    //     const fromMSP = callerMSP(ctx)
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
 
-    //     if (packageData.ownerOrgMSP !== fromMSP) {
-    //         throw new Error(
-    //             `The caller is not authorized to propose transfer for the package ${pkgId}`,
-    //         )
-    //     }
+        if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
+            throw new Error(`Only the owner organization may propose a transfer for package ${externalId}`)
+        }
 
-    //     const tmap = ctx.stub.getTransient()
+        const termsId = randomUUID()
+        const terms: TransferTerms = {
+            externalPackageId: externalId,
+            fromMSP: callerMSP(ctx),
+            expiryISO: expiryISO || null,
+            createdISO,
+            toMSP,
+        }
 
-    //     const pdc = tmap.get("pdcCollection")?.toString()
-    //     if (!pdc) {
-    //         throw new Error(
-    //             "Missing transient field 'pdcCollection' for private transfer terms",
-    //         )
-    //     }
+        const pii = await this.ReadPackageDetailsAndPII(ctx, externalId)
+        const parsedPII = JSON.parse(pii)
+        const toMSPCollection = getImplicitCollection(toMSP)
 
-    //     const termsBuf = tmap.get("terms")?.toString()
+        // Store private data in the recipient organization's implicit collection
+        await ctx.stub.putPrivateData(
+            toMSPCollection,
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive({ parsedPackageInfo: parsedPII.parsedPackaInfo }))),
+        )
 
-    //     if (!termsBuf) {
-    //         throw new Error(
-    //             "Missing transient field 'terms' for private transfer terms",
-    //         )
-    //     }
-
-    //     let raw: any
-    //     try {
-    //         raw = JSON.parse(termsBuf.toString())
-    //     } catch (e) {
-    //         throw new Error(`Invalid JSON for 'terms': ${(e as Error).message}`)
-    //     }
-
-    //     // Validate that terms has the required fields [proposalId, pkgId, fromMSP, toMSP, expiryISO (optional)]
-    //     const missing: string[] = []
-    //     const req = ["proposalId", "pkgId", "fromMSP", "toMSP"] as const
-    //     for (const k of req)
-    //         if (raw[k] == null || raw[k] === "") missing.push(k)
-    //     if (missing.length) {
-    //         throw new Error(
-    //             `Missing required term field(s): ${missing.join(", ")}`,
-    //         )
-    //     }
-
-    //     // Verify if expiryISO is valid if provided
-    //     if (raw.expiryISO) {
-    //         const d = new Date(raw.expiryISO)
-    //         if (isNaN(d.getTime())) {
-    //             throw new Error(`Invalid expiryISO date: ${raw.expiryISO}`)
-    //         }
-    //         if (d < new Date()) {
-    //             throw new Error(
-    //                 `expiryISO must be in the future: ${raw.expiryISO}`,
-    //             )
-    //         }
-    //     }
-
-    //     // pkgId must match the function arg
-    //     if (raw.pkgId !== pkgId) {
-    //         throw new Error(
-    //             `terms.pkgId (${raw.pkgId}) does not match argument pkgId (${pkgId})`,
-    //         )
-    //     }
-
-    //     // fromMSP must be the caller & current owner
-    //     if (raw.fromMSP !== fromMSP) {
-    //         throw new Error(
-    //             `terms.fromMSP (${raw.fromMSP}) must equal caller MSP (${fromMSP})`,
-    //         )
-    //     }
-    //     if (raw.fromMSP !== packageData.ownerOrgMSP) {
-    //         throw new Error(
-    //             `terms.fromMSP (${raw.fromMSP}) must equal current owner (${packageData.ownerOrgMSP})`,
-    //         )
-    //     }
-    //     if (raw.toMSP === fromMSP) {
-    //         throw new Error("toMSP must differ from fromMSP")
-    //     }
-
-    //     const createdISO = new Date().toISOString()
-    //     const status = TransferStatus.PROPOSED
-
-    //     const terms = {
-    //         proposalId: raw.proposalId,
-    //         pkgId,
-    //         fromMSP,
-    //         toMSP: raw.toMSP,
-    //         createdISO,
-    //         expiryISO: raw.expiryISO || null,
-    //     }
-    //     const canonicalTerms = stringify(sortKeysRecursive(terms))
-    //     const termsHash = createHash("sha256")
-    //         .update(canonicalTerms)
-    //         .digest("hex")
-
-    //     const transfer: Transfer = {
-    //         terms,
-    //         hash: termsHash,
-    //         status,
-    //     }
-    //     const pKey = proposalKey(ctx, pkgId, terms.proposalId)
-
-    //     const exists = await ctx.stub.getPrivateData(pdc, pKey)
-    //     if (exists && exists.length) {
-    //         throw new Error(
-    //             `A transfer proposal '${terms.proposalId}' for package '${pkgId}' already exists`,
-    //         )
-    //     }
-
-    //     const stateBuffer = Buffer.from(stringify(sortKeysRecursive(transfer)))
-    //     await ctx.stub.putPrivateData(pdc, pKey, stateBuffer)
-    //     ctx.stub.setEvent(
-    //         "TransferProposed",
-    //         Buffer.from(stringify({ pkgId, proposalId: terms.proposalId })),
-    //     )
-    // }
+        await ctx.stub.putState(termsId, Buffer.from(stringify(sortKeysRecursive(terms))))
+        ctx.stub.setEvent(
+            "TransferProposed",
+            Buffer.from(stringify({ externalId, termsId })),
+        )
+    }
 
     // // AcceptTransfer accepts a transfer proposal for an asset from another organization.
     // @Transaction()
