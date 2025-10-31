@@ -212,7 +212,7 @@ export class PackageContract extends Contract {
     }
 
     // // ProposeTransfer creates a transfer proposal for an asset to another organization.
-    // @Transaction()
+    @Transaction()
     public async ProposeTransfer(ctx: Context, externalId: string, toMSP: string, createdISO: string, expiryISO?: string): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
@@ -235,15 +235,21 @@ export class PackageContract extends Contract {
             toMSP,
         }
 
-        const pii = await this.ReadPackageDetailsAndPII(ctx, externalId)
-        const parsedPII = JSON.parse(pii)
         const toMSPCollection = getImplicitCollection(toMSP)
+        const tmap = ctx.stub.getTransient()
 
+        const privateTransferTermsData = tmap.get("privateTransferTerms")
+        if (!privateTransferTermsData || !privateTransferTermsData.length) {
+            throw new Error("Missing transient field 'privateTransferTerms' for private transfer terms")
+        }
+        
+        const privateTransferTerms = JSON.parse(privateTransferTermsData.toString())
+        
         // Store private data in the recipient organization's implicit collection
         await ctx.stub.putPrivateData(
             toMSPCollection,
-            externalId,
-            Buffer.from(stringify(sortKeysRecursive({ parsedPackageInfo: parsedPII.parsedPackaInfo }))),
+            termsId,
+            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
         )
 
         await ctx.stub.putState(termsId, Buffer.from(stringify(sortKeysRecursive(terms))))
