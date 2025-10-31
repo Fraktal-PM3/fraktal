@@ -8,12 +8,13 @@ import {
 } from "fabric-contract-api"
 import stringify from "json-stringify-deterministic"
 import sortKeysRecursive from "sort-keys-recursive"
-import { BlockchainPackage, PackagePII, Status, TransferTerms } from "./package"
+import { BlockchainPackageSchema, PackagePII, Status, TransferTerms } from "./package"
 import {
     callerMSP,
     getImplicitCollection,
     isAllowedTransition,
     requireAttr,
+    validateJSONPII,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
 } from "./utils"
@@ -46,11 +47,13 @@ export class PackageContract extends Contract {
         const piiBuf = tmap.get("pii")
         if (!piiBuf) {
             throw new Error(
-                "Missing transient field 'pii' (must be JSON of PrivatePackage)",
+                "Missing transient field 'pii'",
             )
         }
 
-        const parsedPII = JSON.parse(piiBuf.toString()) as PackagePII
+        const parsedPII = validateJSONPII(piiBuf.toString())
+
+
 
         const packageDetails = tmap.get("packageDetails")
         if (!packageDetails) {
@@ -73,12 +76,13 @@ export class PackageContract extends Contract {
         )
         console.log(`[CreatePackage] Successfully wrote private data to ${ownerCollection}`)
 
-        const blockchainPackage: BlockchainPackage = {
+
+        const blockchainPackage = BlockchainPackageSchema.parse({
             externalId: externalId,
             ownerOrgMSP: ownerOrgMSPID,
             status: Status.PENDING,
             packageDetailsHash: packageInfoHash,
-        }
+        })
 
         const stateBuffer = Buffer.from(
             stringify(sortKeysRecursive(blockchainPackage)),
