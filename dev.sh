@@ -342,6 +342,33 @@ function install() {
   pushd ${NETWORKDIR} >/dev/null
   ./network.sh prereq
   popd >/dev/null
+
+  infoln "==============================="
+  infoln "Configuring CA services..."
+  infoln "==============================="
+  local CA_COMPOSE_FILE="${NETWORKDIR}/compose/docker/docker-compose-ca.yaml"
+
+  if [[ -f "${CA_COMPOSE_FILE}" ]]; then
+    # Add CA hostname and CSR configuration
+    cat >> "${CA_COMPOSE_FILE}" << 'EOF'
+services:
+  ca_org1:
+    hostname: ca_org1
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_org1,localhost
+  ca_org2:
+    hostname: ca_org2
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_org2,localhost
+  ca_orderer:
+    hostname: ca_orderer
+    environment:
+      - FABRIC_CA_SERVER_CSR_HOSTS=ca_orderer,localhost
+EOF
+    infoln "✓ CA configuration added successfully"
+  else
+    errorln "CA compose file not found: ${CA_COMPOSE_FILE}"
+  fi
 }
 
 function networkStatus() {
