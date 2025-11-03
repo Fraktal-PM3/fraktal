@@ -592,10 +592,6 @@ export class PackageContract extends Contract {
             throw new Error(`Private package data for ${externalId} not found in ${ownerCollection}`)
         }
 
-        // Write private data into recipient's implicit collection
-        const recipientCollection = getImplicitCollection(terms.toMSP)
-        await ctx.stub.putPrivateData(recipientCollection, externalId, privateBuf)
-
         // Delete private data from the old owner's collection
         await ctx.stub.deletePrivateData(ownerCollection, externalId)
 
@@ -605,9 +601,6 @@ export class PackageContract extends Contract {
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
-
-        // Remove the public transfer term to avoid replay
-        await ctx.stub.deleteState(termsId)
 
         // Emit minimal event
         ctx.stub.setEvent(
