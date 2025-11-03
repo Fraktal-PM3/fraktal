@@ -13,7 +13,7 @@ import {
     PackageDetails,
     PackagePII,
     Status,
-    TransferTerms
+    TransferTerms,
 } from "./package"
 import {
     callerMSP,
@@ -277,16 +277,12 @@ export class PackageContract extends Contract {
 
     // // ProposeTransfer creates a transfer proposal for an asset to another organization.
     @Transaction()
-<<<<<<< HEAD
     public async ProposeTransfer(
         ctx: Context,
         externalId: string,
         toMSP: string,
         expiryISO?: string,
     ): Promise<void> {
-=======
-    public async ProposeTransfer(ctx: Context, externalId: string, toMSP: string, expiryISO?: string): Promise<void> {
->>>>>>> f0030a3 (Add validation to contract)
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
             throw new Error(`The package ${externalId} does not exist`)
@@ -320,13 +316,9 @@ export class PackageContract extends Contract {
             )
         }
 
-<<<<<<< HEAD
         const privateTransferTerms = validateJSONToPrivateTransferTerms(
             privateTransferTermsData.toString(),
         )
-=======
-        const privateTransferTerms = validateJSONToPrivateTransferTerms(privateTransferTermsData.toString())
->>>>>>> f0030a3 (Add validation to contract)
 
         // Store private data in the recipient organization's implicit collection
         await ctx.stub.putPrivateData(
@@ -355,20 +347,15 @@ export class PackageContract extends Contract {
             `[CheckPacageDetailsAndPIIHash] Called for package: ${externalId}`,
         )
 
-<<<<<<< HEAD
         const blockchainPackageData = await this.ReadBlockchainPackage(
             ctx,
             externalId,
         )
-=======
-        const blockchainPackageData = await this.ReadBlockchainPackage(ctx, externalId)
->>>>>>> f0030a3 (Add validation to contract)
 
         if (!blockchainPackageData) {
             throw new Error(`The package ${externalId} does not exist`)
         }
 
-<<<<<<< HEAD
         const blockchainPackage = validateJSONToBlockchainPackage(
             blockchainPackageData,
         )
@@ -377,12 +364,6 @@ export class PackageContract extends Contract {
         const ownerCollection = getImplicitCollection(
             blockchainPackage.ownerOrgMSP,
         )
-=======
-        const blockchainPackage = validateJSONToBlockchainPackage(blockchainPackageData)
-
-        // Read the package details and PII
-        const ownerCollection = getImplicitCollection(blockchainPackage.ownerOrgMSP)
->>>>>>> f0030a3 (Add validation to contract)
         console.log(
             `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
         )
@@ -532,14 +513,8 @@ export class PackageContract extends Contract {
             ctx,
             termsId,
         )
-<<<<<<< HEAD
         const parsedPrivateTerms =
             validateJSONToPrivateTransferTerms(privateTransferTerms)
-=======
-        const parsedPrivateTerms = validateJSONToPrivateTransferTerms(
-            privateTransferTerms,
-        )
->>>>>>> f0030a3 (Add validation to contract)
         const tmap = ctx.stub.getTransient()
         const transferTermsData = tmap.get("privateTransferTerms")
 
