@@ -34,7 +34,15 @@ import {
     description: "Smart contract for managing packages",
 })
 export class PackageContract extends Contract {
-    // CreatePackage issues a new package to the world state with given details.
+    /**
+     * CreatePackage issues a new package to the world state with given details.
+     * Stores the private package details and PII in the caller's implicit collection
+     * and a public package record (with a hash of the private blob) on the ledger.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier (unique)
+     * @param {string} salt - Random salt used when hashing/storing private data
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async CreatePackage(
         ctx: Context,
@@ -123,7 +131,12 @@ export class PackageContract extends Contract {
         ctx.stub.setEvent("CreatePackage", eventBuffer)
     }
 
-    // ReadPackage returns the package stored in the world state with given id.
+    /**
+     * ReadBlockchainPackage returns the public package stored in the world state.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @returns {Promise<string>} JSON serialized public package
+     */
     @Transaction(false)
     public async ReadBlockchainPackage(
         ctx: Context,
@@ -136,6 +149,13 @@ export class PackageContract extends Contract {
         return packageJSON.toString()
     }
 
+    /**
+     * ReadPackageDetailsAndPII returns the private package blob (details + PII)
+     * for the caller's organization. Only the owning org may read their private data.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @returns {Promise<string>} JSON serialized private blob
+     */
     @Transaction(false)
     public async ReadPackageDetailsAndPII(
         ctx: Context,
@@ -197,6 +217,14 @@ export class PackageContract extends Contract {
         return privateBuf.toString()
     }
 
+    /**
+     * UpdatePackageStatus updates the public package status. Only the owner org
+     * may perform updates and certain transitions require specific roles.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {Status} status - New status to set
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async UpdatePackageStatus(
         ctx: Context,
@@ -242,7 +270,13 @@ export class PackageContract extends Contract {
         ctx.stub.setEvent("StatusUpdated", eventBuffer)
     }
 
-    // DeletePackage deletes an given package from the world state.
+    /**
+     * DeletePackage deletes the public package record. Only an 'ombud' may
+     * delete a PENDING package; 'pm3' may always delete.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async DeletePackage(
         ctx: Context,
@@ -266,7 +300,13 @@ export class PackageContract extends Contract {
         throw new Error("Not authorized to delete this package")
     }
 
-    // PackageExists returns true when package with given ID exists in world state.
+    /**
+     * PackageExists returns true when a public package with the given ID exists
+     * in the world state.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @returns {Promise<boolean>}
+     */
     @Transaction(false)
     @Returns("boolean")
     public async PackageExists(
@@ -277,7 +317,15 @@ export class PackageContract extends Contract {
         return data.length > 0
     }
 
-    // // ProposeTransfer creates a transfer proposal for an asset to another organization.
+    /**
+     * ProposeTransfer creates a public transfer term and stores private transfer
+     * terms (e.g. price) in the recipient's implicit collection.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} toMSP - Recipient organization's MSP ID
+     * @param {string=} expiryISO - Optional ISO expiry timestamp
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async ProposeTransfer(
         ctx: Context,
@@ -348,6 +396,14 @@ export class PackageContract extends Contract {
         )
     }
 
+    /**
+     * CheckPackageDetailsAndPIIHash verifies that the private package blob
+     * stored in the owner's implicit collection matches the expected hash.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} expectedHash - Expected SHA256 hex hash
+     * @returns {Promise<boolean>}
+     */
     @Transaction(false)
     public async CheckPackageDetailsAndPIIHash(
         ctx: Context,
@@ -404,6 +460,12 @@ export class PackageContract extends Contract {
         return true
     }
 
+    /**
+     * ReadTransferTerms returns the public transfer terms for a given term id.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} termsId - Transfer term identifier
+     * @returns {Promise<string>} JSON serialized transfer terms
+     */
     @Transaction(false)
     public async ReadTransferTerms(
         ctx: Context,
@@ -416,6 +478,13 @@ export class PackageContract extends Contract {
         return termsJSON.toString()
     }
 
+    /**
+     * ReadPrivateTransferTerms returns the private transfer terms from the
+     * caller's implicit collection. Caller must be the intended recipient.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} termsId - Transfer term identifier
+     * @returns {Promise<string>} JSON serialized private transfer terms
+     */
     @Transaction(false)
     public async ReadPrivateTransferTerms(
         ctx: Context,
@@ -472,6 +541,16 @@ export class PackageContract extends Contract {
         return privateBuf.toString()
     }
 
+    /**
+     * AcceptTransfer is called by the proposed recipient to accept a transfer.
+     * It validates the package hash and the private terms provided in transient
+     * against the stored private terms.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} termsId - Transfer term identifier
+     * @param {string} packageDetailsAndPIIHash - Hash of package details+PII
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async AcceptTransfer(
         ctx: Context,
