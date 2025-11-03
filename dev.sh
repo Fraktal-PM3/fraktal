@@ -81,6 +81,61 @@ function deployChaincode() {
   return ${rc}
 }
 
+# Upgrade the PM3 chaincode to a new version
+function upgradeChaincode() {
+  infoln "======================================"
+  infoln "Upgrading chaincode on channel: ${CHANNEL_NAME}"
+  infoln "======================================"
+  infoln ""
+  infoln "Current settings:"
+  infoln "  Name=${CC_NAME}"
+  infoln "  Version=${CC_VERSION}"
+  infoln "  Sequence=${CC_SEQUENCE}"
+  infoln ""
+  infoln "IMPORTANT: To upgrade chaincode, you must:"
+  infoln "  1. Increment CC_VERSION (e.g., 1.0 -> 1.1 or 2.0)"
+  infoln "  2. Increment CC_SEQUENCE (e.g., 1 -> 2)"
+  infoln ""
+  infoln "Set these via environment variables:"
+  infoln "  CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc"
+  infoln ""
+
+  # Check if this looks like an initial deployment (version 1.0 and sequence 1)
+  if [[ "${CC_VERSION}" == "1.0" && "${CC_SEQUENCE}" == "1" ]]; then
+    errorln "Error: CC_VERSION and CC_SEQUENCE appear to be at initial values."
+    errorln "Please increment them before upgrading:"
+    errorln "  CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc"
+    return 1
+  fi
+
+  infoln "Proceeding with upgrade..."
+  infoln ""
+
+  # Build the updated chaincode
+  buildChaincode
+
+  # Deploy uses the same lifecycle process, but with incremented version/sequence
+  deployChaincode
+  local rc=$?
+
+  if [[ ${rc} -eq 0 ]]; then
+    infoln ""
+    infoln "======================================"
+    infoln "✓ Chaincode upgraded successfully!"
+    infoln "  Name: ${CC_NAME}"
+    infoln "  New Version: ${CC_VERSION}"
+    infoln "  New Sequence: ${CC_SEQUENCE}"
+    infoln "======================================"
+  else
+    errorln ""
+    errorln "======================================"
+    errorln "Failed to upgrade chaincode"
+    errorln "======================================"
+  fi
+
+  return ${rc}
+}
+
 # Enroll CA admins for both organizations
 function enrollCaAdmins() {
   infoln "==============================="
@@ -434,6 +489,7 @@ function printHelp() {
   echo "  status         Show the status of the PM3 test network and/or Firefly containers"
   echo "  install        Install prerequisites for the PM3 test network"
   echo "  deploycc       Build and deploy the PM3 chaincode to the Fabric network"
+  echo "  upgradecc      Upgrade the PM3 chaincode to a new version (usage: CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc)"
   echo "  updaterole     Update role for an existing user (usage: $0 updaterole <username> <new_role> <org_number>)"
   echo "  listidentities List all identities in the CA for an org (usage: $0 listidentities <org_number>)"
   echo ""
@@ -445,6 +501,7 @@ function printHelp() {
   echo "If neither firefly nor fabric is specified, both will be operated on."
   echo ""
   echo "Examples:"
+  echo "  CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc    # Upgrade chaincode to version 1.1 with sequence 2"
   echo "  $0 updaterole transporter1 manager 1         # Update transporter1 in Org1 to manager role"
   echo "  $0 updaterole ombud1 auditor 2               # Update ombud1 in Org2 to auditor role"
   echo "  $0 listidentities 1                          # List all identities registered in Org1's CA"
@@ -465,7 +522,7 @@ firefly_selected=false
 fabric_selected=false
 
 # Commands that take positional arguments should skip the firefly/fabric parsing loop
-if [[ "${MODE}" != "updaterole" && "${MODE}" != "listidentities" ]]; then
+if [[ "${MODE}" != "updaterole" && "${MODE}" != "listidentities" && "${MODE}" != "upgradecc" ]]; then
   while [[ $# -ge 1 ]]; do
     case "$1" in
     ff)
@@ -537,6 +594,9 @@ elif [[ "${MODE}" == "deploycc" ]]; then
   # Build and deploy the PM3 chaincode
   buildChaincode
   deployChaincode
+elif [[ "${MODE}" == "upgradecc" ]]; then
+  # Build and upgrade the PM3 chaincode
+  upgradeChaincode
 elif [[ "${MODE}" == "updaterole" ]]; then
   # Parse additional arguments for updaterole command
   if [[ $# -lt 3 ]]; then
