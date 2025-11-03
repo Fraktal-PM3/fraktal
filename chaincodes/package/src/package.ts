@@ -31,53 +31,66 @@ export const StatusEnumSchema = z.enum(Status)
 export const UrgencyEnumSchema = z.enum(Urgency)
 export const TransferStatusEnumSchema = z.enum(TransferStatus)
 
-export const SizeSchema = z.object({
-    width: z.number().positive(),
-    height: z.number().positive(),
-    depth: z.number().positive(),
-}).strict()
+export const SizeSchema = z
+    .object({
+        width: z.number().positive(),
+        height: z.number().positive(),
+        depth: z.number().positive(),
+    })
+    .strict()
 
-export const LocationSchema = z.object({
-    address: z.string().nonempty(),
-    lat: z.number().optional(),
-    lng: z.number().optional(),
-}).strict()
+export const LocationSchema = z
+    .object({
+        address: z.string().nonempty(),
+        lat: z.number().optional(),
+        lng: z.number().optional(),
+    })
+    .strict()
 
-export const PackageDetailsSchema = z.object({
-    pickupLocation: LocationSchema,
-    dropLocation: LocationSchema,
-    address: z.string().nonempty(),
-    size: SizeSchema,
-    weightKg: z.number().positive(),
-    urgency: UrgencyEnumSchema,
-}).strict()
+export const PackageDetailsSchema = z
+    .object({
+        pickupLocation: LocationSchema,
+        dropLocation: LocationSchema,
+        size: SizeSchema,
+        weightKg: z.number().positive(),
+        urgency: UrgencyEnumSchema,
+    })
+    .strict()
 
-export const TransferTermsSchema = z.object({
-    externalPackageId: z.string().nonempty(),
-    fromMSP: z.string().nonempty(),
-    toMSP: z.string().nonempty(),
-    createdISO: z.iso.datetime(),
-    expiryISO: z.iso.datetime().nullable().optional(),
-}).strict()
+export const TransferTermsSchema = z
+    .object({
+        externalPackageId: z.string().nonempty(),
+        fromMSP: z.string().nonempty(),
+        toMSP: z.string().nonempty(),
+        createdISO: z.iso.datetime(),
+        expiryISO: z.iso.datetime().nullable().optional(),
+    })
+    .strict()
 
-export const TransferSchema = z.object({
-    terms: TransferTermsSchema,
-    status: TransferStatusEnumSchema,
-    transferTermsHash: z.hash("sha256"),
-}).strict()
+export const TransferSchema = z
+    .object({
+        terms: TransferTermsSchema,
+        status: TransferStatusEnumSchema,
+        transferTermsHash: z.hash("sha256"),
+    })
+    .strict()
 
-export const PrivateTransferTermsSchema = z.object({
-    price: z.number().nonnegative(),
-}).strict()
+export const PrivateTransferTermsSchema = z
+    .object({
+        price: z.number().nonnegative(),
+    })
+    .strict()
 
 export const PackagePIISchema = z.record(z.string(), z.any())
 
-export const BlockchainPackageSchema = z.object({
-    externalId: z.string().nonempty(),
-    ownerOrgMSP: z.string().nonempty(),
-    status: StatusEnumSchema,
-    packageDetailsHash: z.hash("sha256"),
-}).strict()
+export const BlockchainPackageSchema = z
+    .object({
+        externalId: z.string().nonempty(),
+        ownerOrgMSP: z.string().nonempty(),
+        status: StatusEnumSchema,
+        packageDetailsHash: z.hash("sha256"),
+    })
+    .strict()
 
 export type Size = z.infer<typeof SizeSchema>
 export type Location = z.infer<typeof LocationSchema>
@@ -87,7 +100,6 @@ export type Transfer = z.infer<typeof TransferSchema>
 export type PrivateTransferTerms = z.infer<typeof PrivateTransferTermsSchema>
 export type PackagePII = z.infer<typeof PackagePIISchema>
 export type BlockchainPackageType = z.infer<typeof BlockchainPackageSchema>
-
 
 @Object()
 export class BlockchainPackage {
@@ -102,6 +114,4 @@ export class BlockchainPackage {
 
     @Property()
     public packageDetailsHash: string = ""
-
 }
-
