@@ -459,7 +459,7 @@ export class PackageContract extends Contract {
 
         if (parsedTerms.toMSP !== callerMSPID) {
             console.log(
-                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer itended for ${parsedTerms.toMSP}`,
+                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${parsedTerms.toMSP}`,
             )
             throw new Error(
                 `The caller organization (${callerMSPID}) is not authorized to accept terms ${termsId} meant for ${parsedTerms.toMSP}`,
