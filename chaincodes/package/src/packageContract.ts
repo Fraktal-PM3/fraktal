@@ -26,7 +26,8 @@ import {
     validateJSONToPrivateTransferTerms,
     validateJSONToTransferTerms,
     isUUID,
-    isISODateString
+    isISODateString,
+    hasActiveTransferProposal
 } from "./utils"
 
 @Info({
@@ -270,12 +271,13 @@ export class PackageContract extends Contract {
         ctx.stub.setEvent("StatusUpdated", eventBuffer)
     }
 
-    /**
-     * DeletePackage deletes the public package record. Only an 'ombud' may
-     * delete a PENDING package; 'pm3' may always delete.
-     * @param {Context} ctx - Fabric transaction context
-     * @param {string} externalId - External package identifier
-     * @returns {Promise<void>}
+    
+ /** Deletes a package from the world state
+     * - Owner can delete if status is PENDING
+     * - Owner can delete if there's an active transfer proposal (before execution)
+     * @param ctx - The transaction context
+     * @param externalId - Unique identifier for the package
+     * @throws {Error} If caller doesn't have required permissions
      */
     @Transaction()
     public async DeletePackage(
@@ -285,20 +287,30 @@ export class PackageContract extends Contract {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
-        // Check that the caller has the role of 'ombud' if status is PENDING
-        const isOmbud = requireAttr(ctx, "role", "ombud")
-        const isPM3 = requireAttr(ctx, "role", "pm3")
-        if ((isOmbud && packageData.status === Status.PENDING) || isPM3) {
-            await ctx.stub.deleteState(externalId)
-            ctx.stub.setEvent(
-                "DeletePackage",
-                Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
-            )
-            return
+
+        const callerMSPID = callerMSP(ctx)
+        const isOwner = packageData.ownerOrgMSP === callerMSPID
+        // Owner can delete if status is PENDING or if there's an active transfer proposal
+        if (isOwner) {
+            const hasActiveTransfer = await hasActiveTransferProposal(ctx, externalId, packageData.ownerOrgMSP)
+            
+            if (packageData.status === Status.PENDING || hasActiveTransfer) {
+                await ctx.stub.deleteState(externalId)
+                ctx.stub.setEvent(
+                    "DeletePackage",
+                    Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
+                )
+                return
+            }
         }
 
-        throw new Error("Not authorized to delete this package")
+        throw new Error(
+            `Not authorized to delete package ${externalId}. Only owner can delete PENDING packages or packages with active transfer proposals.`
+        )
     }
+
+
+ 
 
     /**
      * PackageExists returns true when a public package with the given ID exists
