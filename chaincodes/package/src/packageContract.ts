@@ -541,10 +541,17 @@ export class PackageContract extends Contract {
         )
     }
 
-    // ExecuteTransfer performs the ownership change. Caller must be the current owner
-    // (fromMSP) and the package private data will be moved from the owner's implicit
-    // collection into the recipient's implicit collection. Public package owner is
-    // updated and the public transfer term is removed to prevent replay.
+    /**
+     * ExecuteTransfer performs the ownership change. Caller must be the current owner (fromMSP).
+     * It moves the package's private details and PII from the owner's implicit collection
+     * to the recipient's implicit collection (if they differ), updates the public package
+     * owner on the ledger, and emits a minimal TransferExecuted event.
+     *
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} termsId - Transfer term identifier
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async ExecuteTransfer(
         ctx: Context,
@@ -592,8 +599,17 @@ export class PackageContract extends Contract {
             throw new Error(`Private package data for ${externalId} not found in ${ownerCollection}`)
         }
 
-        // Delete private data from the old owner's collection
-        await ctx.stub.deletePrivateData(ownerCollection, externalId)
+        // If recipient is different, copy private package data into recipient's implicit collection
+        const recipientCollection = getImplicitCollection(terms.toMSP)
+        if (recipientCollection === ownerCollection) {
+            // same org — nothing to move, but still update public owner
+            console.log(`[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`)
+        } else {
+            // write into recipient collection first (move semantics)
+            await ctx.stub.putPrivateData(recipientCollection, externalId, privateBuf)
+            // remove from owner's collection
+            await ctx.stub.deletePrivateData(ownerCollection, externalId)
+        }
 
         // Update public package owner
         packageData.ownerOrgMSP = terms.toMSP
