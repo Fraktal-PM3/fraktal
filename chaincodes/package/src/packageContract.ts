@@ -334,7 +334,7 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(terms))),
         )
         ctx.stub.setEvent(
-            "TransferProposed",
+            "ProposeTransfer",
             Buffer.from(stringify({ externalId, termsId })),
         )
     }
