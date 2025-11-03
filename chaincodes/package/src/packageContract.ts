@@ -13,7 +13,7 @@ import {
     PackageDetails,
     PackagePII,
     Status,
-    TransferTerms
+    TransferTerms,
 } from "./package"
 import {
     callerMSP,
@@ -37,6 +37,7 @@ export class PackageContract extends Contract {
     public async CreatePackage(
         ctx: Context,
         externalId: string,
+        salt: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
@@ -59,9 +60,7 @@ export class PackageContract extends Contract {
         const tmap = ctx.stub.getTransient()
         const piiBuf = tmap.get("pii")
         if (!piiBuf) {
-            throw new Error(
-                "Missing transient field 'pii'",
-            )
+            throw new Error("Missing transient field 'pii'")
         }
 
         const parsedPII = validateJSONToPII(piiBuf.toString())
@@ -72,8 +71,6 @@ export class PackageContract extends Contract {
                 "Missing transient field 'packageDetails' (must be JSON of PackageDetails)",
             )
         }
-
-        const salt = crypto.randomBytes(32).toString("hex")
 
         const parsedPackageInfo = validateJSONToPackageDetails(
             packageDetails.toString(),
@@ -280,7 +277,12 @@ export class PackageContract extends Contract {
 
     // // ProposeTransfer creates a transfer proposal for an asset to another organization.
     @Transaction()
-    public async ProposeTransfer(ctx: Context, externalId: string, toMSP: string, expiryISO?: string): Promise<void> {
+    public async ProposeTransfer(
+        ctx: Context,
+        externalId: string,
+        toMSP: string,
+        expiryISO?: string,
+    ): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
             throw new Error(`The package ${externalId} does not exist`)
@@ -290,7 +292,9 @@ export class PackageContract extends Contract {
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
         if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
-            throw new Error(`Only the owner organization may propose a transfer for package ${externalId}`)
+            throw new Error(
+                `Only the owner organization may propose a transfer for package ${externalId}`,
+            )
         }
 
         const termsId = randomUUID()
@@ -307,10 +311,14 @@ export class PackageContract extends Contract {
 
         const privateTransferTermsData = tmap.get("privateTransferTerms")
         if (!privateTransferTermsData || !privateTransferTermsData.length) {
-            throw new Error("Missing transient field 'privateTransferTerms' for private transfer terms")
+            throw new Error(
+                "Missing transient field 'privateTransferTerms' for private transfer terms",
+            )
         }
 
-        const privateTransferTerms = validateJSONToPrivateTransferTerms(privateTransferTermsData.toString())
+        const privateTransferTerms = validateJSONToPrivateTransferTerms(
+            privateTransferTermsData.toString(),
+        )
 
         // Store private data in the recipient organization's implicit collection
         await ctx.stub.putPrivateData(
@@ -319,7 +327,10 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
         )
 
-        await ctx.stub.putState(termsId, Buffer.from(stringify(sortKeysRecursive(terms))))
+        await ctx.stub.putState(
+            termsId,
+            Buffer.from(stringify(sortKeysRecursive(terms))),
+        )
         ctx.stub.setEvent(
             "TransferProposed",
             Buffer.from(stringify({ externalId, termsId })),
@@ -336,16 +347,23 @@ export class PackageContract extends Contract {
             `[CheckPacageDetailsAndPIIHash] Called for package: ${externalId}`,
         )
 
-        const blockchainPackageData = await this.ReadBlockchainPackage(ctx, externalId)
+        const blockchainPackageData = await this.ReadBlockchainPackage(
+            ctx,
+            externalId,
+        )
 
         if (!blockchainPackageData) {
             throw new Error(`The package ${externalId} does not exist`)
         }
 
-        const blockchainPackage = validateJSONToBlockchainPackage(blockchainPackageData)
+        const blockchainPackage = validateJSONToBlockchainPackage(
+            blockchainPackageData,
+        )
 
         // Read the package details and PII
-        const ownerCollection = getImplicitCollection(blockchainPackage.ownerOrgMSP)
+        const ownerCollection = getImplicitCollection(
+            blockchainPackage.ownerOrgMSP,
+        )
         console.log(
             `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
         )
@@ -495,9 +513,8 @@ export class PackageContract extends Contract {
             ctx,
             termsId,
         )
-        const parsedPrivateTerms = validateJSONToPrivateTransferTerms(
-            privateTransferTerms,
-        )
+        const parsedPrivateTerms =
+            validateJSONToPrivateTransferTerms(privateTransferTerms)
         const tmap = ctx.stub.getTransient()
         const transferTermsData = tmap.get("privateTransferTerms")
 
