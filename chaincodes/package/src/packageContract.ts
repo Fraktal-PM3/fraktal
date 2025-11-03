@@ -349,7 +349,7 @@ export class PackageContract extends Contract {
         // Read the package details and PII
         const ownerCollection = getImplicitCollection(blockchainPackage.ownerOrgMSP)
         console.log(
-            `[CheckPacageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
+            `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
         )
         const packageDetailsAndPII = await ctx.stub.getPrivateData(
             ownerCollection,
