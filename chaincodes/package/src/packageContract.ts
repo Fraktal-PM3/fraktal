@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "crypto"
+import { createHash } from "crypto"
 import {
     Context,
     Contract,
@@ -25,6 +25,8 @@ import {
     validateJSONToPII,
     validateJSONToPrivateTransferTerms,
     validateJSONToTransferTerms,
+    isUUID,
+    isISODateString
 } from "./utils"
 
 @Info({
@@ -280,7 +282,9 @@ export class PackageContract extends Contract {
     public async ProposeTransfer(
         ctx: Context,
         externalId: string,
+        termsId: string,
         toMSP: string,
+        createdISO: string,
         expiryISO?: string,
     ): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
@@ -297,12 +301,19 @@ export class PackageContract extends Contract {
             )
         }
 
-        const termsId = randomUUID()
+        if (!isUUID(termsId)) {
+            throw new Error("Invalid termsId format — must be a UUID string.")
+        }
+          
+        if (!isISODateString(createdISO)) {
+            throw new Error("Invalid createdISO format — must be an ISO-8601 string.")
+        }
+
         const terms: TransferTerms = {
             externalPackageId: externalId,
             fromMSP: callerMSP(ctx),
             expiryISO: expiryISO || null,
-            createdISO: new Date().toISOString(),
+            createdISO,
             toMSP,
         }
 
@@ -333,7 +344,7 @@ export class PackageContract extends Contract {
         )
         ctx.stub.setEvent(
             "ProposeTransfer",
-            Buffer.from(stringify({ externalId, termsId })),
+            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
         )
     }
 
