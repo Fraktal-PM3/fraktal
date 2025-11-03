@@ -402,7 +402,7 @@ export class PackageContract extends Contract {
         const parsedTerms = validateJSONToTransferTerms(publicTransferTerms)
 
         console.log(
-            `[ReadPrivateTransferTerms] Tranfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`,
+            `[ReadPrivateTransferTerms] Transfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`,
         )
 
         if (parsedTerms.toMSP !== callerMSPID) {
