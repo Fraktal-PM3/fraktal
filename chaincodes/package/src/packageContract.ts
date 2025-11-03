@@ -540,4 +540,81 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
         )
     }
+
+    // ExecuteTransfer performs the ownership change. Caller must be the current owner
+    // (fromMSP) and the package private data will be moved from the owner's implicit
+    // collection into the recipient's implicit collection. Public package owner is
+    // updated and the public transfer term is removed to prevent replay.
+    @Transaction()
+    public async ExecuteTransfer(
+        ctx: Context,
+        externalId: string,
+        termsId: string,
+    ): Promise<void> {
+        // Read public transfer terms
+        const termsJSON = await this.ReadTransferTerms(ctx, termsId)
+        const terms = validateJSONToTransferTerms(termsJSON)
+
+        if (terms.externalPackageId !== externalId) {
+            throw new Error(`Transfer terms ${termsId} are not for package ${externalId}`)
+        }
+
+        const caller = callerMSP(ctx)
+
+        // Only the original proposer (fromMSP) may execute the transfer
+        if (caller !== terms.fromMSP) {
+            throw new Error(`Only the proposer (${terms.fromMSP}) may execute the transfer`)
+        }
+
+        // Read public package and verify ownership
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
+
+        if (packageData.ownerOrgMSP !== caller) {
+            throw new Error(`Package ${externalId} is not owned by ${caller}`)
+        }
+
+        // Validate expiry if present
+        if (terms.expiryISO) {
+            const exp = new Date(terms.expiryISO)
+            if (isNaN(exp.getTime())) {
+                throw new Error(`Invalid expiryISO on transfer terms: ${terms.expiryISO}`)
+            }
+            if (exp < new Date()) {
+                throw new Error(`The transfer terms ${termsId} for package ${externalId} have expired`)
+            }
+        }
+
+        // Read private package data from current owner's implicit collection
+        const ownerCollection = getImplicitCollection(caller)
+        const privateBuf = await ctx.stub.getPrivateData(ownerCollection, externalId)
+        if (!privateBuf || privateBuf.length === 0) {
+            throw new Error(`Private package data for ${externalId} not found in ${ownerCollection}`)
+        }
+
+        // Write private data into recipient's implicit collection
+        const recipientCollection = getImplicitCollection(terms.toMSP)
+        await ctx.stub.putPrivateData(recipientCollection, externalId, privateBuf)
+
+        // Delete private data from the old owner's collection
+        await ctx.stub.deletePrivateData(ownerCollection, externalId)
+
+        // Update public package owner
+        packageData.ownerOrgMSP = terms.toMSP
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
+
+        // Remove the public transfer term to avoid replay
+        await ctx.stub.deleteState(termsId)
+
+        // Emit minimal event
+        ctx.stub.setEvent(
+            "TransferExecuted",
+            Buffer.from(
+                stringify({ externalId, termsId, newOwner: packageData.ownerOrgMSP }),
+            ),
+        )
+    }
 }
