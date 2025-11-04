@@ -513,6 +513,23 @@ source ~/.bashrc
 
 </details>
 
+<details>
+<summary>Line Endings Issue</summary>
+**Problem:** Errors related to unexpected tokens or carriage return characters when running `dev.sh`
+```bash
+./dev.sh: line 12: $'\r': command not found
+./dev.sh: line 13: syntax error near unexpected token `$'in\r''
+'/dev.sh: line 13: `case "${CC_LANG}" in
+```
+
+**Solution:** Convert the line endings of `dev.sh` from Windows (CRLF) to Unix (LF) format using the following command:
+
+```bash
+dos2unix dev.sh 2>&1 || sed -i 's/\r$//' dev.sh
+```
+</details>
+
+
 ---
 
 ## Additional Resources
