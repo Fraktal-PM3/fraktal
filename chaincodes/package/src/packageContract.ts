@@ -27,7 +27,6 @@ import {
     validateJSONToTransferTerms,
     isUUID,
     isISODateString,
-    hasActiveTransferProposal
 } from "./utils"
 
 @Info({
@@ -290,24 +289,22 @@ export class PackageContract extends Contract {
 
         const callerMSPID = callerMSP(ctx)
         const isOwner = packageData.ownerOrgMSP === callerMSPID
-        // Owner can delete if status is PENDING or if there's an active transfer proposal
-        if (isOwner) {
-            const hasActiveTransfer = await hasActiveTransferProposal(ctx, externalId, packageData.ownerOrgMSP)
-            
-            if (packageData.status === Status.PENDING || hasActiveTransfer) {
-                await ctx.stub.deleteState(externalId)
-                ctx.stub.setEvent(
-                    "DeletePackage",
-                    Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
-                )
-                return
+    
+        if (isOwner && packageData.status === Status.PENDING) {
+            await ctx.stub.deleteState(externalId)
+            ctx.stub.setEvent(
+                "DeletePackage",
+                Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
+            )
+            return
             }
+            throw new Error(
+            `Not authorized to delete package ${externalId}.`
+            )
         }
 
-        throw new Error(
-            `Not authorized to delete package ${externalId}. Only owner can delete PENDING packages or packages with active transfer proposals.`
-        )
-    }
+      
+
 
 
  
