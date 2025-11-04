@@ -8,13 +8,7 @@ import {
 } from "fabric-contract-api"
 import stringify from "json-stringify-deterministic"
 import sortKeysRecursive from "sort-keys-recursive"
-import {
-    BlockchainPackageSchema,
-    PackageDetails,
-    PackagePII,
-    Status,
-    TransferTerms,
-} from "./package"
+import { BlockchainPackageSchema, Status, TransferTerms } from "./package"
 import {
     callerMSP,
     getImplicitCollection,
@@ -26,7 +20,7 @@ import {
     validateJSONToPrivateTransferTerms,
     validateJSONToTransferTerms,
     isUUID,
-    isISODateString
+    isISODateString,
 } from "./utils"
 
 @Info({
@@ -352,9 +346,11 @@ export class PackageContract extends Contract {
         if (!isUUID(termsId)) {
             throw new Error("Invalid termsId format — must be a UUID string.")
         }
-          
+
         if (!isISODateString(createdISO)) {
-            throw new Error("Invalid createdISO format — must be an ISO-8601 string.")
+            throw new Error(
+                "Invalid createdISO format — must be an ISO-8601 string.",
+            )
         }
 
         const terms: TransferTerms = {
@@ -411,7 +407,7 @@ export class PackageContract extends Contract {
         expectedHash: string,
     ): Promise<boolean> {
         console.log(
-            `[CheckPacageDetailsAndPIIHash] Called for package: ${externalId}`,
+            `[CheckPackageDetailsAndPIIHash] Called for package: ${externalId}`,
         )
 
         const blockchainPackageData = await this.ReadBlockchainPackage(
@@ -434,26 +430,15 @@ export class PackageContract extends Contract {
         console.log(
             `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
         )
-        const packageDetailsAndPII = await ctx.stub.getPrivateData(
-            ownerCollection,
-            externalId,
-        )
+        const dataHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(ownerCollection, externalId),
+        ).toString("hex")
 
         // No need to validate, checked validation on store
-        const parsedData = JSON.parse(packageDetailsAndPII.toString()) as {
-            salt: string
-            packageDetails: PackageDetails
-            pii: PackagePII
-        }
-
-        const canonicalPackageInfo = stringify(sortKeysRecursive(parsedData))
-        const dataHash = createHash("sha256")
-            .update(canonicalPackageInfo)
-            .digest("hex")
 
         if (dataHash !== expectedHash) {
             console.log(
-                `[CheckPacageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${dataHash}`,
+                `[CheckPackageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${dataHash.toString()}`,
             )
             return false
         }
@@ -599,12 +584,12 @@ export class PackageContract extends Contract {
         }
 
         // Get the package, PII and transfer terms through the pdc
-        const privateTransferTerms = await this.ReadPrivateTransferTerms(
-            ctx,
-            termsId,
-        )
-        const parsedPrivateTerms =
-            validateJSONToPrivateTransferTerms(privateTransferTerms)
+        const privateTransferTermsHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(
+                getImplicitCollection(parsedTerms.toMSP),
+                termsId,
+            ),
+        ).toString("hex")
         const tmap = ctx.stub.getTransient()
         const transferTermsData = tmap.get("privateTransferTerms")
 
@@ -616,7 +601,15 @@ export class PackageContract extends Contract {
             transferTermsData.toString(),
         )
 
-        if (parsedPrivateTerms.price !== parsedInputPrivateTerms.price) {
+        const inputHash = createHash("sha256")
+            .update(
+                Buffer.from(
+                    stringify(sortKeysRecursive(parsedInputPrivateTerms)),
+                ),
+            )
+            .digest("hex")
+
+        if (privateTransferTermsHash !== inputHash) {
             console.log(
                 `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`,
             )
@@ -653,14 +646,18 @@ export class PackageContract extends Contract {
         const terms = validateJSONToTransferTerms(termsJSON)
 
         if (terms.externalPackageId !== externalId) {
-            throw new Error(`Transfer terms ${termsId} are not for package ${externalId}`)
+            throw new Error(
+                `Transfer terms ${termsId} are not for package ${externalId}`,
+            )
         }
 
         const caller = callerMSP(ctx)
 
         // Only the original proposer (fromMSP) may execute the transfer
         if (caller !== terms.fromMSP) {
-            throw new Error(`Only the proposer (${terms.fromMSP}) may execute the transfer`)
+            throw new Error(
+                `Only the proposer (${terms.fromMSP}) may execute the transfer`,
+            )
         }
 
         // Read public package and verify ownership
@@ -675,28 +672,43 @@ export class PackageContract extends Contract {
         if (terms.expiryISO) {
             const exp = new Date(terms.expiryISO)
             if (isNaN(exp.getTime())) {
-                throw new Error(`Invalid expiryISO on transfer terms: ${terms.expiryISO}`)
+                throw new Error(
+                    `Invalid expiryISO on transfer terms: ${terms.expiryISO}`,
+                )
             }
             if (exp < new Date()) {
-                throw new Error(`The transfer terms ${termsId} for package ${externalId} have expired`)
+                throw new Error(
+                    `The transfer terms ${termsId} for package ${externalId} have expired`,
+                )
             }
         }
 
         // Read private package data from current owner's implicit collection
         const ownerCollection = getImplicitCollection(caller)
-        const privateBuf = await ctx.stub.getPrivateData(ownerCollection, externalId)
+        const privateBuf = await ctx.stub.getPrivateData(
+            ownerCollection,
+            externalId,
+        )
         if (!privateBuf || privateBuf.length === 0) {
-            throw new Error(`Private package data for ${externalId} not found in ${ownerCollection}`)
+            throw new Error(
+                `Private package data for ${externalId} not found in ${ownerCollection}`,
+            )
         }
 
         // If recipient is different, copy private package data into recipient's implicit collection
         const recipientCollection = getImplicitCollection(terms.toMSP)
         if (recipientCollection === ownerCollection) {
             // same org — nothing to move, but still update public owner
-            console.log(`[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`)
+            console.log(
+                `[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`,
+            )
         } else {
             // write into recipient collection first (move semantics)
-            await ctx.stub.putPrivateData(recipientCollection, externalId, privateBuf)
+            await ctx.stub.putPrivateData(
+                recipientCollection,
+                externalId,
+                privateBuf,
+            )
             // remove from owner's collection
             await ctx.stub.deletePrivateData(ownerCollection, externalId)
         }
@@ -712,7 +724,11 @@ export class PackageContract extends Contract {
         ctx.stub.setEvent(
             "TransferExecuted",
             Buffer.from(
-                stringify({ externalId, termsId, newOwner: packageData.ownerOrgMSP }),
+                stringify({
+                    externalId,
+                    termsId,
+                    newOwner: packageData.ownerOrgMSP,
+                }),
             ),
         )
     }
