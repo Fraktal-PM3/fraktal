@@ -1,0 +1,354 @@
+#
+# FabConnect - Hyperledger Fabric Connector for FireFly
+# Kubernetes Deployment and Service
+#
+# This manifest requires the following environment variables to be set:
+#   - ORG: Organization name (org1, org2, etc.)
+#   - NAMESPACE: Kubernetes namespace
+#
+# Optional environment variables (with defaults):
+#   - FABCONNECT_PORT: Port for FabConnect service (default: 3000)
+#   - FABCONNECT_IMAGE: FabConnect container image (default: ghcr.io/hyperledger/firefly-fabconnect)
+#   - FABCONNECT_TAG: FabConnect container image tag (default: latest)
+#   - PEER_GATEWAY_HOST: Peer gateway hostname (default: peer-gateway.${NAMESPACE}.svc.cluster.local)
+#   - PEER_GATEWAY_PORT: Peer gateway port (default: 7051)
+#   - CHANNEL_NAME: Fabric channel name (default: pm3)
+#
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fabconnect-${ORG}-config
+  namespace: ${NAMESPACE}
+  labels:
+    app: fabconnect
+    org: ${ORG}
+data:
+  # FabConnect JSON configuration file (firefly-cli compatible)
+  fabconnect-config.json: |
+    {
+      "maxInFlight": 10,
+      "maxTXWaitTime": 60,
+      "sendConcurrency": 25,
+      "receipts": {
+        "maxDocs": 1000,
+        "queryLimit": 100,
+        "retryInitialDelay": 5,
+        "retryTimeout": 30,
+        "leveldb": {
+          "path": "/var/lib/fabconnect/receipts"
+        }
+      },
+      "events": {
+        "webhooksAllowPrivateIPs": true,
+        "leveldb": {
+          "path": "/var/lib/fabconnect/events"
+        }
+      },
+      "http": {
+        "port": 3000
+      },
+      "rpc": {
+        "configPath": "/etc/fabconnect/config/connection-profile.yaml"
+      }
+    }
+
+  # Fabric connection profile for FabConnect (firefly-cli compatible)
+  connection-profile.yaml: |
+    name: fabconnect-${ORG}
+    version: 1.0.0
+    client:
+      organization: ${ORG}
+      logging:
+        level: info
+      credentialStore:
+        path: /var/lib/fabconnect/wallet
+        cryptoStore:
+          path: /var/lib/fabconnect/wallet/keystore
+      connection:
+        timeout:
+          peer:
+            endorser: 300s
+            eventHub: 300s
+            eventReg: 300s
+          orderer: 300s
+    organizations:
+      ${ORG}:
+        mspid: ${ORG_MSP}
+        peers:
+          - peer-gateway
+        certificateAuthorities:
+          - ${ORG}-ca
+        users:
+          ${ORG}admin:
+            cert:
+              path: /etc/fabconnect/certs/msp/signcerts/cert.pem
+            key:
+              path: /etc/fabconnect/certs/msp/keystore/key.pem
+    peers:
+      peer-gateway:
+        url: grpcs://${PEER_GATEWAY_HOST}:${PEER_GATEWAY_PORT}
+        tlsCACerts:
+          path: /etc/fabconnect/certs/tlscacerts/tlsca.pem
+        grpcOptions:
+          ssl-target-name-override: ${ORG}-peer1-peer.${NAMESPACE}.localho.st
+          grpc-max-send-message-length: 104857600
+          grpc-max-receive-message-length: 104857600
+    certificateAuthorities:
+      ${ORG}-ca:
+        url: https://ca.${NAMESPACE}.svc.cluster.local:7054
+        caName: ${ORG}-ca
+        tlsCACerts:
+          path: /etc/fabconnect/certs/tlscacerts/tlsca.pem
+        grpcOptions:
+          ssl-target-name-override: ${ORG}-ca-ca.${NAMESPACE}.localho.st
+        registrar:
+          enrollId: admin
+          enrollSecret: adminpw
+        httpOptions:
+          verify: false
+    channels:
+      ${CHANNEL_NAME}:
+        orderers:
+          - orderer
+        peers:
+          peer-gateway:
+            endorsingPeer: true
+            chaincodeQuery: true
+            ledgerQuery: true
+            eventSource: true
+    orderers:
+      orderer:
+        url: grpcs://org0-orderernode1-orderer.org0.svc.cluster.local:7050
+        grpcOptions:
+          ssl-target-name-override: org0-orderernode1-orderer.org0.svc.cluster.local
+        tlsCACerts:
+          path: /etc/fabconnect/certs/tlscacerts/tlsca.pem
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fabconnect-${ORG}
+  namespace: ${NAMESPACE}
+  labels:
+    app: fabconnect
+    org: ${ORG}
+spec:
+  type: ClusterIP
+  ports:
+  - name: api
+    port: 3000
+    targetPort: 3000
+    protocol: TCP
+  selector:
+    app: fabconnect
+    org: ${ORG}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabconnect-${ORG}
+  namespace: ${NAMESPACE}
+  labels:
+    app: fabconnect
+    org: ${ORG}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: fabconnect
+      org: ${ORG}
+  template:
+    metadata:
+      labels:
+        app: fabconnect
+        org: ${ORG}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: default
+      securityContext:
+        runAsNonRoot: false
+        fsGroup: 1000
+
+      # Init container to populate wallet from MSP certificates (firefly-cli approach)
+      initContainers:
+      - name: prepare-wallet
+        image: busybox:latest
+        command:
+          - sh
+          - -c
+          - |
+            set -e
+            echo "Preparing wallet directory structure..."
+            mkdir -p /var/lib/fabconnect/wallet/keystore
+            mkdir -p /var/lib/fabconnect/wallet/signcerts
+            echo "Wallet directories created successfully"
+        volumeMounts:
+        - name: wallet
+          mountPath: /var/lib/fabconnect/wallet
+
+      containers:
+      - name: fabconnect
+        image: ${FABCONNECT_IMAGE}:${FABCONNECT_TAG}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: api
+          containerPort: 3000
+          protocol: TCP
+
+        # FabConnect startup arguments (firefly-cli format)
+        args:
+          - "-f"
+          - "/etc/fabconnect/config/fabconnect-config.json"
+
+        # Environment configuration
+        env:
+        - name: FF_LOG_LEVEL
+          value: "info"
+        - name: FABRIC_TLSCONFIG
+          value: "true"
+        - name: FABRIC_CERTPATH
+          value: "/etc/fabconnect/certs"
+        - name: FABRIC_CONFIGPATH
+          value: "/etc/fabconnect/config"
+        - name: FABRIC_CHANNEL
+          value: "${CHANNEL_NAME}"
+        - name: FABRIC_CHAINCODE
+          value: "firefly-go"
+        - name: FABRIC_USER
+          value: "${ORG}admin"
+
+        # Resource requests and limits
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /api
+            port: api
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          httpGet:
+            path: /api
+            port: api
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+
+        # Volume mounts
+        volumeMounts:
+        # Fabric admin MSP certificates (for signing transactions)
+        - name: admin-msp
+          mountPath: /etc/fabconnect/certs/msp
+          readOnly: true
+
+        # Fabric admin TLS certificates (for mutual TLS with peers)
+        - name: admin-tls
+          mountPath: /etc/fabconnect/certs/client-tls
+          readOnly: true
+
+        # Peer TLS CA certificate
+        - name: peer-tlsca
+          mountPath: /etc/fabconnect/certs/tlscacerts
+          readOnly: true
+
+        # FabConnect configuration files
+        - name: fabconnect-config
+          mountPath: /etc/fabconnect/config
+          readOnly: true
+
+        # FabConnect receipts storage
+        - name: receipts
+          mountPath: /var/lib/fabconnect/receipts
+
+        # FabConnect events storage
+        - name: events
+          mountPath: /var/lib/fabconnect/events
+
+        # FabConnect wallet storage (for credentials)
+        - name: wallet
+          mountPath: /var/lib/fabconnect/wallet
+
+      # Volume definitions
+      volumes:
+      # Admin MSP certificate secret for transaction signing (must be created beforehand)
+      - name: admin-msp
+        secret:
+          secretName: fabconnect-${ORG}-admin-msp
+          defaultMode: 0400
+          items:
+          - key: signcert.pem
+            path: signcerts/cert.pem
+          - key: keystore.pem
+            path: keystore/key.pem
+
+      # Admin TLS certificate secret for mutual TLS with peers (must be created beforehand)
+      - name: admin-tls
+        secret:
+          secretName: fabconnect-${ORG}-admin-tls
+          defaultMode: 0400
+          items:
+          - key: signcert.pem
+            path: signcerts/cert.pem
+          - key: keystore.pem
+            path: keystore/key.pem
+
+      # Peer TLS CA certificate secret (must be created beforehand)
+      # Note: This TLS CA is used for both peer and orderer connections
+      # If using different CAs, create separate secrets and mount paths
+      - name: peer-tlsca
+        secret:
+          secretName: fabconnect-${ORG}-peer-tlsca
+          defaultMode: 0400
+          items:
+          - key: tlsca.pem
+            path: tlsca.pem
+
+      # FabConnect configuration ConfigMap
+      - name: fabconnect-config
+        configMap:
+          name: fabconnect-${ORG}-config
+          defaultMode: 0444
+          items:
+          - key: fabconnect-config.json
+            path: fabconnect-config.json
+          - key: connection-profile.yaml
+            path: connection-profile.yaml
+
+      # FabConnect receipts storage (ephemeral)
+      - name: receipts
+        emptyDir: {}
+
+      # FabConnect events storage (ephemeral)
+      - name: events
+        emptyDir: {}
+
+      # FabConnect wallet storage (ephemeral)
+      - name: wallet
+        emptyDir: {}
+
+      # Restart policy
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

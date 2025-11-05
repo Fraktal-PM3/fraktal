@@ -56,12 +56,9 @@ PEER_IMAGE          := env_var_or_default("TEST_NETWORK_PEER_IMAGE",        "ghc
 PEER_IMAGE_TAG      := env_var_or_default("TEST_NETWORK_PEER_IMAGE_TAG",    "v0.8.0")
 ORDERER_IMAGE       := env_var_or_default("TEST_NETWORK_ORDERER_IMAGE",     "hyperledger/fabric-orderer")
 ORDERER_IMAGE_TAG   := env_var_or_default("TEST_NETWORK_ORDERER_IMAGE_TAG", FABRIC_VERSION)
-CHANNEL_NAME        := env_var_or_default("TEST_NETWORK_CHANNEL_NAME",      "mychannel")
-CHAINCODE_NAME      := env_var_or_default("TEST_NETWORK_CHAINCODE_NAME",    "asset-transfer")
-CHAINCODE_VERSION   := env_var_or_default("TEST_NETWORK_CHAINCODE_VERSION", "v0.1.4")
-CHAINCODE_SEQUENCE  := env_var_or_default("TEST_NETWORK_CHAINCODE_SEQUENCE","1")
-CHAINCODE_PKG_NAME  := env_var_or_default("TEST_NETWORK_CHAINCODE_PKG_NAME","asset-transfer-typescript-v0.1.4.tgz")
-CHAINCODE_PKG_URL   := env_var_or_default("TEST_NETWORK_CHAINCODE_PKG_URL", "https://github.com/hyperledgendary/full-stack-asset-transfer-guide/releases/download/v0.1.4/" + CHAINCODE_PKG_NAME)
+CHANNEL_NAME        := env_var_or_default("TEST_NETWORK_CHANNEL_NAME",      "pm3")
+PM3_VERSION         := env_var_or_default("TEST_NETWORK_PM3_VERSION",       "1.0")
+FIREFLY_VERSION     := env_var_or_default("TEST_NETWORK_FIREFLY_VERSION",   "1.0")
 
 
 ###############################################################################
@@ -85,8 +82,7 @@ unkind:
 
 
 ###############################################################################
-# TL/DR actions.  These don't exist, other than for convenience to run the
-# entire flow without splitting across multiple "org" terminals.
+# TL/DR actions
 ###############################################################################
 
 start-network:
@@ -120,22 +116,20 @@ check-network:
 # Test Network
 ###############################################################################
 
-# Create the org namespace and start the operator for an org
+# Create the org namespace and start the operator
 init org:
     #!/usr/bin/env bash
-    export NAMESPACE={{org}} # todo: move to an org directory?
+    export NAMESPACE={{org}}
     scripts/start_operator.sh
 
 # Start the nodes for an org
 start org: (init org)
     organizations/{{org}}/start.sh
 
-# todo: clear enrollments, cc packages, etc.
 # Stop the nodes for an org
 stop org:
     kubectl delete ns {{org}} --ignore-not-found=true
 
-# todo: + dependency (start org)?
 # Enroll the users for an org
 enroll org:
     organizations/{{org}}/enroll.sh
@@ -149,7 +143,6 @@ enroll org:
 create-genesis-block: check-network gather-msp
     channel-config/create_genesis_block.sh
 
-# todo: include this?  Which org is running the target?
 # Export the MSP certificates for all orgs
 gather-msp:
     just export-msp org0
@@ -160,7 +153,7 @@ gather-msp:
 export-msp org:
     organizations/{{org}}/export_msp.sh
 
-# inspect the genesis block
+# Inspect the genesis block
 inspect-genesis-block:
     #!/usr/bin/env bash
     configtxgen -inspectBlock channel-config/mychannel_genesis_block.pb | jq
@@ -171,12 +164,439 @@ join org:
 
 
 ###############################################################################
-# Chaincode and Gateway Appplication Development
+# Chaincode Deployment - CCAAS (Chaincode as a Service)
 ###############################################################################
 
-# Install a smart contract on all peers in an org
-install-cc org:
-    organizations/{{org}}/install_chaincode.sh
+# Build CCAAS packages (metadata.json + connection.json)
+build-all-cc:
+    scripts/build_chaincodes.sh all
+
+build-pm3-cc:
+    scripts/build_chaincodes.sh pm3
+
+build-firefly-cc:
+    scripts/build_chaincodes.sh firefly
+
+# Build Docker images for chaincode services
+build-all-cc-images:
+    scripts/build_chaincode_images.sh all
+
+build-pm3-cc-image:
+    scripts/build_chaincode_images.sh pm3
+
+build-firefly-cc-image:
+    scripts/build_chaincode_images.sh firefly
+
+# Load images into kind cluster and deploy services
+load-cc-images: build-all-cc-images
+    #!/usr/bin/env bash
+    set -e
+    echo "Loading chaincode images into kind cluster..."
+    kind load docker-image pm3package:latest --name {{CLUSTER_NAME}}
+    kind load docker-image firefly-go:latest --name {{CLUSTER_NAME}}
+    echo "✓ Images loaded"
+
+deploy-cc-services: load-cc-images
+    scripts/deploy_chaincode_services.sh all
+
+deploy-pm3-cc-service: load-cc-images
+    scripts/deploy_chaincode_services.sh pm3
+
+deploy-firefly-cc-service: load-cc-images
+    scripts/deploy_chaincode_services.sh firefly
+
+# Monitor and manage chaincode services
+status-cc-services:
+    kubectl get all -n chaincodes
+
+stop-cc-services:
+    kubectl delete deployments,services -n chaincodes --all --ignore-not-found=true
+
+# Install CCAAS packages on peers
+install-cc org chaincode:
+    organizations/{{org}}/install_chaincode.sh {{chaincode}}
+
+install-all-cc-org1:
+    #!/usr/bin/env bash
+    organizations/org1/install_chaincode.sh {{CWDIR}}/build/pm3package-{{PM3_VERSION}}.tar.gz
+    organizations/org1/install_chaincode.sh {{CWDIR}}/build/firefly-go-{{FIREFLY_VERSION}}.tar.gz
+
+install-all-cc-org2:
+    #!/usr/bin/env bash
+    organizations/org2/install_chaincode.sh {{CWDIR}}/build/pm3package-{{PM3_VERSION}}.tar.gz
+    organizations/org2/install_chaincode.sh {{CWDIR}}/build/firefly-go-{{FIREFLY_VERSION}}.tar.gz
+
+install-all-cc: build-all-cc
+    just install-all-cc-org1
+    just install-all-cc-org2
+
+
+###############################################################################
+# PostgreSQL deployment for FireFly
+###############################################################################
+
+# Deploy PostgreSQL for org1
+postgres-org1: check
+    #!/usr/bin/env bash
+    set -e
+    NAMESPACE=org1
+    if ! kubectl get deployment postgres -n "$NAMESPACE" &>/dev/null; then
+      echo "Deploying PostgreSQL for org1..."
+      kubectl apply -n "$NAMESPACE" -f {{justfile_directory()}}/kind/postgres/postgres-deployment.yaml
+      kubectl rollout status deployment/postgres -n "$NAMESPACE" --timeout=300s
+      echo "PostgreSQL is ready"
+    else
+      echo "PostgreSQL already running in org1"
+    fi
+
+# Deploy PostgreSQL for org2
+postgres-org2: check
+    #!/usr/bin/env bash
+    set -e
+    NAMESPACE=org2
+    if ! kubectl get deployment postgres -n "$NAMESPACE" &>/dev/null; then
+      echo "Deploying PostgreSQL for org2..."
+      kubectl apply -n "$NAMESPACE" -f {{justfile_directory()}}/kind/postgres/postgres-deployment.yaml
+      kubectl rollout status deployment/postgres -n "$NAMESPACE" --timeout=300s
+      echo "PostgreSQL is ready"
+    else
+      echo "PostgreSQL already running in org2"
+    fi
+
+###############################################################################
+# Kubernetes-native FireFly deployment
+# Uses custom K8s manifests for FireFly Core, FabConnect, and data plugins
+###############################################################################
+
+# Setup FireFly for org1 (includes FabConnect setup)
+setup-firefly-org1: check-network postgres-org1
+    #!/usr/bin/env bash
+    set -e
+    echo "=========================================="
+    echo "Setting up FireFly stack for org1"
+    echo "=========================================="
+    
+    # Step 1: Setup FabConnect (blockchain connector)
+    echo ""
+    echo "Step 1: Setting up FabConnect..."
+    FABCONNECT_IMAGE="${FABCONNECT_IMAGE:-ghcr.io/hyperledger/firefly-fabconnect}"
+    FABCONNECT_TAG="${FABCONNECT_TAG:-latest}"
+    PEER_GATEWAY_HOST="${PEER_GATEWAY_HOST:-peer-gateway.org1.svc.cluster.local}"
+    PEER_GATEWAY_PORT="${PEER_GATEWAY_PORT:-7051}"
+    CHANNEL_NAME="${CHANNEL_NAME:-pm3}"
+    
+    # Create secrets
+    ./scripts/create_fabconnect_secrets.sh org1
+    
+    # Deploy FabConnect
+    export ORG=org1
+    export NAMESPACE=org1
+    export ORG_MSP=Org1MSP
+    export FABCONNECT_IMAGE
+    export FABCONNECT_TAG
+    export PEER_GATEWAY_HOST
+    export PEER_GATEWAY_PORT
+    export CHANNEL_NAME
+    cat kind/fabconnect/deployment.yaml | envsubst | kubectl apply -f -
+    
+    # Wait for FabConnect to be ready
+    kubectl wait --for=condition=available --timeout=180s \
+        deployment/fabconnect-org1 -n org1 || {
+        echo "ERROR: FabConnect deployment failed"
+        kubectl get pods -l app=fabconnect,org=org1 -n org1
+        kubectl logs -l app=fabconnect,org=org1 -n org1 --tail=50 || true
+        exit 1
+    }
+    echo "✓ FabConnect deployed"
+    
+    # Wait for FabConnect to initialize TLS connections (30 seconds)
+    echo ""
+    echo "Step 2: Waiting for FabConnect TLS connections to establish..."
+    sleep 30
+    echo "✓ FabConnect ready (admin identity loaded from connection profile)"
+    
+    # Step 3: Deploy data plugins
+    echo ""
+    echo "Step 3: Deploying data plugins..."
+    ./scripts/deploy_data_plugins.sh org1
+    
+    # Step 4: Deploy FireFly Core
+    echo ""
+    echo "Step 4: Deploying FireFly Core..."
+    ./scripts/deploy_firefly.sh org1
+    
+    # Step 5: Deploy FireFly Sandbox
+    echo ""
+    echo "Step 5: Deploying FireFly Sandbox..."
+    cat kind/firefly/firefly-sandbox-deployment.yaml | envsubst | kubectl apply -f -
+    
+    echo ""
+    echo "✓ FireFly stack for org1 is ready!"
+
+# Setup FireFly for org2 (includes FabConnect setup)
+setup-firefly-org2: check-network postgres-org2
+    #!/usr/bin/env bash
+    set -e
+    echo "=========================================="
+    echo "Setting up FireFly stack for org2"
+    echo "=========================================="
+    
+    # Step 1: Setup FabConnect (blockchain connector)
+    echo ""
+    echo "Step 1: Setting up FabConnect..."
+    FABCONNECT_IMAGE="${FABCONNECT_IMAGE:-ghcr.io/hyperledger/firefly-fabconnect}"
+    FABCONNECT_TAG="${FABCONNECT_TAG:-latest}"
+    PEER_GATEWAY_HOST="${PEER_GATEWAY_HOST:-peer-gateway.org2.svc.cluster.local}"
+    PEER_GATEWAY_PORT="${PEER_GATEWAY_PORT:-7051}"
+    CHANNEL_NAME="${CHANNEL_NAME:-pm3}"
+    
+    # Create secrets
+    ./scripts/create_fabconnect_secrets.sh org2
+    
+    # Deploy FabConnect
+    export ORG=org2
+    export NAMESPACE=org2
+    export ORG_MSP=Org2MSP
+    export FABCONNECT_IMAGE
+    export FABCONNECT_TAG
+    export PEER_GATEWAY_HOST
+    export PEER_GATEWAY_PORT
+    export CHANNEL_NAME
+    cat kind/fabconnect/deployment.yaml | envsubst | kubectl apply -f -
+    
+    # Wait for FabConnect to be ready
+    kubectl wait --for=condition=available --timeout=180s \
+        deployment/fabconnect-org2 -n org2 || {
+        echo "ERROR: FabConnect deployment failed"
+        kubectl get pods -l app=fabconnect,org=org2 -n org2
+        kubectl logs -l app=fabconnect,org=org2 -n org2 --tail=50 || true
+        exit 1
+    }
+    echo "✓ FabConnect deployed"
+    
+    # Wait for FabConnect to initialize TLS connections (30 seconds)
+    echo ""
+    echo "Step 2: Waiting for FabConnect TLS connections to establish..."
+    sleep 30
+    echo "✓ FabConnect ready (admin identity loaded from connection profile)"
+    
+    # Step 3: Deploy data plugins
+    echo ""
+    echo "Step 3: Deploying data plugins..."
+    ./scripts/deploy_data_plugins.sh org2
+    
+    # Step 4: Deploy FireFly Core
+    echo ""
+    echo "Step 4: Deploying FireFly Core..."
+    ./scripts/deploy_firefly.sh org2
+    
+    # Step 5: Deploy FireFly Sandbox
+    echo ""
+    echo "Step 5: Deploying FireFly Sandbox..."
+    cat kind/firefly/firefly-sandbox-deployment.yaml | envsubst | kubectl apply -f -
+    
+    echo ""
+    echo "✓ FireFly stack for org2 is ready!"
+
+# Setup FireFly for all organizations
+setup-firefly: check-network setup-firefly-org1 setup-firefly-org2
+    #!/usr/bin/env bash
+    echo ""
+    echo "=========================================="
+    echo "FireFly Setup Complete!"
+    echo "=========================================="
+    echo ""
+    echo "Complete stack deployed for both organizations:"
+    echo "  ✓ FabConnect (blockchain connector) with registered identities"
+    echo "  ✓ Data plugins (IPFS, DataExchange)"
+    echo "  ✓ FireFly Core"
+    echo "  ✓ FireFly Sandbox"
+    echo ""
+    echo "Next step: Register FireFly network identities"
+    echo "  just register-firefly-identities"
+    echo ""
+    echo "FireFly Web UI:"
+    echo "  Org1: https://firefly-org1.localho.st/ui"
+    echo "  Org2: https://firefly-org2.localho.st/ui"
+    echo ""
+    echo "FireFly Sandbox:"
+    echo "  Org1: https://firefly-sandbox-org1.localho.st"
+    echo "  Org2: https://firefly-sandbox-org2.localho.st"
+    echo ""
+    echo "FireFly REST APIs:"
+    echo "  Org1: https://firefly-org1.localho.st/api/v1"
+    echo "  Org2: https://firefly-org2.localho.st/api/v1"
+    echo ""
+    echo "Or use kubectl port-forward:"
+    echo "  kubectl port-forward -n org1 svc/firefly-org1 5000:5000 &"
+    echo "  kubectl port-forward -n org2 svc/firefly-org2 5000:5000 &"
+    echo "  Then: http://localhost:5000/api/v1"
+    echo ""
+
+# Register FireFly identities (organizations and nodes)
+register-firefly-identities: check
+    #!/usr/bin/env bash
+    set -e
+    echo "=========================================="
+    echo "Registering FireFly Identities"
+    echo "=========================================="
+    echo ""
+    
+    # Wait for FireFly pods to be ready
+    echo "Waiting for FireFly pods to be ready..."
+    kubectl wait --for=condition=ready pod -l app=firefly -n org1 --timeout=300s
+    kubectl wait --for=condition=ready pod -l app=firefly -n org2 --timeout=300s
+    echo "✓ FireFly pods are ready"
+    echo ""
+    
+    # Register Org1
+    echo "Registering Org1..."
+    export NAMESPACE=org1
+    cat {{justfile_directory()}}/kind/firefly/firefly-init-job.yaml | envsubst | kubectl apply -f -
+    
+    # Register Org2
+    echo "Registering Org2..."
+    export NAMESPACE=org2
+    cat {{justfile_directory()}}/kind/firefly/firefly-init-job.yaml | envsubst | kubectl apply -f -
+    
+    echo ""
+    echo "Registration jobs submitted!"
+    echo ""
+    echo "Monitor progress:"
+    echo "  kubectl logs -f -n org1 job/firefly-init-org1"
+    echo "  kubectl logs -f -n org2 job/firefly-init-org2"
+    echo ""
+    echo "Verify organizations:"
+    echo "  kubectl exec -n org1 deployment/firefly-org1 -- curl -s http://localhost:5000/api/v1/network/organizations"
+    echo ""
+
+# Stop all FireFly deployments
+firefly-stop: check
+    #!/usr/bin/env bash
+    echo "Stopping FireFly deployments..."
+    kubectl delete deployment firefly-org1 -n org1 2>/dev/null || true
+    kubectl delete deployment firefly-org2 -n org2 2>/dev/null || true
+    echo "Stopping FabConnect deployments..."
+    kubectl delete deployment fabconnect-org1 -n org1 2>/dev/null || true
+    kubectl delete deployment fabconnect-org2 -n org2 2>/dev/null || true
+    echo "Stopping data plugin deployments..."
+    kubectl delete deployment firefly-dataexchange-org1 -n org1 2>/dev/null || true
+    kubectl delete deployment firefly-dataexchange-org2 -n org2 2>/dev/null || true
+    kubectl delete deployment ipfs-org1 -n org1 2>/dev/null || true
+    kubectl delete deployment ipfs-org2 -n org2 2>/dev/null || true
+    echo "FireFly deployments stopped"
+
+###############################################################################
+# Complete end-to-end setup workflows
+###############################################################################
+
+# Setup complete Fabric network (kind + orgs + channel + chaincode)
+setup-network: check
+    #!/usr/bin/env bash
+    set -e
+    echo "================================"
+    echo "Setting up Fabric network"
+    echo "================================"
+
+    # Create KIND cluster
+    echo "Creating KIND cluster..."
+    just kind
+
+    # Start all organizations
+    echo "Starting organizations..."
+    just start-network
+
+    # Enroll users
+    echo "Enrolling users..."
+    just enroll org0
+    just enroll org1
+    just enroll org2
+
+    # Verify network health
+    echo "Checking network..."
+    just check-network
+
+    # Build consortium and channel
+    echo "Building consortium..."
+    just gather-msp
+    just create-genesis-block
+
+    echo "Joining organizations to channel..."
+    just join org0
+    just join org1
+    just join org2
+
+# Setup and deploy chaincodes (CCAAS - Chaincode as a Service)
+setup-chaincode: check-network
+    #!/usr/bin/env bash
+    set -e
+    echo "================================"
+    echo "Setting up chaincodes (CCAAS)"
+    echo "================================"
+
+    # Step 1: Build CCAAS packages
+    echo ""
+    echo "Step 1: Building CCAAS packages..."
+    just build-all-cc
+
+    # Step 2: Deploy chaincode services
+    echo ""
+    echo "Step 2: Deploying chaincode services to Kubernetes..."
+    just deploy-cc-services
+
+    # Wait for services to be ready
+    echo ""
+    echo "Waiting for chaincode services to be ready..."
+    sleep 5
+
+    # Step 3: Install on peers
+    echo ""
+    echo "Step 3: Installing chaincodes on peers..."
+    just install-all-cc
+
+    echo ""
+    echo "================================"
+    echo "Chaincode setup complete!"
+    echo "================================"
+
+# Complete production setup (network + chaincode + firefly)
+setup-complete: setup-network setup-chaincode setup-firefly register-firefly-identities
+    #!/usr/bin/env bash
+    echo ""
+    echo "=========================================="
+    echo "Complete Setup Finished!"
+    echo "=========================================="
+    echo ""
+    echo "Fabric Network:"
+    echo "  - Orderer (org0):  org0-orderer-orderer.org0.localho.st:443"
+    echo "  - Org1 Peers:      org1-peer1-peer.org1.localho.st:443"
+    echo "  - Org2 Peers:      org2-peer1-peer.org2.localho.st:443"
+    echo ""
+    echo "Chaincodes (CCAAS):"
+    echo "  - pm3package:      PM3 Package Management"
+    echo "  - firefly-go:      FireFly Fabric Connector"
+    echo ""
+    echo "FireFly (with identity registration):"
+    echo "  - Org1 UI:         https://firefly-org1.localho.st"
+    echo "  - Org2 UI:         https://firefly-org2.localho.st"
+    echo "  - Org1 API:        https://firefly-org1.localho.st/api/v1"
+    echo "  - Org2 API:        https://firefly-org2.localho.st/api/v1"
+    echo ""
+    echo "Test messaging:"
+    echo "  kubectl exec -n org1 deployment/firefly-org1 -- curl -X POST \\"
+    echo "    http://localhost:5000/api/v1/namespaces/default/messages/broadcast \\"
+    echo "    -H 'Content-Type: application/json' \\"
+    echo "    -d '{\"data\": [{\"value\": \"Hello from Org1!\"}]}'"
+    echo ""
+    echo "View logs:"
+    echo "  kubectl logs -n org1 -l app=firefly"
+    echo "  kubectl logs -n org2 -l app=firefly"
+    echo ""
+    echo "Manage:"
+    echo "  just check-network       # Check network health"
+    echo "  just status-cc-services  # Check chaincode services"
+    echo "  just destroy            # Clean up everything"
+    echo ""
 
 # Display env for targeting a peer with the Fabric binaries
 show-context msp org peer:

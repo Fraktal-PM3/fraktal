@@ -1,0 +1,143 @@
+#
+# FabConnect Identity Registration Job
+# 
+# This Job registers and enrolls an identity with Fabric CA through FabConnect.
+# It follows the firefly-cli approach: CreateIdentity -> EnrollIdentity
+#
+# This manifest requires the following environment variables to be set:
+#   - ORG: Organization name (org1, org2, etc.)
+#   - NAMESPACE: Kubernetes namespace
+#
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fabconnect-${ORG}-identity-registration
+  namespace: ${NAMESPACE}
+  labels:
+    app: fabconnect
+    org: ${ORG}
+    component: identity-registration
+spec:
+  ttlSecondsAfterFinished: 300  # Clean up job after 5 minutes
+  backoffLimit: 5
+  template:
+    metadata:
+      labels:
+        app: fabconnect
+        org: ${ORG}
+        component: identity-registration
+    spec:
+      restartPolicy: OnFailure
+      
+      initContainers:
+      # Wait for fabconnect to be ready
+      - name: wait-for-fabconnect
+        image: curlimages/curl:8.5.0
+        command:
+          - sh
+          - -c
+          - |
+            echo "Waiting for FabConnect to be ready..."
+            MAX_RETRIES=60
+            RETRY_COUNT=0
+            
+            until [ $RETRY_COUNT -eq $MAX_RETRIES ]; do
+              if curl -sf http://fabconnect-${ORG}:3000/status > /dev/null 2>&1; then
+                echo "FabConnect is ready!"
+                exit 0
+              fi
+              echo "FabConnect not ready yet (attempt $((RETRY_COUNT+1))/$MAX_RETRIES)..."
+              RETRY_COUNT=$((RETRY_COUNT+1))
+              sleep 5
+            done
+            
+            echo "ERROR: FabConnect did not become ready in time"
+            exit 1
+      
+      containers:
+      - name: register-identity
+        image: curlimages/curl:8.5.0
+        command:
+          - sh
+          - -c
+          - |
+            set -e
+            
+            FABCONNECT_URL="http://fabconnect-${ORG}:3000"
+            IDENTITY_NAME="${ORG}admin"
+            
+            echo "============================================"
+            echo "FabConnect Identity Registration"
+            echo "============================================"
+            echo "FabConnect URL: $FABCONNECT_URL"
+            echo "Identity Name: $IDENTITY_NAME"
+            echo ""
+            
+            # Step 1: Create identity in Fabric CA
+            echo "Step 1: Creating identity in Fabric CA..."
+            CREATE_RESPONSE=$(curl -sf -X POST \
+              "$FABCONNECT_URL/identities" \
+              -H "Content-Type: application/json" \
+              -d "{\"name\":\"$IDENTITY_NAME\",\"type\":\"client\"}" || true)
+            
+            if [ -z "$CREATE_RESPONSE" ]; then
+              echo "ERROR: Failed to create identity - no response from FabConnect"
+              echo "Checking FabConnect status..."
+              curl -v "$FABCONNECT_URL/status" || true
+              exit 1
+            fi
+            
+            echo "Create identity response: $CREATE_RESPONSE"
+            
+            # Extract secret from response
+            SECRET=$(echo "$CREATE_RESPONSE" | grep -o '"Secret":"[^"]*"' | cut -d'"' -f4 || true)
+            
+            if [ -z "$SECRET" ]; then
+              echo "ERROR: Failed to extract secret from create response"
+              echo "Full response: $CREATE_RESPONSE"
+              
+              # Check if identity already exists
+              if echo "$CREATE_RESPONSE" | grep -qi "already registered\|already exists"; then
+                echo "WARNING: Identity may already be registered. Attempting to continue..."
+                echo "This might be a re-run of the registration job."
+                exit 0
+              fi
+              
+              exit 1
+            fi
+            
+            echo "Successfully created identity, secret length: ${#SECRET}"
+            echo ""
+            
+            # Step 2: Enroll identity (generates and stores credentials in wallet)
+            echo "Step 2: Enrolling identity with Fabric CA..."
+            ENROLL_RESPONSE=$(curl -sf -X POST \
+              "$FABCONNECT_URL/identities/$IDENTITY_NAME/enroll" \
+              -H "Content-Type: application/json" \
+              -d "{\"secret\":\"$SECRET\"}" || true)
+            
+            if [ -z "$ENROLL_RESPONSE" ]; then
+              echo "ERROR: Failed to enroll identity - no response from FabConnect"
+              exit 1
+            fi
+            
+            echo "Enroll identity response: $ENROLL_RESPONSE"
+            
+            # Check if enrollment was successful
+            if echo "$ENROLL_RESPONSE" | grep -qi '"Success":true\|"success":true'; then
+              echo ""
+              echo "============================================"
+              echo "✓ Identity registration completed successfully!"
+              echo "============================================"
+              echo "Identity '$IDENTITY_NAME' is now enrolled and ready to use."
+              exit 0
+            else
+              echo ""
+              echo "ERROR: Enrollment response indicates failure"
+              echo "Full response: $ENROLL_RESPONSE"
+              exit 1
+            fi
+        env:
+        - name: ORG
+          value: "${ORG}"

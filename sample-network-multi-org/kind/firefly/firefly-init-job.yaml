@@ -1,0 +1,106 @@
+# FireFly Identity Registration Job
+# Automatically registers organizations and nodes after FireFly starts
+# This mimics the behavior of firefly-cli's registerFireflyIdentities()
+#
+# Environment variables required:
+#   - NAMESPACE: Kubernetes namespace (org1 or org2)
+#
+# Usage:
+#   export NAMESPACE=org1
+#   cat kind/firefly/firefly-init-job.yaml | envsubst | kubectl apply -f -
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: firefly-init-${NAMESPACE}
+  namespace: ${NAMESPACE}
+  labels:
+    app: firefly-init
+    org: ${NAMESPACE}
+spec:
+  ttlSecondsAfterFinished: 600  # Clean up after 10 minutes
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        app: firefly-init
+        org: ${NAMESPACE}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: firefly-init
+        image: curlimages/curl:latest
+        command:
+        - sh
+        - -c
+        - |
+          set -e
+          
+          echo "===================================="
+          echo "FireFly Identity Registration"
+          echo "Organization: ${NAMESPACE}"
+          echo "===================================="
+          
+          # Wait for FireFly to be ready
+          echo "Waiting for FireFly to be ready..."
+          for i in $(seq 1 60); do
+            if curl -sf http://firefly-${NAMESPACE}-api.${NAMESPACE}.svc.cluster.local:5000/api/v1/status >/dev/null 2>&1; then
+              echo "✓ FireFly is ready"
+              break
+            fi
+            if [ $i -eq 60 ]; then
+              echo "✗ FireFly did not become ready in time"
+              exit 1
+            fi
+            echo "  Waiting... ($i/60)"
+            sleep 2
+          done
+          
+          echo ""
+          echo "Registering organization and node..."
+          
+          # Register organization
+          echo "→ Registering organization '${NAMESPACE}'..."
+          if curl -X POST -sf \
+            "http://firefly-${NAMESPACE}-api.${NAMESPACE}.svc.cluster.local:5000/api/v1/network/organizations/self?confirm=true" \
+            -H "Content-Type: application/json" \
+            -d '{}' >/dev/null 2>&1; then
+            echo "✓ Organization registered successfully"
+          else
+            echo "⚠ Organization may already be registered (this is OK)"
+          fi
+          
+          # Small delay to ensure org is fully registered
+          sleep 2
+          
+          # Register node
+          echo "→ Registering node '${NAMESPACE}_node_1'..."
+          if curl -X POST -sf \
+            "http://firefly-${NAMESPACE}-api.${NAMESPACE}.svc.cluster.local:5000/api/v1/network/nodes/self?confirm=true" \
+            -H "Content-Type: application/json" \
+            -d '{}' >/dev/null 2>&1; then
+            echo "✓ Node registered successfully"
+          else
+            echo "⚠ Node may already be registered (this is OK)"
+          fi
+          
+          echo ""
+          echo "===================================="
+          echo "✅ Registration complete!"
+          echo "===================================="
+          
+          # Verify registration
+          echo ""
+          echo "Verifying network status..."
+          if curl -sf "http://firefly-${NAMESPACE}-api.${NAMESPACE}.svc.cluster.local:5000/api/v1/status" | grep -q "initialized"; then
+            echo "✓ FireFly is initialized and ready"
+          fi
+          
+          echo ""
+          echo "FireFly UI: https://firefly-${NAMESPACE}.localho.st"
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace

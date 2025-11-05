@@ -1,0 +1,226 @@
+# FireFly Helm Chart Configuration for Org1
+#
+# This values file configures FireFly to run as a Kubernetes deployment
+# with FabConnect for Fabric connectivity and PostgreSQL for persistence.
+#
+# Install with:
+#   helm install firefly-org1 oci://ghcr.io/hyperledger/helm/firefly \
+#     --namespace org1 \
+#     --values kind/firefly/values-org1.yaml
+#
+
+---
+# Organization configuration
+config:
+  organizationName: "Org1"
+  organizationKey: "org1admin"
+
+  # Log configuration
+  log:
+    level: "info"
+    json: false
+
+# PostgreSQL database configuration
+# NOTE: PostgreSQL must be running in the cluster before deploying FireFly
+database:
+  type: "postgres"
+  postgres:
+    url: "postgresql://postgres:postgres@postgres.org1.svc.cluster.local:5432/firefly"
+    sslMode: "disable"
+
+# Fabric (FabConnect) blockchain connector configuration
+blockchain:
+  - name: "fabric"
+    type: "fabconnect"
+    plugin:
+      address: "http://fabconnect-org1.org1.svc.cluster.local:3000"
+
+    # Fabric-specific configuration
+    config:
+      channel: "pm3"
+      chaincode: "firefly-go"
+      signer: "org1admin"
+      mspId: "Org1MSP"
+
+      # Transaction configuration
+      submitType: "sync"
+      endorsementPolicy: "AUTO"
+
+      # Performance tuning
+      batchSize: 50
+      batchTimeoutMs: 5000
+
+# Data exchange (peer-to-peer messaging between organizations)
+dataexchange:
+  enabled: true
+  type: "dataexchange-https"
+
+  # HTTPS/TLS configuration
+  https:
+    tls:
+      enabled: true
+      # Use cert-manager for certificate management
+      certManager:
+        enabled: true
+        issuerRef:
+          name: "root-tls-issuer"
+          kind: "ClusterIssuer"
+
+  # DataExchange endpoint configuration
+  p2p:
+    # External endpoint for other organizations to reach this DataExchange
+    # This should be configured based on your ingress setup
+    externalEndpoint: "https://dataexchange-org1.localho.st"
+
+# FireFly Core pod configuration
+core:
+  image:
+    repository: "ghcr.io/hyperledger/firefly"
+    tag: "v1.3.0"
+    pullPolicy: "IfNotPresent"
+
+  # Pod resource requests and limits
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "500m"
+    limits:
+      memory: "1Gi"
+      cpu: "1000m"
+
+  # Liveness and readiness probes
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+
+  # Ingress for external API access
+  ingress:
+    enabled: true
+    className: "nginx"
+
+    # TLS configuration
+    tls:
+      enabled: true
+      secretName: "firefly-org1-tls"
+
+    # Host routing
+    hosts:
+      - host: "firefly-org1.localho.st"
+        paths:
+          - path: "/api/v1"
+            pathType: "Prefix"
+
+    # Optional annotations
+    annotations:
+      cert-manager.io/cluster-issuer: "letsencrypt-staging"
+      nginx.ingress.kubernetes.io/rewrite-target: "/"
+      nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+
+# Token connectors (for ERC standards, optional)
+erc1155:
+  enabled: false
+
+erc20erc721:
+  enabled: false
+
+# Events and subscriptions
+events:
+  # Event streaming configuration
+  streaming:
+    enabled: true
+    bufferSize: 100
+
+    # Delivery mode: firefly (built-in) or external
+    deliveryMode: "firefly"
+
+    # Persistence: none, firestore, database
+    persistence: "database"
+
+# Metrics and monitoring
+metrics:
+  enabled: true
+  port: 6060
+
+  # Prometheus scrape configuration
+  prometheus:
+    enabled: true
+    interval: "30s"
+
+# FireFly Web UI (Explorer UI)
+ui:
+  enabled: true  # Set to true if you want the UI
+  path: "/firefly/frontend"
+
+# Optional: Admin API configuration
+admin:
+  enabled: true
+  # Admin-only endpoints are NOT exposed via ingress
+  # Access only via kubectl port-forward or direct pod connection
+  port: 8080
+
+# Persistence configuration
+persistence:
+  enabled: true
+  storageClass: "standard"
+  size: "5Gi"
+
+  # Use filesystem persistence for state
+  type: "filesystem"
+
+# Pod disruption budget (for high availability)
+podDisruptionBudget:
+  enabled: false  # Set to true in production
+  minAvailable: 1
+
+# Autoscaling configuration
+autoscaling:
+  enabled: false  # Set to true in production if needed
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 80
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: "firefly-org1"
+
+# Security context
+securityContext:
+  runAsNonRoot: false
+  fsGroup: 1000
+
+# Additional environment variables
+env: {}
+  # Add any additional environment variables here
+  # FF_CUSTOM_VAR: "value"
+
+# Advanced configuration
+advanced:
+  # Cache configuration
+  cache:
+    enabled: true
+    ttl: "300s"
+
+  # Connection pooling
+  connectionPool:
+    maxConnections: 20
+    maxIdleTime: "300s"
+
+# Labels and annotations for all resources
+labels:
+  app: "firefly"
+  org: "org1"
+
+annotations:
+  managed-by: "terraform"  # or helm, kubernetes, etc.

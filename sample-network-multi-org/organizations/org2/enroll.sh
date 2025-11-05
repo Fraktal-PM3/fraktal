@@ -43,6 +43,10 @@ enroll org2 org2admin org2adminpw
 CA_CERT_NAME=org2-ca-ca-org2-localho-st-ca.pem
 write_msp_config ca $CA_CERT_NAME $ENROLLMENTS_DIR/org2admin/msp
 
+# Enroll org2admin with the TLS CA for mutual TLS authentication
+# This is needed for FabConnect to authenticate with peers using TLS certificates
+enroll_tls org2 org2admin org2adminpw
+
 # Enroll the root CA administrator such that users can later be registered and enrolled for
 # identities of transactions submitted to the ledger.
 enroll org2 rcaadmin rcaadminpw

@@ -20,21 +20,44 @@ set -euo pipefail
 . scripts/utils.sh
 
 #
+# Accept chaincode package as parameter, or use default
+#
+CHAINCODE_PACKAGE="${1:-}"
+
+if [ -z "$CHAINCODE_PACKAGE" ]; then
+  # Use default behavior: download the package
+  CHAINCODE_PACKAGE=organizations/org2/chaincode/$CHAINCODE_PKG_NAME
+  if [ ! -f "$CHAINCODE_PACKAGE" ]; then
+    print "downloading k8s chaincode package $CHAINCODE_PKG_URL"
+    mkdir -p $(dirname $CHAINCODE_PACKAGE)
+    curl -L $CHAINCODE_PKG_URL > $CHAINCODE_PACKAGE
+  fi
+else
+  # Use provided package path
+  if [ ! -f "$CHAINCODE_PACKAGE" ]; then
+    print "ERROR: Chaincode package not found at $CHAINCODE_PACKAGE"
+    exit 1
+  fi
+  
+  # Extract chaincode name and version from package filename
+  # Expected format: <name>-<version>.tar.gz
+  PACKAGE_BASENAME=$(basename "$CHAINCODE_PACKAGE" .tar.gz)
+  CHAINCODE_NAME="${PACKAGE_BASENAME%-*}"
+  CHAINCODE_VERSION="${PACKAGE_BASENAME##*-}"
+fi
+
+#
+# Set default values for chaincode deployment
+#
+export CHAINCODE_NAME="${CHAINCODE_NAME:-asset-transfer}"
+export CHAINCODE_VERSION="${CHAINCODE_VERSION:-1.0}"
+export CHAINCODE_SEQUENCE="${CHAINCODE_SEQUENCE:-1}"
+export CHANNEL_NAME="${CHANNEL_NAME:-mychannel}"
+
+#
 # Bind all org2 services to the "org2" namespace
 #
 export NAMESPACE=org2
-
-
-
-#
-# Download the chaincode package.  (Or prepare one here with pkgcc.sh, tar, etc.)
-#
-CHAINCODE_PACKAGE=organizations/org2/chaincode/$CHAINCODE_PKG_NAME
-if [ ! -f "$CHAINCODE_PACKAGE" ]; then
-  print "downloading k8s chaincode package $CHAINCODE_PKG_URL"
-  mkdir -p $(dirname $CHAINCODE_PACKAGE)
-  curl -L $CHAINCODE_PKG_URL > $CHAINCODE_PACKAGE
-fi
 
 
 #
@@ -46,7 +69,7 @@ fi
 appear_as Org2MSP org2 peer1
 export PACKAGE_ID=$(peer lifecycle chaincode calculatepackageid $CHAINCODE_PACKAGE)
 
-print "installing $CHAINCODE_PKG_URL to $CORE_PEER_ADDRESS"
+print "installing $CHAINCODE_PACKAGE to $CORE_PEER_ADDRESS"
 echo $PACKAGE_ID
 peer lifecycle chaincode install $CHAINCODE_PACKAGE || true
 
@@ -54,7 +77,7 @@ peer lifecycle chaincode install $CHAINCODE_PACKAGE || true
 appear_as Org2MSP org2 peer2
 export PACKAGE_ID=$(peer lifecycle chaincode calculatepackageid $CHAINCODE_PACKAGE)
 
-print "installing $CHAINCODE_PKG_URL to $CORE_PEER_ADDRESS"
+print "installing $CHAINCODE_PACKAGE to $CORE_PEER_ADDRESS"
 echo $PACKAGE_ID
 peer lifecycle chaincode install $CHAINCODE_PACKAGE || true
 
@@ -62,7 +85,7 @@ peer lifecycle chaincode install $CHAINCODE_PACKAGE || true
 #
 # Approve the chaincode for the org
 #
-print "approving $CHAINCODE_NAME for $org"
+print "approving $CHAINCODE_NAME for $NAMESPACE"
 peer lifecycle \
   chaincode       approveformyorg \
   --channelID     ${CHANNEL_NAME} \
