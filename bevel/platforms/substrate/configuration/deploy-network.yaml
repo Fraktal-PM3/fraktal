@@ -1,0 +1,105 @@
+##############################################################################################
+# Copyright Accenture. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+##############################################################################################
+# This Ansible playbook deploys a Distributed Ledger Technology (DLT) network on existing 
+# Kubernetes clusters. The Kubernetes clusters must already be provisioned, and the necessary 
+# connection information should be updated in the `network.yaml` file, which serves as input 
+# for this playbook.
+##############################################################################################
+
+##############################################################################################
+# Usage:
+# To execute this playbook from the current directory, use the following command:
+# ansible-playbook deploy-network.yaml -e "@./network.yaml"
+##############################################################################################
+
+# Please ensure that the ../../shared/configuration playbooks have been run using the same network.yaml
+- hosts: ansible_provisioners
+  gather_facts: no
+  no_log: "{{ no_ansible_log | default(false) }}"
+  tasks:      
+  # Delete build directory 
+  - name: Remove build directory
+    file:
+      path: "./build"
+      state: absent
+
+  # Create Kubernetes namespaces for each organization
+  - name: "Create namespace"
+    include_role: 
+      name: create/namespace
+    vars:
+      component_ns: "{{ item.name | lower }}-subs"
+      organisation: "{{ item.name | lower }}"
+      kubernetes: "{{ item.k8s }}"
+      gitops: "{{ item.gitops }}"
+    loop: "{{ network['organizations'] }}"
+
+  # Create necessary Kubernetes secrets for each organization
+  - name: "Create k8s secrets"
+    include_role:
+      name: create/secrets
+    vars:
+      component_ns: "{{ org.name | lower }}-subs"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+
+  # Generate Ambassador certificates for nodes (if using Ambassador as proxy)
+  - name: "Create ambassador certificates for Nodes" 
+    include_role: 
+      name: create/certificates/ambassador
+    vars:
+      root_subject: "{{ network.config.subject }}"
+      cert_subject: "{{ network.config.subject | regex_replace(',', '/') }}"
+      services: "{{ item.services }}"
+      organisation: "{{ item.name | lower }}"
+      component_ns: "{{ item.name | lower }}-subs"
+      component_name: "{{ item.name | lower }}"
+      kubernetes: "{{ item.k8s }}"
+      vault: "{{ item.vault }}"
+    loop: "{{ network['organizations']}}"
+    when: network.env.proxy == "ambassador"
+
+  # Generate Genesis file that will contain the record of all nodes
+  - name: "Generate Genesis"
+    include_role:
+      name: create/generate_genesis
+
+  # Deploy Bootnodes or Validator nodes
+  - name: "Deploy Bootnode or Validator nodes"
+    include_role:
+      name: create/validator_node
+    vars:
+      build_path: "./build"
+      kubernetes: "{{ item.k8s }}"
+      component_ns: "{{ item.name | lower }}-subs"
+      name: "{{ item.name | lower }}"
+      peers: "{{ item.services.peers }}"
+    loop: "{{ network['organizations'] }}"
+
+  # Deploy Member nodes, including IPFS node if enabled
+  - name: "Deploy Member nodes, including IPFS node if enabled"
+    include_role:
+      name: create/member_node
+    vars:
+      build_path: "./build"
+      kubernetes: "{{ item.k8s }}"
+      vault: "{{ item.vault }}"
+      component_ns: "{{ item.name | lower }}-subs"
+      name: "{{ item.name | lower }}"
+      peers: "{{ item.services.peers }}"
+    loop: "{{ network['organizations'] }}"
+
+  # These variables can be overriden from the command line
+  vars:
+    install_os: "linux"           # Default to linux OS
+    install_arch:  "amd64"        # Default to amd64 architecture
+    bin_install_dir:  "~/bin"     # Default to /bin install directory for binaries
+    add_new_org: false            # 'add_new_org' flag, defaults to false when not defined.

@@ -1,0 +1,88 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+# Default values for indy-node.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+global:
+  serviceAccountName: vault-auth
+  cluster:
+    provider: azure  # choose from: minikube | aws | azure | gcp
+    cloudNativeServices: false # set to true to use Cloud Native Services (SecretsManager and IAM for AWS; KeyVault & Managed Identities for Azure)
+  # This section contains the proxy ports.
+  proxy:
+    # Mention the proxy provider. Currently ambassador or none is supported.
+    # Eg. provider: ambassador
+    provider: ambassador
+
+# Override necessary Subchart values
+storage:
+  #Provide the storage size for storage for keys
+  #Eg. keys: 512Mi
+  keys: "512Mi"
+  #Provide the storage size for storage for data
+  #Eg. data: 5Gi
+  data: "4Gi"
+  # NOTE: when you set this to Retain, the volume WILL persist after the chart is delete and you need to manually delete it
+  reclaimPolicy: "Delete" # choose from: Delete | Retain
+  volumeBindingMode: Immediate # choose from: Immediate | WaitForFirstConsumer
+  allowedTopologies:
+    enabled: false
+
+image:
+  #Provide the image pull secret of image
+  #Eg. pullSecret: regcred
+  pullSecret:
+  #Provide the image repository for the init container
+  #Eg. initContainer: ghcr.io/hyperledger/bevel-alpine-ext:latest
+  initContainer: ghcr.io/hyperledger/bevel-alpine-ext:latest
+  #Provide the image repository for the indy-ledger-txn container
+  #Eg. cli: ghcr.io/hyperledger/bevel-indy-ledger-txn:latest
+  cli: ghcr.io/hyperledger/bevel-indy-ledger-txn:latest
+  indyNode:
+    #Provide the image name for the indy-node container
+    #Eg. repository: ghcr.io/hyperledger/bevel-indy-node
+    repository: ghcr.io/hyperledger/bevel-indy-node
+    #Provide the image version for the indy-node container
+    #Eg. tag: 1.12.6
+    tag: 1.12.6
+
+settings:
+  #Provide the name for network
+  #Eg. network: bevel
+  network: bevel
+  # addOrg is true when adding new validator node to existing network
+  addOrg: false
+  #Provide type of service (NodePort or ClusterIP)
+  serviceType: ClusterIP
+  node:
+    #Provide the  node ip
+    #Eg. ip: 0.0.0.0
+    ip: 0.0.0.0
+    #Provide the  node ip
+    #Eg. publicIp: 192.168.2.1
+    publicIp: 
+    #Provide the  node port
+    #Eg. port: 9711
+    port: 9711
+    # Mention the external port configured on proxy.
+    # NOTE: Make sure that the port is enabled and not already used.
+    # Eg. externalPort: 15011
+    externalPort: 15011
+
+  client:
+    #Provide the client ip
+    #Eg. ip: 0.0.0.0
+    ip: 0.0.0.0
+    #Provide the client ip
+    #Eg. ip: 192.168.2.1
+    publicIp: 
+    #Provide the client port
+    #Eg. port: 9752
+    port: 9712
+    # Mention the external port configured on proxy.
+    # NOTE: Make sure that the port is enabled and not already used.
+    # Eg. externalPort: 15012
+    externalPort: 15012

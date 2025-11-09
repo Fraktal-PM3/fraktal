@@ -1,0 +1,51 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Initialize variables for the first organization
+- name: "Initialize variables for the first organization"
+  set_fact:
+    previous_org_name: "{{ network.organizations[(current_org_index | int) - 1].name | lower }}"
+    previous_org_kubernetes: "{{ network.organizations[(current_org_index | int) - 1].k8s }}"
+
+# Retrieve static nodes from the ConfigMap belongs to the primary (first) organization
+- name: "Get static nodes ConfigMap"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: quorum-peers
+    namespace: "{{ previous_org_name }}-quo"
+    kubeconfig: "{{ previous_org_kubernetes.config_file }}"
+  register: peers_configmap
+
+# Retrieve genesis from the ConfigMap belongs to the primary (first) organization
+- name: "Get genesis ConfigMap"
+  community.kubernetes.k8s_info:
+    api_version: v1
+    kind: ConfigMap
+    name: quorum-genesis
+    namespace: "{{ previous_org_name }}-quo"
+    kubeconfig: "{{ previous_org_kubernetes.config_file }}"
+  register: genesis_configmap
+
+# Save peers_configmap content to a file
+- name: "Save peers_configmap to file"
+  copy:
+    content: "{{ peers_configmap.resources[0].data['static-nodes.json'] }}"
+    dest: "{{ playbook_dir }}/../../quorum/charts/quorum-genesis/files/static-nodes.json"
+  when: peers_configmap.resources[0].data['static-nodes.json'] is defined
+
+# Save genesis_configmap content to a file
+- name: "Save genesis_configmap to file"
+  copy:
+    content: "{{ genesis_configmap.resources[0].data['genesis.json'] }}"
+    dest: "{{ playbook_dir }}/../../quorum/charts/quorum-genesis/files/genesis.json"
+  when: genesis_configmap.resources[0].data['genesis.json'] is defined
+
+# Generate secondary genesis HR files for the remaining organizations
+- name: "Generate secondary genesis HR file for the remaining organization"
+  include_tasks: deploy_secondary_genesis.yaml
+  vars:
+    name: "{{ org_name }}"

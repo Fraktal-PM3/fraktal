@@ -1,0 +1,21 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+#############################################################################################
+# This role deletes the Vault configurations for each service
+#############################################################################################
+
+# Delete Ambassador Creds
+- name: Delete Ambassador creds
+  k8s:
+    kind: Secret
+    namespace: "{{ component_name }}"
+    name: "{{ service.value['name'] }}-ambassador-certs"
+    kubeconfig: "{{ kubernetes.config_file }}"
+    context: "{{ kubernetes.context }}"
+    state: absent
+  ignore_errors: true
+  changed_when: false

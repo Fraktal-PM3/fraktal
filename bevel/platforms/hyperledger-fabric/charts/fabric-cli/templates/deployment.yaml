@@ -1,0 +1,269 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ template "fabric-cli.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: cli
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/component: fabric
+    {{ include "labels.deployment" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cli
+      app.kubernetes.io/name: {{ .Release.Name }}
+      app.kubernetes.io/component: fabric
+  template:
+    metadata:
+      labels:
+        app: cli
+        app.kubernetes.io/name: {{ .Release.Name }}
+        app.kubernetes.io/component: fabric
+        {{ include "labels.deployment" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      {{- if .Values.image.pullSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      volumes:
+      - name: {{ .Release.Name }}-cli-pv
+        persistentVolumeClaim:
+          claimName: {{ .Release.Name }}-cli-pvc
+      {{ if .Values.global.vault.tls  }}
+      - name: vaultca
+        secret:
+          secretName: {{ .Values.global.vault.tls }}
+          items:
+          - key: ca.crt.pem
+            path: ca-certificates.crt
+      {{ end  }}
+      - name: certificates
+        emptyDir:
+          medium: Memory
+      - name: scripts-volume
+        configMap:
+          name: bevel-vault-script
+      - name: package-manager
+        configMap:
+          name: package-manager
+      - name: orderer-tls-cacert
+        configMap:
+          name: {{ include "fabric-cli.orderercrt" . }}
+          defaultMode: 0775
+          items:
+            - key: cacert
+              path: orderer.crt
+      initContainers:
+      - name: certificates-init
+        image: {{ .Values.image.alpineUtils }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: VAULT_ADDR
+          value: {{ .Values.global.vault.address }}
+        - name: VAULT_SECRET_ENGINE
+          value: "{{ .Values.global.vault.secretEngine }}"
+        - name: VAULT_SECRET_PREFIX
+          value: "{{ .Values.global.vault.secretPrefix }}"
+        - name: KUBERNETES_AUTH_PATH
+          value: {{ .Values.global.vault.authPath }}
+        - name: VAULT_APP_ROLE
+          value: {{ .Values.global.vault.role }}
+        - name: MOUNT_PATH
+          value: "/secret"
+        - name: VAULT_TYPE
+          value: "{{ .Values.global.vault.type }}"
+        - name: CORE_PEER_ADDRESS
+          value: "{{ include "fabric-cli.peername" . }}.{{ .Release.Namespace }}:{{ .Values.ports.grpc.clusterIpPort }}"
+        command: ["sh", "-c"]
+        args:
+        - |-
+          #!/usr/bin/env sh
+          . /scripts/bevel-vault.sh
+
+{{- if eq .Values.global.vault.type "hashicorp" }}
+
+          # Calling a function to retrieve the vault token.
+          vaultBevelFunc "init"
+          function getAdminMspSecret {
+            KEY=$1
+
+            echo "Getting MSP certificates from Vault."
+            vaultBevelFunc "readJson" "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${KEY}"
+            if [ "$SECRETS_AVAILABLE" == "yes" ]
+            then
+              ADMINCERT=$(echo ${VAULT_SECRET} | jq -r '.["admincerts"]')
+              CACERTS=$(echo ${VAULT_SECRET} | jq -r '.["cacerts"]')
+              KEYSTORE=$(echo ${VAULT_SECRET} | jq -r '.["keystore"]')
+              SIGNCERTS=$(echo ${VAULT_SECRET} | jq -r '.["signcerts"]')
+              TLSCACERTS=$(echo ${VAULT_SECRET} | jq -r '.["tlscacerts"]')
+
+              echo "${ADMINCERT}" > ${OUTPUT_PATH}/admincerts/admin.crt
+              echo "${CACERTS}" > ${OUTPUT_PATH}/cacerts/ca.crt
+              echo "${KEYSTORE}" > ${OUTPUT_PATH}/keystore/server.key
+              echo "${SIGNCERTS}" > ${OUTPUT_PATH}/signcerts/server.crt
+              echo "${TLSCACERTS}" > ${OUTPUT_PATH}/tlscacerts/tlsca.crt
+              ADMIN_MSP_SECRET=true
+            else
+              ADMIN_MSP_SECRET=false
+            fi     
+          }
+
+          function getAdminTlsSecret {
+            KEY=$1
+
+            echo "Getting TLS certificates from Vault."
+            vaultBevelFunc "readJson" "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${KEY}"
+            if [ "$SECRETS_AVAILABLE" == "yes" ]
+            then
+              OSN_TLS_CA_ROOT_CERT=$(echo ${VAULT_SECRET} | jq -r '.["ca_crt"]')
+              ADMIN_TLS_SIGN_CERT=$(echo ${VAULT_SECRET} | jq -r '.["client_crt"]')
+              ADMIN_TLS_PRIVATE_KEY=$(echo ${VAULT_SECRET} | jq -r '.["client_key"]')
+
+              echo "${OSN_TLS_CA_ROOT_CERT}" > ${OUTPUT_TLS_PATH}/tlsca.crt
+              echo "${ADMIN_TLS_SIGN_CERT}" > ${OUTPUT_TLS_PATH}/server.crt
+              echo "${ADMIN_TLS_PRIVATE_KEY}" > ${OUTPUT_TLS_PATH}/server.key
+              ADMIN_TLS_SECRET=true
+            else
+              ADMIN_TLS_SECRET=false
+            fi     
+          }
+
+{{- else }}
+
+          function getAdminMspSecret {
+            KEY=$1
+            KUBENETES_SECRET=$(kubectl get secret ${KEY} --namespace {{ .Release.Namespace }} -o json)
+            if  [ "$KUBENETES_SECRET" = "" ]; then
+              ADMIN_MSP_SECRET=false
+            else
+              ADMINCERT=$(echo ${KUBENETES_SECRET} | jq -r '.data.admincerts'  | base64 -d)
+              CACERTS=$(echo ${KUBENETES_SECRET} | jq -r '.data.cacerts'  | base64 -d)
+              KEYSTORE=$(echo ${KUBENETES_SECRET} | jq -r '.data.keystore'  | base64 -d)
+              SIGNCERTS=$(echo ${KUBENETES_SECRET} | jq -r '.data.signcerts'  | base64 -d)
+              TLSCACERTS=$(echo ${KUBENETES_SECRET} | jq -r '.data.tlscacerts'  | base64 -d)
+
+              echo "${ADMINCERT}" > ${OUTPUT_PATH}/admincerts/admin.crt
+              echo "${CACERTS}" > ${OUTPUT_PATH}/cacerts/ca.crt
+              echo "${KEYSTORE}" > ${OUTPUT_PATH}/keystore/server.key
+              echo "${SIGNCERTS}" > ${OUTPUT_PATH}/signcerts/server.crt
+              echo "${TLSCACERTS}" > ${OUTPUT_PATH}/tlscacerts/tlsca.crt   
+              ADMIN_MSP_SECRET=true
+            fi            
+          }
+
+          function getAdminTlsSecret {
+            KEY=$1
+            KUBENETES_SECRET=$(kubectl get secret ${KEY} --namespace {{ .Release.Namespace }} -o json)
+            if  [ "$KUBENETES_SECRET" = "" ]; then
+              ADMIN_TLS_SECRET=false
+            else
+              OSN_TLS_CA_ROOT_CERT=$(echo ${KUBENETES_SECRET} | jq -r '.data.cacrt'  | base64 -d)
+              ADMIN_TLS_SIGN_CERT=$(echo ${KUBENETES_SECRET} | jq -r '.data.clientcrt'  | base64 -d)
+              ADMIN_TLS_PRIVATE_KEY=$(echo ${KUBENETES_SECRET} | jq -r '.data.clientkey'  | base64 -d)
+
+              echo "${OSN_TLS_CA_ROOT_CERT}" > ${OUTPUT_TLS_PATH}/tlsca.crt
+              echo "${ADMIN_TLS_SIGN_CERT}" > ${OUTPUT_TLS_PATH}/server.crt
+              echo "${ADMIN_TLS_PRIVATE_KEY}" > ${OUTPUT_TLS_PATH}/server.key 
+              ADMIN_TLS_SECRET=true
+            fi            
+          }
+
+{{- end }} 
+
+          COUNTER=1
+          while [ "$COUNTER" -le {{ .Values.healthCheck.retries }} ]
+          do
+
+            OUTPUT_PATH="${MOUNT_PATH}/admin/msp"
+            OUTPUT_TLS_PATH="${MOUNT_PATH}/tls"
+            mkdir -p ${OUTPUT_TLS_PATH}
+            mkdir -p ${OUTPUT_PATH}/admincerts
+            mkdir -p ${OUTPUT_PATH}/cacerts
+            mkdir -p ${OUTPUT_PATH}/keystore
+            mkdir -p ${OUTPUT_PATH}/signcerts
+            mkdir -p ${OUTPUT_PATH}/tlscacerts
+            getAdminMspSecret admin-msp
+            getAdminTlsSecret admin-tls
+
+            if [ "$ADMIN_MSP_SECRET" = "true" ] && [ "$ADMIN_TLS_SECRET" = "true" ]
+            then
+              echo "Peer certificates have been obtained correctly"
+              break
+            else
+              echo "Peer certificates have not been obtained, sleeping for {{ .Values.healthCheck.sleepTimeAfterError }}"
+              sleep {{ .Values.healthCheck.sleepTimeAfterError }}
+              COUNTER=`expr "$COUNTER" + 1`
+            fi
+          done
+
+          if [ "$COUNTER" -gt {{ .Values.healthCheck.retries }} ]
+          then
+            echo "Retry attempted `expr $COUNTER - 1` times, The peer certificates have not been obtained."
+            exit 1
+          fi
+
+        volumeMounts:
+        - name: certificates
+          mountPath: /secret
+        {{ if .Values.global.vault.tls  }}
+        - name: vaultca
+          mountPath: "/etc/ssl/certs/"
+          readOnly: true
+        {{ end }}
+        - name: scripts-volume
+          mountPath: /scripts/bevel-vault.sh
+          subPath: bevel-vault.sh
+        - name: package-manager
+          mountPath: /scripts/package-manager.sh
+          subPath: package-manager.sh
+      containers:
+      - name: cli
+        image: {{ .Values.image.fabricTools }}:{{ .Values.global.version }}
+        imagePullPolicy: IfNotPresent
+        stdin: true
+        tty: true
+        command: ["sh", "-c", "/bin/bash"]
+        workingDir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+        env:
+        - name: CORE_VM_ENDPOINT
+          value: "unix:///host/var/run/docker.sock"
+        - name: FABRIC_LOGGING_SPEC
+          value: "debug"
+        - name: CORE_PEER_ID
+          value: "{{ include "fabric-cli.peername" . }}.{{ .Release.Namespace }}"
+        - name: CORE_PEER_ADDRESS
+          value: "{{ include "fabric-cli.peername" . }}.{{ .Release.Namespace }}:{{ .Values.ports.grpc.clusterIpPort }}"
+        - name: CORE_PEER_LOCALMSPID
+          value: "{{ .Values.localMspId }}"
+        - name: CORE_PEER_TLS_ENABLED
+          value: "{{ .Values.tlsStatus }}"
+        - name: CORE_PEER_TLS_ROOTCERT_FILE
+          value: /opt/gopath/src/github.com/hyperledger/fabric/crypto/admin/msp/tlscacerts/tlsca.crt
+        - name: ORDERER_CA
+          value: /opt/gopath/src/github.com/hyperledger/fabric/orderer/tls/orderer.crt
+        - name: ORDERER_URL
+          value: "{{ .Values.ordererAddress }}"
+        - name: CORE_PEER_MSPCONFIGPATH
+          value: /opt/gopath/src/github.com/hyperledger/fabric/crypto/admin/msp
+        - name: CORE_PEER_TLSCONFIGPATH
+          value: /opt/gopath/src/github.com/hyperledger/fabric/crypto/admin/tls
+        volumeMounts:
+        - name: certificates
+          mountPath: /opt/gopath/src/github.com/hyperledger/fabric/crypto
+        - name: {{ .Release.Name }}-cli-pv
+          mountPath: /opt/gopath/src/github.com/chaincode
+        - name: package-manager
+          mountPath: /scripts/package-manager.sh
+          subPath: package-manager.sh
+        - name: orderer-tls-cacert
+          mountPath: /opt/gopath/src/github.com/hyperledger/fabric/orderer/tls/orderer.crt
+          subPath: orderer.crt

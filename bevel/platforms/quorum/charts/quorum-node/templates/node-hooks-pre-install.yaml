@@ -1,0 +1,310 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "quorum-node.fullname" . }}-pre-install-hook
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": pre-install
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": "before-hook-creation"
+  labels:
+    app.kubernetes.io/name: pre-install-hook
+    app.kubernetes.io/component: keygen
+    app.kubernetes.io/part-of: {{ include "quorum-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+spec:
+  backoffLimit: 1
+  completions: 1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: pre-install-hook
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      restartPolicy: "OnFailure"
+      containers:
+        - name: {{ template "quorum-node.fullname" . }}-keygen
+          image: {{ .Values.image.hooks.repository }}:{{ .Values.image.hooks.tag }}
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+{{- if .Values.global.cluster.cloudNativeServices }}
+  {{- if eq .Values.global.cluster.provider "aws" }}
+            - name: package-manager
+              mountPath: /scripts/package-manager.sh
+              subPath: package-manager.sh
+            - name: aws-secret-manager-volume
+              mountPath: /etc/config
+  {{- end }}
+{{- else }}
+  {{- if eq .Values.global.vault.type "hashicorp" }}
+            - name: scripts-volume
+              mountPath: /scripts/bevel-vault.sh
+              subPath: bevel-vault.sh
+  {{- end }}
+{{- end }}
+          env:
+{{- if .Values.global.cluster.cloudNativeServices }}
+  {{- if eq .Values.global.cluster.provider "aws" }}
+            - name: AWS_SECRECT_MANAGER_REGION
+              value: "{{ .Values.global.cluster.secretManagerRegion }}"
+  {{- end }}
+{{- else }}
+  {{- if eq .Values.global.vault.type "hashicorp" }}
+            - name: VAULT_ADDR
+              value: "{{ .Values.global.vault.address }}"
+            - name: VAULT_SECRET_ENGINE
+              value: "{{ .Values.global.vault.secretEngine }}"
+            - name: VAULT_SECRET_PREFIX
+              value: "{{ .Values.global.vault.secretPrefix }}"
+            - name: KUBERNETES_AUTH_PATH
+              value: "{{ .Values.global.vault.authPath }}"
+            - name: VAULT_APP_ROLE
+              value: "{{ .Values.global.vault.role }}"
+            - name: VAULT_TYPE
+              value: "{{ .Values.global.vault.type }}"
+  {{- end }}
+{{- end }}
+          command:
+            - /bin/bash
+            - -c
+          args:
+            - |
+
+                # reads all the required data from the file path
+                readSecretData() {
+                  local fpath="$1"
+                  
+                  local node_address=$(cat "${fpath}/address")
+                  local node_key=$(cat "${fpath}/nodekey")
+                  local node_key_pub=$(cat "${fpath}/nodekey.pub")
+                  local account_private_key=$(cat "${fpath}/accountPrivateKey")
+                  local account_password=$(cat "${fpath}/accountPassword")
+                  local account_keystore=$(cat "${fpath}/accountKeystore")
+                  local account_keystore_base64=$(cat "${fpath}/accountKeystore" | base64 -w 0)
+                  local account_address=$(cat "${fpath}/accountAddress")
+                  
+                  echo "${node_address}" "${node_key}" "${node_key_pub}" "${account_private_key}" "${account_password}" "${account_keystore}" "${account_keystore_base64}" "${account_address}"
+                }
+                
+                # constructs the JSON payload using the extracted secret values
+                createJsonPayload() {
+                  local node_address="$1"
+                  local node_key="$2"
+                  local node_key_pub="$3"
+                  local account_private_key="$4"
+                  local account_password="$5"
+                  local account_keystore_base64="$6"
+                  local account_address="$7"
+                  
+                  echo "
+                    {
+                      \"data\":
+                        {
+                          \"nodeAddress\": \"${node_address}\",
+                          \"nodeKey\": \"${node_key}\",
+                          \"nodeKeyPub\": \"${node_key_pub}\",
+                          \"accountPrivateKey\": \"${account_private_key}\",
+                          \"accountPassword\": \"${account_password}\",
+                          \"accountKeystore_base64\": \"${account_keystore_base64}\",
+                          \"accountAddress\": \"${account_address}\"
+                        }
+                    }" > nodePayload.json
+                }
+                
+                # checks if a secret exists in AWS Secret Manager, and either creates or updates it
+                manageAwsSecret() {
+                  local key="$1"
+                  local payload_file="$2"
+                  
+                  # Check if the secret exists in AWS Secret Manager
+                  python3 /etc/config/aws-secret-manager-script.py "${AWS_SECRECT_MANAGER_REGION}" get_secret "${key}" > /tmp/response.json
+                  # If the secret does not exist, create it, otherwise update it
+                  if grep -q "ResourceNotFoundException" /tmp/response.json; then
+                    python3 /etc/config/aws-secret-manager-script.py "${AWS_SECRECT_MANAGER_REGION}" create_secret "${key}" "${payload_file}"
+                  else
+                    python3 /etc/config/aws-secret-manager-script.py "${AWS_SECRECT_MANAGER_REGION}" update_secret "${key}" "${payload_file}"
+                  fi
+                }
+                
+                # Function to create a Kubernetes secret
+                createKubernetesSecret() {
+                  local key="$1"
+                  local node_address="$2"
+                  local node_key="$3"
+                  local node_key_pub="$4"
+                  local account_private_key="$5"
+                  local account_password="$6"
+                  local account_keystore="$7"
+                  local account_address="$8"
+                  
+                  # Create the Kubernetes secret
+                  kubectl create secret generic ${key} --namespace "{{ .Release.Namespace }}" \
+                    --from-literal=address="${node_address}" \
+                    --from-literal=nodekey="${node_key}" \
+                    --from-literal=nodekey.pub="${node_key_pub}" \
+                    --from-literal=accountPrivateKey="${account_private_key}" \
+                    --from-literal=accountPassword="${account_password}" \
+                    --from-literal=accountKeystore="${account_keystore}" \
+                    --from-literal=accountAddress="${account_address}" \
+                    --dry-run=client -o yaml | kubectl apply -f -
+                }
+                
+                # Check if the vault type is HashiCorp
+{{- if eq .Values.global.vault.type "hashicorp" }}
+                  # Source the script containing vault-related functions
+                  . /scripts/bevel-vault.sh
+                  
+                  echo "Generate a customize token."
+                  vaultBevelFunc "init"
+                  
+                  # Function to safely write keys
+                  safeWriteSecret() {
+                    local key="$1"
+                    local fpath="$2"
+                    
+                    # Read secret from vault
+                    vaultBevelFunc "readJson" "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/${key}"
+                    
+                    # Check if secrets are available in the vault
+                    if [ "$SECRETS_AVAILABLE" == "yes" ]
+                    then
+                      # Extract secrets from JSON response
+                      local accountAddress=$(echo ${VAULT_SECRET} | jq -r '.["accountAddress"]')
+                      local accountKeystore=$(echo ${VAULT_SECRET} | jq -r '.["accountKeystore_base64"]' | base64 -d)
+                      local accountPassword=$(echo ${VAULT_SECRET} | jq -r '.["accountPassword"]')
+                      local accountPrivateKey=$(echo ${VAULT_SECRET} | jq -r '.["accountPrivateKey"]')
+                      local address=$(echo ${VAULT_SECRET} | jq -r '.["nodeAddress"]')
+                      local nodeKey=$(echo ${VAULT_SECRET} | jq -r '.["nodeKey"]')
+                      nodekey_pub=$(echo ${VAULT_SECRET} | jq -r '.["nodeKeyPub"]')
+                      
+                      # Create Kubernetes Secret
+                      createKubernetesSecret "$key" "$node_address" "$node_key" "$node_key_pub" "$account_private_key" "$account_password" "$account_keystore" "$account_address"
+                    else
+                      # Read secret data
+                      read -r node_address node_key node_key_pub account_private_key account_password account_keystore account_keystore_base64 account_address <<< $(readSecretData "$fpath")
+                      # Create JSON payload
+                      createJsonPayload "$node_address" "$node_key" "$node_key_pub" "$account_private_key" "$account_password" "$account_keystore_base64" "$account_address"
+                      # Push data to vault
+                      vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/${key}" 'nodePayload.json'
+                      # Remove payload JSON
+                      rm nodePayload.json
+                    fi
+                  }
+{{- else if .Values.global.cluster.cloudNativeServices }}
+  {{- if eq .Values.global.cluster.provider "aws" }}
+                . /scripts/package-manager.sh
+                
+                # Define the packages to install
+                packages_to_install="python3-pip python3-boto3"
+                install_packages "$packages_to_install"
+                
+                safeWriteSecret() {
+                  local key="$1"
+                  local fpath="$2"
+                  
+                  # Read secret data
+                  read -r node_address node_key node_key_pub account_private_key account_password account_keystore account_keystore_base64 account_address <<< $(readSecretData "$fpath")
+                  # Create JSON payload
+                  createJsonPayload "$node_address" "$node_key" "$node_key_pub" "$account_private_key" "$account_password" "$account_keystore_base64" "$account_address"
+                  # Manage AWS Secret
+                  manageAwsSecret "${key}" "nodePayload.json"
+                  # Create Kubernetes Secret
+                  createKubernetesSecret "$key" "$node_address" "$node_key" "$node_key_pub" "$account_private_key" "$account_password" "$account_keystore" "$account_address"
+                  # Remove payload JSON
+                  rm nodePayload.json
+                }
+  {{- end }}
+{{- else }}
+                  safeWriteSecret() {
+                  # Placeholder:
+                  # - Implement code to fetch the keys if using any cloud-native service or platform different from HashiCorp or AWS-Secret-Manager to store the keys
+                  # - After fetching the keys, create Kubernetes secrets from them
+                  # - For guidance, refer to the code written for HashiCorp Vault and AWS Secret Manager for the same purpose
+                  return 0
+                  }
+{{- end }}
+                secret_name="{{ template "quorum-node.fullname" . }}-{{ .Release.Namespace }}-keys"
+                # Check if the secret exists in Kubernetes
+                if ! kubectl get secret "$secret_name" --namespace {{ .Release.Namespace }} &> /dev/null; then
+                  echo "Secret $secret_name does not exist. Creating secret."
+                  
+                  # Use quorum-genesis-tool to generate genesis, keys and other required files
+                  FOLDER_PATH=$(quorum-genesis-tool --validators 0 --members 1 --bootnodes 0 \
+                    {{ if .Values.node.quorum.account.password }} --accountPassword {{ .Values.node.quorum.account.password }} {{ end }} \
+                    --outputPath /generated-config | tail -1 | sed -e "s/^Artifacts in folder: //")
+                  dir="$FOLDER_PATH/member0"
+
+{{- if and (ne .Values.global.cluster.provider "minikube") (.Values.global.cluster.cloudNativeServices) }}
+                  # Implement logic to safely write keys for cloud-native services
+                  # If cloud provider is aws, secret-manager will be used to store keys securely
+                  safeWriteSecret "$secret_name" "${dir}"
+{{- else }}
+                  # Safely write keys to the Hashicorp Vault
+                  safeWriteSecret "$secret_name" "${dir}"
+{{- end }}
+                  # Check if Kubernetes secret exists, if not, create one
+                  if ! kubectl get secret "$secret_name" --namespace {{ .Release.Namespace }} &> /dev/null; then
+                    # Read secret data
+                    read -r node_address node_key node_key_pub account_private_key account_password account_keystore account_keystore_base64 account_address <<< $(readSecretData "$current_validator_dir")
+                    # Create Kubernetes Secret
+                    createKubernetesSecret "$secret_name" "$node_address" "$node_key" "$node_key_pub" "$account_private_key" "$account_password" "$account_keystore" "$account_address"
+                  fi
+                else
+                  echo "Secret $secret_name exists. Extract modekey.pub key"
+                  node_key_pub=$(kubectl get secret "$secret_name" --namespace {{ .Release.Namespace }} -o json | jq -r '.data["nodekey.pub"]' | base64 -d)
+                fi
+                
+                quorum_peers_configmap="quorum-peers"
+                # Check if the ConfigMap exists
+                if kubectl get configmap "$quorum_peers_configmap" --namespace {{ .Release.Namespace }} &> /dev/null; then
+                    # Get the content of the ConfigMap and save it to a file
+                    kubectl get configmap "$quorum_peers_configmap" --namespace {{ .Release.Namespace }} -o json | jq -r '.data["static-nodes.json"]' > ./static-nodes.json
+                    echo "Content of the ConfigMap has been saved to static-nodes.json"
+                    existingStaticNodes=$(cat ./static-nodes.json)
+                    
+                    newStaticNode="enode://$node_key_pub@{{ include "quorum-node.enodeURL" . }}?discport=0"
+                    
+                    # Check if newStaticNode already exists in existingStaticNodes
+                    if ! echo "$existingStaticNodes" | jq 'contains(["'"$newStaticNode"'"])' | grep -q true; then
+                        existingStaticNodes=$(jq ". + [\"$newStaticNode\"]" <<< "$existingStaticNodes")
+                        echo "$existingStaticNodes" > ./static-nodes.json
+                        
+                        # Update the ConfigMap
+                        kubectl create configmap "$quorum_peers_configmap" --from-file=static-nodes.json=./static-nodes.json --namespace {{ .Release.Namespace }} --dry-run=client -o yaml | kubectl replace -f -
+                    fi
+                else
+                    echo "ConfigMap $quorum_peers_configmap does not exist in namespace {{ .Release.Namespace }}. Creating one."
+                    
+                    # Creating static-nodes.json file
+                    echo "[" > "./static-nodes.json"
+                    echo "\"enode://$node_key_pub@{{ include "quorum-node.enodeURL" . }}?discport=0\"" >> "./static-nodes.json"
+                    echo "]" >> "./static-nodes.json"
+                    
+                    # Create ConfigMap
+                    kubectl create configmap "$quorum_peers_configmap" --from-file=static-nodes.json=./static-nodes.json --namespace {{ .Release.Namespace }}
+                fi
+                
+                echo "COMPLETED PRE-HOOK"
+      volumes:
+{{- if .Values.global.cluster.cloudNativeServices }}
+  {{- if eq .Values.global.cluster.provider "aws" }}
+        - name: package-manager
+          configMap:
+            name: package-manager
+        - name: aws-secret-manager-volume
+          configMap:
+            name: aws-secret-manager-script
+  {{- end }}
+{{- else }}
+  {{- if eq .Values.global.vault.type "hashicorp" }}
+        - name: scripts-volume
+          configMap:
+            name: bevel-vault-script
+            defaultMode: 0777
+  {{- end }}
+{{- end }}

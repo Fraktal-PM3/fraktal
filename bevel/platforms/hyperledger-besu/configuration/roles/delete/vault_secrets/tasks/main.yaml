@@ -1,0 +1,37 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+#############################################################################################
+# This role deletes the Vault configurations
+#############################################################################################
+
+#############################################################################################
+
+# Delete Docker credentials
+- name: Delete docker creds
+  k8s:
+    kind: Secret
+    namespace: "{{ org_namespace }}"
+    name: "regcred"
+    state: absent
+    kubeconfig: "{{ kubernetes.config_file }}"
+    context: "{{ kubernetes.context }}"
+  ignore_errors: true
+
+# Deletes crypto materials
+- name: Delete Crypto material 
+  shell: |
+    vault kv delete {{ item.vault.secret_path | default('secretsv2') }}/{{ network.env.type }}{{ org_name }}/besu-node-{{ peer.name }}-keys
+    vault kv delete {{ item.vault.secret_path | default('secretsv2') }}/{{ network.env.type }}{{ org_name }}/tessera-{{ peer.name }}-keys
+    vault kv delete {{ item.vault.secret_path | default('secretsv2') }}/{{ network.env.type }}{{ org_name }}/tlscerts
+    vault kv delete {{ item.vault.secret_path | default('secretsv2') }}/{{ network.env.type }}{{ org_name }}/genesis
+  environment:
+    VAULT_ADDR: "{{ item.vault.url }}"
+    VAULT_TOKEN: "{{ item.vault.root_token }}"
+  loop: "{{ services.peers is defined | ternary( services.peers, services.validators) }}"
+  loop_control:
+    loop_var: peer
+  ignore_errors: true

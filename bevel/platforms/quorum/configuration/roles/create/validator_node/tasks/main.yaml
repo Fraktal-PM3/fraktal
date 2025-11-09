@@ -1,0 +1,24 @@
+# Create value file for validator node
+- name: Create value file for validator node
+  include_role:
+    name: create/helm_component
+  vars:
+    type: "validator_quorum"
+
+# Git Push : Pushes the above generated files to git 
+- name: Git Push
+  include_role: 
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/git_push"
+  vars:
+    GIT_DIR: "{{ playbook_dir }}/../../../"
+    msg: "[ci skip] Pushing Validator Helm release file"
+
+# Wait for the last validator to be running
+- name: "Wait for the last validator to run"
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/check/helm_component"
+  vars:
+    label_selectors:
+      - app.kubernetes.io/release = {{ component_name }}
+    component_type: "Pod"
+    namespace: "{{ component_ns }}"

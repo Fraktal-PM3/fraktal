@@ -1,0 +1,30 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+---
+# helm install validator-1 -f values/noproxy-and-novault/node.yaml -n supplychain-subs substrate-node
+# helm upgrade validator-1 -f values/noproxy-and-novault/node.yaml -n supplychain-subs substrate-node
+
+global:
+  serviceAccountName: vault-auth
+  cluster:
+    provider: azure
+    cloudNativeServices: false
+    
+proxy:
+  provider: ambassador
+  external_url: test.yourdomain.com  # specify the endpoint for the ambassador url 
+  p2p: 
+
+node:
+  isBootnode:
+    enabled: true # false | true
+    bootnodeName: oem-validator-1
+    bootnodeAddr: oem-validator-1-node-substrate-node-0.stage.intelipoc.com
+    bootnodePort: 15011
+    boot_node_id: 
+
+node_keys_k8s:

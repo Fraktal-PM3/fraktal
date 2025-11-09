@@ -1,0 +1,12 @@
+# helm install genesis -f values/noproxy-and-novault/genesis-sec.yaml -n carrier-quo quorum-genesis
+global:
+  serviceAccountName: vault-auth
+  cluster:
+    cloudNativeServices: false # true | false
+    provider: aws
+    secretManagerArn: 
+  vault:
+    type: kubernetes # kubernetes
+settings:
+  removeGenesisOnDelete: true
+  secondaryGenesis: true

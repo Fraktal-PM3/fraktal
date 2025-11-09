@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  vault:
+    image: hashicorp/vault:1.15.2
+    container_name: vault-dev
+    ports:
+      - "9000:8200" # Vault UI/API
+      - "8201:8201" # Vault Raft cluster port (not strictly needed for dev mode but good practice)
+    environment:
+      # This is the key environment variable to enable dev mode
+      - "VAULT_DEV_ROOT_TOKEN_ID=mydevroot" # Optional: Set a custom dev root token ID
+      # Other useful environment variables for development
+      - "VAULT_ADDR=http://0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK # Required for Vault to run securely, even in dev mode
+    # For dev mode, you typically don't need persistent volumes unless you want
+    # to test snapshotting or other persistent features.
+    # If you did want to add a volume for data (not recommended for dev mode):
+    # volumes:
+    #   - ./vault-data:/vault/file
+    command: vault server -dev -dev-listen-address="0.0.0.0:8200"

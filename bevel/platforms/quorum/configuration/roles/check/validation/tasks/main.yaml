@@ -1,0 +1,26 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Set initial counter for validators
+- name: Set initial validator count
+  set_fact:
+    total_validators: 0
+
+# Count Validato nodes in the first organization
+- name: Count Validato nodes in the first organization
+  include_tasks: count_validators.yaml
+  vars:
+    org: "{{ network['organizations'] | first }}"
+    validators: "{{ org.services.validators }}"
+
+# Fail if total validators are less than 4
+- name: Fail if total validators are less than 4
+  fail:
+    msg: |
+      The first organization, {{ (network['organizations'] | first).name }}, must have at least 4 validators.
+      The first four validators must be named in the following order: validator-0, validator-1, validator-2, validator-3.
+      Note: Beyond the initial four, custom names can be defined as needed.
+  when: (total_validators | int) < 4

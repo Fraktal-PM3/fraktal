@@ -1,0 +1,21 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Generate member node HelmRelease files
+- name: "Create value file for member nodes"
+  include_tasks: member_node.yaml
+  loop: "{{ peers }}"
+  loop_control:
+    loop_var: peer
+  when: peer.type == "member"
+
+# Generate IPFS node HelmRelease files
+- name: "Create value file for ipfs nodes"
+  include_tasks: ipfs_node.yaml
+  loop: "{{ peers }}"
+  loop_control:
+    loop_var: peer
+  when: peer.type == "member" and peer.ipfs.enabled

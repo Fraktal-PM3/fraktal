@@ -1,0 +1,42 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+##############################################################################################
+# This role get vault root token for organization and remove Indy crypto from vault
+##############################################################################################
+
+---
+# Delete keys associated with trustee nodes
+- name: Delete trustee keys
+  include_tasks: delete_node_keys.yaml
+  vars:
+    node_name: "{{ org.services.trustee.name | lower }}"
+    node_type: "trustees"
+  when: (org.services.trustee is defined) and (org.services.trustee.name | length > 0)
+
+# Delete keys associated with endorser nodes
+- name: Delete endorser keys
+  include_tasks: delete_node_keys.yaml
+  vars:
+    node_name: "{{ org.services.endorser.name | lower }}"
+    node_type: "endorsers"
+  when: (org.services.endorser is defined) and (org.services.endorser.name | length > 0)
+
+# Delete keys associated with steward nodes
+- name: Delete steward keys
+  include_tasks: delete_node_keys.yaml
+  vars:
+    node_name: "{{ stewards.name | lower }}"
+    node_type: "stewards"
+  loop: "{{ org.services.stewards }}"
+  loop_control:
+    loop_var: stewards
+  when: (stewards is defined) and (stewards | length > 0)
+
+# Delete Organization policy and auth engine
+- name: "Delete Organization {{ org_name }} policy and auth engine"
+  include_tasks: delete_policy_auth.yaml
+  when: vault.root_token is defined

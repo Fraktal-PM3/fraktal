@@ -1,0 +1,30 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Create value file for member node
+- name: Create value file for member node
+  include_role:
+    name: create/helm_component
+  vars:
+    type: "member_quorum"
+  
+# Pushes the above generated files to git directory 
+- name: Git Push
+  include_role: 
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/git_push"
+  vars:
+    GIT_DIR: "{{ playbook_dir }}/../../../"
+    msg: "[ci skip] Pushing Member node files"
+
+# Wait for the last Member to be running
+- name: "Wait for the last member to run"
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/check/helm_component"
+  vars:
+    label_selectors:
+      - app.kubernetes.io/release = {{ component_name }}
+    component_type: "Pod"
+    namespace: "{{ component_ns }}"

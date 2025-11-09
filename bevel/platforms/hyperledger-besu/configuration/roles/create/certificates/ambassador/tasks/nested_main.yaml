@@ -1,0 +1,56 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# This role generates certificates for rootCA (Certificate Authority) and Ambassador.
+# and then, places them in a vault. The Certificates are created using OpenSSL.
+
+---
+# Ensure the existence of the Ambassador TLS directory
+- name: "Ensure ambassadortls dir exists"
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/check/directory"
+  vars:
+    path: "{{ ambassadortls }}"
+
+# Generate a TLS certificate for the specified node using Helm and letsencrypt issuer.
+- name: "Create TLS certificate"
+  shell: |
+    KUBECONFIG={{ kubernetes.config_file }} helm upgrade --install "letsencrypt-cert-{{node_name}}" --set nodename="{{ node_name }}" --set namespace="{{ component_ns }}" --set externalurlsuffix="{{ org.external_url_suffix }}" {{ playbook_dir }}/../../../platforms/shared/charts/letsencrypt-cert
+  when: 
+    - (org.issuer is defined) and (org.issuer|lower == "letsencrypt")
+
+# Create an Ambassador Certs HelmRelease file for certificate management
+- name: "Create ambassador certs helmrelease file"
+  include_role:
+    name: create/helm_component
+  vars:     
+    type: "ambassador_besu" 
+    component_name: "{{ node_name }}-ambassador-job"   
+    name: "{{ node_name }}"
+    external_url_suffix: "{{ org.external_url_suffix }}"
+    tm_clientport: "{{ node.tm_clientport.port | default('8888') }}"
+    tls_enabled: "{{ network.config.tm_tls }}"
+  when:
+    - (org.issuer is undefined) or (org.issuer|lower == "default")
+        
+# push the created deployment files to a Git repository
+- name: "Push the created deployment files to repository"
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/git_push"
+  vars:
+    GIT_DIR: "{{ playbook_dir }}/../../../"
+    msg: "[ci skip] Pushing ambassador job files for {{ component_ns }}"
+
+# Check if the Ambassador certs job is completed
+- name: "Check if ambassador certs job is completed"
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/check/helm_component"
+  vars:
+    component_name: "{{ node_name }}-ambassador-job"
+    component_type: Job
+    namespace: "{{ component_ns }}"
+  when:
+    - (org.issuer is undefined) or (org.issuer|lower == "default")

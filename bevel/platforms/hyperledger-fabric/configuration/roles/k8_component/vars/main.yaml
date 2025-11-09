@@ -1,0 +1,15 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+k8_templates:
+  namespace: namespace_component.tpl
+  existing_peer_cli_job: existing_peer_cli.tpl
+  orderer_cli_job: orderer_cli.tpl
+  operator_mainchannel: operator_mainchannel.tpl
+  operator_followerchannel: operator_followerchannel.tpl
+
+bevel_alpine_version: latest # Change to tag version when using tag specific images
+fabric_tools_image: bevel-fabric-tools

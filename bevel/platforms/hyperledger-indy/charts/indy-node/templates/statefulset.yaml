@@ -1,0 +1,255 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+    app.kubernetes.io/name: indy-node-statefulset
+    app.kubernetes.io/component: indy
+    app.kubernetes.io/part-of: {{ include "indy-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: 1
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+      app.kubernetes.io/name: indy-node-statefulset
+      app.kubernetes.io/component: indy
+      app.kubernetes.io/part-of: {{ include "indy-node.fullname" . }}
+      app.kubernetes.io/namespace: {{ .Release.Namespace }}
+      app.kubernetes.io/release: {{ .Release.Name }}
+      app.kubernetes.io/managed-by: helm
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        app.kubernetes.io/name: indy-node-statefulset
+        app.kubernetes.io/component: indy
+        app.kubernetes.io/part-of: {{ include "indy-node.fullname" . }}
+        app.kubernetes.io/namespace: {{ .Release.Namespace }}
+        app.kubernetes.io/release: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: helm
+    spec:
+      securityContext:
+        fsGroup: 1000
+      serviceAccountName: {{ .Values.global.serviceAccountName }}
+      imagePullSecrets:
+      {{- if .Values.image.pullSecret }}
+        - name: {{ .Values.image.pullSecret }}
+      {{- end }}
+      initContainers:
+      - name: format-certs
+        image: {{ .Values.image.initContainer }}
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: KEY_PATH
+          value: "/keys/{{ .Values.settings.network }}/keys/{{ .Release.Name }}"
+        - name: NODE_ID
+          value: "{{ .Release.Name }}"
+        - name: ADD_NEW_ORG
+          value: "{{ .Values.settings.addOrg }}"
+        command: ["sh", "-c"]
+        args:
+        - |
+
+          if $ADD_NEW_ORG ;
+          then
+            mkdir -p ${KEY_PATH}/bls_keys ${KEY_PATH}/private_keys ${KEY_PATH}/public_keys ${KEY_PATH}/sig_keys ${KEY_PATH}/verif_keys ${KEY_PATH}C/private_keys ${KEY_PATH}C/public_keys ${KEY_PATH}C/sig_keys ${KEY_PATH}C/verif_keys ${KEY_PATH}/identity ${KEY_PATH}/identity/private ${KEY_PATH}/identity/public ${KEY_PATH}/genesis;
+          else
+            mkdir -p ${KEY_PATH}/bls_keys ${KEY_PATH}/private_keys ${KEY_PATH}/public_keys ${KEY_PATH}/sig_keys ${KEY_PATH}/verif_keys ${KEY_PATH}C/private_keys ${KEY_PATH}C/public_keys ${KEY_PATH}C/sig_keys ${KEY_PATH}C/verif_keys;
+          fi;
+          # Get the secrets from Kubernetes secret and save as files
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-public-bls-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".bls_pk" > ${KEY_PATH}/bls_keys/bls_pk;
+          chmod 644 ${KEY_PATH}/bls_keys/bls_pk;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-private-bls-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".bls_sk" > ${KEY_PATH}/bls_keys/bls_sk;
+          chmod 640 ${KEY_PATH}/bls_keys/bls_sk;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-private-private-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}.key_secret\"" > ${KEY_PATH}/private_keys/${NODE_ID}.key_secret;
+          chmod 640 ${KEY_PATH}/private_keys/${NODE_ID}.key_secret;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-public-public-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}.key\"" > ${KEY_PATH}/public_keys/${NODE_ID}.key.bootstrap;
+          chmod 644 ${KEY_PATH}/public_keys/${NODE_ID}.key.bootstrap;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-private-sig-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}.key_secret\"" > ${KEY_PATH}/sig_keys/${NODE_ID}.key_secret;
+          chmod 640 ${KEY_PATH}/sig_keys/${NODE_ID}.key_secret;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-public-verif-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}.key\"" > ${KEY_PATH}/verif_keys/${NODE_ID}.key.bootstrap;
+          chmod 644 ${KEY_PATH}/verif_keys/${NODE_ID}.key.bootstrap;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-client-private-private-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}C.key_secret\"" > ${KEY_PATH}C/private_keys/${NODE_ID}C.key_secret;
+          chmod 640 ${KEY_PATH}C/private_keys/${NODE_ID}C.key_secret;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-client-public-public-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}C.key\"" > ${KEY_PATH}C/public_keys/${NODE_ID}C.key;
+          chmod 644 ${KEY_PATH}C/public_keys/${NODE_ID}C.key;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-client-private-sig-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" |jq -j ".\"${NODE_ID}C.key_secret\"" > ${KEY_PATH}C/sig_keys/${NODE_ID}C.key_secret;
+          chmod 640 ${KEY_PATH}C/sig_keys/${NODE_ID}C.key_secret;
+
+          LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-client-public-verif-keys -o jsonpath='{.data.value}' | base64 -d);
+          echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"${NODE_ID}C.key\"" > ${KEY_PATH}C/verif_keys/${NODE_ID}C.key;
+          chmod 644 ${KEY_PATH}C/verif_keys/${NODE_ID}C.key;
+
+          if $ADD_NEW_ORG ; then
+            LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-public-bls-keys -o jsonpath='{.data.value}' | base64 -d);
+            echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"bls-key-pop\"" > ${KEY_PATH}/bls_keys/bls-key-pop;
+            chmod 644 ${KEY_PATH}/bls_keys/bls-key-pop;
+
+            LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-node-public-verif-keys -o jsonpath='{.data.value}' | base64 -d);
+            echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".\"verification-key\"" > ${KEY_PATH}/verif_keys/verification-key;
+            chmod 644 ${KEY_PATH}/verif_keys/verification-key;
+
+            LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-identity-private -o jsonpath='{.data.value}' | base64 -d);
+            echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".seed" > ${KEY_PATH}/identity/private/seed;
+            chmod 644 ${KEY_PATH}/identity/private/seed;
+
+            LOOKUP_SECRET_RESPONSE=$(kubectl get secret -n {{ .Release.Namespace }} ${NODE_ID}-identity-public -o jsonpath='{.data.value}' | base64 -d);
+            echo "${LOOKUP_SECRET_RESPONSE}" | jq -j ".did" > ${KEY_PATH}/identity/public/did;
+            chmod 644 ${KEY_PATH}/identity/public/did;
+          fi;
+        volumeMounts:
+          - name: ebs-indy-node-keys
+            mountPath: /keys
+{{- if eq .Values.settings.addOrg true }}
+      - name: "add-org"
+        image: {{ .Values.image.cli }}
+        stdin: true
+        tty: true
+        command: ["sh", "-c"]
+        args:
+        - |-
+          apt-get install curl -y
+
+          KEY_PATH=/var/lib/indy/keys/${INDY_NETWORK_NAME}/keys/${INDY_NODE_NAME};
+
+          STEWARD_DID=$(cat ${KEY_PATH}/identity/public/did);
+          STEWARD_SEED=$(cat ${KEY_PATH}/identity/private/seed);
+          STEWARD_VERKEY=$(cat ${KEY_PATH}/verif_keys/verification-key)
+
+          echo "{
+          \"version\": 1,
+          \"dids\": [{
+          \"did\": \"$STEWARD_DID\",
+          \"seed\": \"$STEWARD_SEED\"
+          }]
+          }" > did.txt;
+
+          echo "wallet create IndyWallet key=12345
+          wallet open IndyWallet key=12345
+          did import did.txt
+          pool create mysandboxpool gen_txn_file=/var/lib/indy/genesis/${INDY_NETWORK_NAME}/pool_transactions_genesis
+          pool connect mysandboxpool
+          did use $STEWARD_DID
+          ledger node target=${STEWARD_VERKEY} client_port=${INDY_CLIENT_PORT} client_ip=${INDY_CLIENT_IP} alias=${INDY_NODE_NAME} node_ip=${INDY_NODE_IP} node_port=${INDY_NODE_PORT} services=VALIDATOR blskey=$(cat ${KEY_PATH}/bls_keys/bls_pk) blskey_pop=$(cat ${KEY_PATH}/bls_keys/bls-key-pop)
+          exit" > init_node_txn;
+
+          indy-cli init_node_txn > init_node_txn.log;
+          cat init_node_txn.log;
+        env:
+          - name: POOL_GENESIS_PATH
+            value: /var/lib/indy/genesis/{{ .Values.settings.network }}/pool_transactions_genesis
+          - name: INDY_NETWORK_NAME
+            value: {{ .Values.settings.network }}
+          - name: INDY_NODE_NAME
+            value: {{ .Release.Name }}
+          - name: INDY_NODE_IP
+            value: "{{ .Values.settings.node.publicIp }}"
+          - name: INDY_NODE_PORT
+            value: "{{ .Values.settings.node.externalPort }}"
+          - name: INDY_CLIENT_IP
+            value: "{{ .Values.settings.client.publicIp }}"
+          - name: INDY_CLIENT_PORT
+            value: "{{ .Values.settings.client.externalPort }}"
+        volumeMounts:
+          - name: ebs-indy-node-keys
+            mountPath: /var/lib/indy/keys
+          - name: domain-transactions-genesis
+            mountPath: /var/lib/indy/genesis/{{ .Values.settings.network }}/domain_transactions_genesis
+            subPath: domain_transactions_genesis
+          - name: pool-transactions-genesis
+            mountPath: /var/lib/indy/genesis/{{ .Values.settings.network }}/pool_transactions_genesis
+            subPath: pool_transactions_genesis
+{{- end }}
+      containers:
+        - name: indy-node
+          image: {{ .Values.image.indyNode.repository }}:{{ .Values.image.indyNode.tag }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: {{ .Values.settings.node.port }}
+            - containerPort: {{ .Values.settings.client.port }}
+          env:
+            - name: INDY_NODE_NAME
+              value: {{ .Release.Name }}
+            - name: INDY_NODE_IP
+              value: "{{ .Values.settings.node.ip }}"
+            - name: INDY_NODE_PORT
+              value: "{{ .Values.settings.node.port }}"
+            - name: INDY_CLIENT_IP
+              value: "{{ .Values.settings.client.ip }}"
+            - name: INDY_CLIENT_PORT
+              value: "{{ .Values.settings.client.port }}"
+            - name: INDY_NETWORK_NAME
+              value: {{ .Values.settings.network }}
+          volumeMounts:
+            - name: ebs-indy-node-data
+              mountPath: /var/lib/indy/data
+            - name: ebs-indy-node-keys
+              mountPath: /var/lib/indy/keys
+            - name: {{ .Release.Name }}-config
+              mountPath: /etc/indy/indy_config.py
+              subPath: indy_config.py
+            - name: domain-transactions-genesis
+              mountPath: /var/lib/indy/genesis/{{ .Values.settings.network }}/domain_transactions_genesis
+              subPath: domain_transactions_genesis
+            - name: pool-transactions-genesis
+              mountPath: /var/lib/indy/genesis/{{ .Values.settings.network }}/pool_transactions_genesis
+              subPath: pool_transactions_genesis
+      volumes:
+        - name: {{ .Release.Name }}-config
+          configMap:
+            name: {{ .Release.Name }}-config
+        - name: domain-transactions-genesis
+          configMap:
+            name: dtg
+        - name: pool-transactions-genesis
+          configMap:
+            name: ptg
+  volumeClaimTemplates:
+    - metadata:
+        name: ebs-indy-node-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: storage-{{ .Release.Name }}
+        resources:
+          requests:
+            storage: "{{ .Values.storage.data }}"
+    - metadata:
+        name: ebs-indy-node-keys
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: storage-{{ .Release.Name }}
+        resources:
+          requests:
+            storage: "{{ .Values.storage.keys }}"

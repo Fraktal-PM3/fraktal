@@ -1,0 +1,25 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+############################################################################################
+# This task creates the valuefile for the existing peer cli
+############################################################################################
+
+# Create the value file for creater org first peer
+- name: "create valuefile for cli {{ peer.name }}-{{ participant.name }}-{{ channel_name }}"
+  include_role:
+    name: k8_component
+  vars:
+    component: "{{ participant.name | lower }}"
+    component_type: "existing_peer_cli_job"    
+    component_name: "{{ peer.name | lower}}-cli"
+    orderer: "{{ network.orderers | first }}"
+    component_ns: "{{ participant.name | lower}}-net"
+    git_url: "{{ org.gitops.git_url }}"
+    git_branch: "{{ org.gitops.branch }}"
+    charts_dir: "{{ org.gitops.chart_source }}"
+    vault: "{{ org.vault }}"
+    release_dir: "./build/{{ participant.name }}"

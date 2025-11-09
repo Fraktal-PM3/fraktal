@@ -1,0 +1,55 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+##############################################################################################
+# This role deploy corDapps to Kubernetes pods
+############################################################################################## deploy corDapps to Kubernetes pods
+
+# Ensure directory exist, if not creates a new one
+- name: "Ensure {{ source_dir }} dir exists"
+  file:
+    path: "{{ source_dir }}"
+    state: directory
+
+# Copy jar files from source to scripts directory
+- name: Copy cordapp jar files
+  copy:
+    remote_src: true
+    src: "{{ jarfile }}"
+    dest: "{{ playbook_dir }}/../scripts/"
+  with_fileglob:
+    - "{{ source_dir }}/*.jar"
+  loop_control:
+    loop_var: jarfile
+
+# Execute shell script to upload cordapp jar files for each notary
+- name: Execute uploadCordapps.sh for notary
+  shell: |
+    cd "{{ playbook_dir }}/../scripts"
+    chmod +x *.sh
+    ./uploadCordapps.sh {{ notary.name }} {{ component_ns }} {{ item.k8s.config_file }} .
+  when: component_type == 'notary'
+
+# Execute shell script to upload cordapp jar files for each nodes and notary from components.yaml
+- name: Execute uploadCordapps.sh for each node
+  shell: |
+    cd "{{ playbook_dir }}/../scripts"
+    chmod +x *.sh
+    ./uploadCordapps.sh {{ node.name }} {{ component_ns }} {{ item.k8s.config_file }} .
+  loop: "{{ services.peers }}"
+  loop_control:
+    loop_var: node
+  when: component_type == 'node'
+
+# Remove jar files from scripts directory after uploading is complete
+- name: Remove cordapp jar files from script
+  file:
+    path: "{{ jarfile }}"
+    state: absent
+  with_fileglob:
+    - "{{ playbook_dir }}/../scripts/*.jar"
+  loop_control:
+    loop_var: jarfile

@@ -1,0 +1,86 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "indy-node.fullname" . }}
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: {{ include "indy-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+spec:
+  type: {{ .Values.settings.serviceType }}
+  ports:
+  - name: indy-node-node
+    port: {{ .Values.settings.node.port }}
+    targetPort: {{ .Values.settings.node.port }}
+    {{ if eq .Values.settings.serviceType "NodePort" }}
+    nodePort: {{ .Values.settings.node.externalPort }}
+    {{ end }}
+  - name: indy-node-client
+    port: {{ .Values.settings.client.port }}
+    targetPort: {{ .Values.settings.client.port }}
+    {{ if eq .Values.settings.serviceType "NodePort" }}
+    nodePort: {{ .Values.settings.client.externalPort }}
+    {{ end }}
+  selector:
+    app: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ include "indy-node.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+
+{{- if eq .Values.global.proxy.provider "ambassador" }}
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: "{{ .Release.Name }}-node-listener"
+  namespace: {{ .Release.Namespace }}
+spec:
+  port: {{ .Values.settings.node.externalPort }}
+  protocol: TCP
+  securityModel: XFP
+  hostBinding:
+    namespace:
+      from: SELF
+---
+apiVersion: getambassador.io/v3alpha1
+kind: TCPMapping
+metadata:
+  name: "{{ .Release.Name }}-node-mapping"
+  namespace: {{ .Release.Namespace }}
+spec:
+  port: {{ .Values.settings.node.externalPort }}
+  service: {{ .Release.Name }}.{{ .Release.Namespace }}:{{ .Values.settings.node.port }}
+
+---
+apiVersion: getambassador.io/v3alpha1
+kind: Listener
+metadata:
+  name: "{{ .Release.Name }}-client-listener"
+  namespace: {{ .Release.Namespace }}
+spec:
+  port: {{ .Values.settings.client.externalPort }}
+  protocol: TCP
+  securityModel: XFP
+  hostBinding:
+    namespace:
+      from: SELF
+---
+apiVersion: getambassador.io/v3alpha1
+kind: TCPMapping
+metadata:
+  name: "{{ .Release.Name }}-client-mapping"
+  namespace: {{ .Release.Namespace }}
+spec:
+  port: {{ .Values.settings.client.externalPort }}
+  service: {{ .Release.Name }}.{{ .Release.Namespace }}:{{ .Values.settings.client.port }}
+{{- end }}

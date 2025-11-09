@@ -1,0 +1,54 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# This role generates certificates for rootca and ambassador
+# and places them in vault. Certificates are created using openssl
+
+---
+# Create the value files for each node of organization
+- name: Create value file for ambassador job
+  include_role:
+    name: helm_component
+  vars:
+    org_name: "{{ org.name }}"
+    component_name: "{{ name }}-generate-ambassador-certs-job"
+    type: "certs-ambassador-quorum"
+    external_url: "{{ org.external_url_suffix }}"
+
+# Git Push : Push the above generated files to git directory
+- name: Git Push
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/git_push"
+  vars:
+    GIT_DIR: "{{ playbook_dir }}/../../../"
+    gitops: "{{ org.gitops }}"
+    msg: "[ci skip] Pushing ambassador job files"
+  tags:
+    - notest
+
+# Check if ambassador certs job is completed
+- name: Check if ambassador  job is completed
+  include_role:
+    name: "{{ playbook_dir }}/../../shared/configuration/roles/check/helm_component"
+  vars:
+    component_name: "{{ name }}-generate-ambassador-certs-job"
+    component_type: Job
+    namespace: "{{ component_ns }}"
+  tags:
+    - notest
+
+# Create the Ambassador tls credentials
+- name: "Create the Ambassador credentials"
+  include_role:
+    name: create/k8s_secrets
+  vars:
+    org_name: "{{ org.name }}"
+    namespace: "{{ component_ns }}"
+    vault: "{{ org.vault }}"
+    kubernetes: "{{ org.k8s }}"
+    check: "ambassador_creds"
+  tags:
+    - notest

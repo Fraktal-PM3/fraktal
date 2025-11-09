@@ -1,0 +1,30 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-osnadmin-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name:  {{ .Release.Name }}-osnadmin-config
+    app.kubernetes.io/component: fabric-osnadmin-channel-create-job
+    app.kubernetes.io/part-of: {{ include "fabric-osnadmin-channel-create.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+data:
+  CHANNEL_NAME: {{ .Release.Name }}
+  ADMIN_TLS_CERTS: /opt/gopath/src/github.com/hyperledger/fabric/crypto
+  GENESIS_FILE: /opt/gopath/src/github.com/hyperledger/fabric/orderer/genesis
+{{- if $.Values.orderer.addOrderer }}
+  CORE_PEER_LOCALMSPID: {{ $.Values.orderer.localMspId }}
+  CORE_PEER_TLS_ROOTCERT_FILE: /opt/gopath/src/github.com/hyperledger/fabric/crypto/admin/msp/tlscacerts/tlsca.crt
+  CORE_PEER_MSPCONFIGPATH: /opt/gopath/src/github.com/hyperledger/fabric/crypto/admin/msp
+  CORE_PEER_ADDRESS: {{ $.Values.orderer.ordererAddress }}
+  ORDERER_CA: /opt/gopath/src/github.com/hyperledger/fabric/crypto/{{ $.Values.orderer.name }}/tls/ca.crt
+{{ end }}
+

@@ -1,0 +1,94 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+##############################################################################################
+# This role creates the block modification script.
+##############################################################################################
+
+# Ensure channel-artifacts dir exists
+- name: Ensure channel-artifacts dir exists
+  file:
+    path: "{{ build_path }}/channel-artifacts"
+    state: directory
+    
+# Remove old orderer file
+- name: Remove old orderer file
+  file:
+    path: "{{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer"
+    state: absent
+
+# Create new orderer file
+- name: Creating new orderer file
+  file:
+    path: "{{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer"
+    state: touch
+
+# Remove old orderer-tls file
+- name: Remove old orderer-tls file
+  file:
+    path: "{{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer-tls"
+    state: absent
+
+# Create new orderer-tls file
+- name: Creating new orderer-tls file
+  file:
+    path: "{{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer-tls"
+    state: touch
+
+# Copy tls server.crt from vault to the build directory
+- name: Fetch the tls server.crt from vault
+  shell: |
+    vault kv get -field=server_crt {{ vault.secret_path | default('secretsv2') }}/{{ network.env.type }}{{ org.name }}/orderers/{{ orderer.name }}-tls > server.crt
+    mkdir -p {{ build_path }}/tls-cert/{{ orderer.name }}
+    mv server.crt {{ build_path }}/tls-cert/{{ orderer.name }}
+  environment:
+    VAULT_ADDR: "{{ vault.url }}"
+    VAULT_TOKEN: "{{ vault.root_token }}"
+
+# Create orderer-tls for tls certificate information
+- name: "adding tls certificate information"
+  shell: |
+    if [ {{ network.env.proxy }} == 'none' ]
+    then
+      echo -n "{\"client_tls_cert\":\"$(cat {{ build_path }}/crypto-config/ordererOrganizations/{{ component_ns }}/orderers/{{ orderer.name|lower }}.{{ component_ns }}/tls/server.crt | base64 -w 0)\",\"host\":\"{{ orderer.name|lower }}.{{ component_ns }}\",\"port\":{{ orderer.grpc.port }},\"server_tls_cert\":\"$(cat {{ build_path }}/crypto-config/ordererOrganizations/{{ component_ns }}/orderers/{{ orderer.name|lower }}.{{ component_ns }}/tls/server.crt | base64 -w 0)\"}"  >> {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer-tls 
+    else
+      echo -n "{\"client_tls_cert\":\"$(cat {{ build_path }}/tls-cert/{{ orderer.name }}/server.crt | base64 -w 0))\",\"host\":\"{{ orderer.ordererAddress.split(":")[0] | to_json }}\",\"port\":{{ orderer.ordererAddress.split(":")[1] | to_json }},\"server_tls_cert\":\"$(cat {{ build_path }}/tls-cert/{{ orderer.name }}/server.crt | base64 -w 0))\"}"  >> {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer-tls 
+    fi
+
+# Create orderer file for adding new endpoint information
+- name: "adding new endpoint information"
+  shell: |
+    if [ {{ network.env.proxy }} == 'none' ]
+    then
+      echo -n '"{{ orderer.name }}.{{ component_ns }}:{{ orderer.grpc.port }}"' >> {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer
+    else
+      echo -n '"{{ orderer.ordererAddress }}"' >> {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer
+    fi
+
+# Create the values for orderer files
+- name: "adding new org peers anchor peer information"
+  shell: |
+    echo -n "[$(cat {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer )]" > {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer
+    echo -n "[$(cat {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer-tls )]" > {{ build_path }}/channel-artifacts/{{ channel_name | lower}}-orderer-tls
+
+# Create the update-channel-scriptk.sh file for new organizations
+- name: "Create update-channel-script.sh script file for new orderer"
+  template:
+    src: "update_channel_script.tpl"
+    dest: "{{ build_path }}/update-channel-script.sh"
+  vars:
+    component_name: "{{ org.name | lower }}"
+    ordererAddress: "{{ orderer.ordererAddress }}"
+    ordererOrg: "{{ org.name | lower }}MSP"
+    os: "{{ fabric.os }}"
+    arch: "{{ fabric.arch }}"
+    version: "{{ network.version }}"
+
+# Call nested_create_cli to generate the cli value files for the orderer organization
+- name: Call nested_create_cli for the first orderer
+  include_tasks: nested_create_cli.yaml
+  vars:
+    orderer: "{{ org.services.orderers | first }}"

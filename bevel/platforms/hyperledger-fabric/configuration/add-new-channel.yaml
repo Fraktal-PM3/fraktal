@@ -1,0 +1,77 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# This playbook is a subsequent playbook
+##########################################################################################
+# DO NOT RUN THIS IF YOU HAVE NOT RUN deploy-network.yaml and deployed the Fabric network
+# and want to add a new channel to the existing network
+##########################################################################################
+# This playbook can only be run after all pods and orderers are available
+# Please edit the same network.yaml according to the documentation in docs/sourc/operations/add_new_channel_fabric.md.
+# Refer the example under platforms/hyperledger-fabric/configurations/samples/network-fabric-add-new-channel.yaml
+---
+  # This will apply to ansible_provisioners. /etc/ansible/hosts should be configured with this group
+- hosts: ansible_provisioners
+  gather_facts: no
+  no_log: "{{ no_ansible_log | default(false) }}"
+  tasks:
+
+    # delete build directory
+    - name: Remove build directory
+      file:
+        path: "./build"
+        state: absent
+    
+    - name: "Create genesis block"
+      include_role: 
+        name: "create/genesis"
+      vars:
+        org: "{{ network['organizations'] | first }}"
+        docker_url: "{{ network.docker.url }}"
+        kubernetes: "{{ org.k8s  }}"
+        generateGenisis: false
+      when: genererate_configtx is defined and genererate_configtx == 'true'
+
+    # This role creates the value file for creating channel from creator organization
+    # to the vault.
+    - include_role:
+        name: "create/channels"
+      vars:
+        build_path: "./build"
+        participants: "{{ item.participants }}"
+        docker_url: "{{ network.docker.url }}"
+        channel_name: "{{ item.channel_name | lower }}"
+      loop: "{{ network['channels'] }}"
+      when: item.channel_status == 'new' and ('2.2.' in network.version or '1.4.' in network.version)
+    
+    # This role creates the value file for creating channel from creator organization
+    # to the vault.
+    - name: Create all create-channel jobs
+      include_role:
+        name: "create/osnchannels"
+      vars:
+        build_path: "./build"
+        docker_url: "{{ network.docker.url }}"
+      loop: "{{ network['channels'] }}"
+      when: item.channel_status == 'new' and '2.5.' in network.version
+
+    # This role creates the value file for joining channel from each participating peer
+    # to the vault.
+    - include_role:
+        name: "create/channels_join"
+      vars:
+        build_path: "./build"
+        participants: "{{ item.participants }}"
+        docker_url: "{{ network.docker.url }}"
+      loop: "{{ network['channels'] }}"
+      when: item.channel_status == 'new'
+
+  vars: #These variables can be overriden from the command line
+    privilege_escalate: false           # Default to NOT escalate to root privledges
+    install_os: "linux"                 # Default to linux OS
+    install_arch:  "amd64"              # Default to amd64 architecture
+    bin_install_dir:  "~/bin"           # Default to /bin install directory for binaries
+    add_new_org: 'false'                # Default to false as this is for main network creation

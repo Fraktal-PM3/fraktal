@@ -1,0 +1,39 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+---
+global:
+  serviceAccountName: global-vault-sa
+  vault:
+    # Can't push Genesis to Vault because it uses the service account 'global-vault-sa', which Vault doesn't recognize
+    type: kubernetes # hashicorp
+    network: substrate
+    address: "http://vault.demo.com:8200"
+    authPath: oem
+    secretEngine: secretsv2
+    secretPrefix: "data/oem"
+    role: vault-role 
+  cluster:
+    provider: azure
+    cloudNativeServices: false
+    kubernetesUrl: https://kubernetes.url
+
+org_namespaces:
+  - oem-subs:
+      validator:
+        - oem-validator-1
+        - oem-validator-2
+      member:
+        - oem-member-1
+  - tierone-subs:
+      validator:
+        - tierone-validator-3
+        - tierone-validator-4
+      member:
+        - tierone-member-2
+  - tiertwo-subs:
+      validator:
+      member:
+        - tiertwo-member-3

@@ -1,0 +1,13 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Deploy Steward nodes
+- name: "Deploy Steward nodes"
+  include_tasks: nested.yaml
+  loop: "{{ org.services.stewards }}"
+  loop_control:
+    loop_var: steward
+  when: steward is defined and steward | length > 0

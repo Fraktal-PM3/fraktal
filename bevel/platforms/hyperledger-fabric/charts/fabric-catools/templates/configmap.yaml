@@ -1,0 +1,1068 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+{{- if .Values.settings.createConfigMaps }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: crypto-scripts-cm
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: crypto-scripts
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ include "fabric-catools.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+data:
+  generate-crypto-orderer.sh: |-
+    #!/bin/bash
+    # IMP: Do not add newline before the #!/bin/bash line above as then the shell scripts don't work
+    set -x
+
+    CURRENT_DIR=${PWD}
+    FULLY_QUALIFIED_ORG_NAME="{{ .Release.Namespace }}"
+    EXTERNAL_URL_SUFFIX="{{ .Values.global.proxy.externalUrlSuffix }}"
+    SUBJECT="{{ .Values.orgData.componentSubject }}"
+    AFFILIATION="{{ .Values.orgData.orgName }}"
+    CA="{{ .Values.orgData.caAddress }}"
+    CA_ADMIN_USER="{{ .Values.orgData.caAdminUser }}"
+    CA_ADMIN_PASS="{{ .Values.orgData.caAdminPassword }}"
+    
+    ORG_ADMIN_USER="Admin@${FULLY_QUALIFIED_ORG_NAME}"
+    ORG_ADMIN_PASS="Admin@${FULLY_QUALIFIED_ORG_NAME}-pw"
+
+    ORG_CYPTO_FOLDER="/crypto-config/ordererOrganizations/${FULLY_QUALIFIED_ORG_NAME}"
+    ROOT_TLS_CERT="/crypto-config/ordererOrganizations/${FULLY_QUALIFIED_ORG_NAME}/ca/ca.${FULLY_QUALIFIED_ORG_NAME}-cert.pem"
+
+    CAS_FOLDER="${HOME}/ca-tools/cas/ca"
+    ORG_HOME="${HOME}/ca-tools/org"
+
+    ## Enroll CA administrator for Org. This user will be used to create other identities
+    fabric-ca-client enroll -d -u https://${CA_ADMIN_USER}:${CA_ADMIN_PASS}@${CA} --tls.certfiles  ${ROOT_TLS_CERT} --home ${CAS_FOLDER} --csr.names "${SUBJECT}"
+
+    ## Get the CA cert and store in Org MSP folder
+    fabric-ca-client getcacert -d -u https://${CA} --tls.certfiles ${ROOT_TLS_CERT} -M ${ORG_CYPTO_FOLDER}/msp
+    
+    mkdir ${ORG_CYPTO_FOLDER}/msp/tlscacerts
+    cp ${ORG_CYPTO_FOLDER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/msp/tlscacerts
+
+    if [ ! -e /crypto-config/admin-msp-exists ] || [ ! -e /crypto-config/admin-tls-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+      # Add affiliation for organisation
+      fabric-ca-client affiliation add ${AFFILIATION} -u https://${CA_ADMIN_USER}:${CA_ADMIN_PASS}@${CA} --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+      ## Register and enroll admin for Org and populate admincerts for MSP
+      fabric-ca-client register -d --id.name ${ORG_ADMIN_USER} --id.secret ${ORG_ADMIN_PASS} --id.type admin --csr.names "${SUBJECT}" --id.affiliation ${AFFILIATION} --id.attrs "hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.AffiliationMgr=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert" --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+
+      fabric-ca-client enroll -d -u https://${ORG_ADMIN_USER}:${ORG_ADMIN_PASS}@${CA} --id.affiliation ${AFFILIATION} --tls.certfiles ${ROOT_TLS_CERT} --home ${ORG_HOME}/admin --csr.names "${SUBJECT}"
+
+      mkdir -p ${ORG_CYPTO_FOLDER}/msp/admincerts
+      cp ${ORG_HOME}/admin/msp/signcerts/* ${ORG_CYPTO_FOLDER}/msp/admincerts/${ORG_ADMIN_USER}-cert.pem
+
+      mkdir ${ORG_HOME}/admin/msp/admincerts
+      cp ${ORG_HOME}/admin/msp/signcerts/* ${ORG_HOME}/admin/msp/admincerts/${ORG_ADMIN_USER}-cert.pem
+
+      mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}
+      cp -R ${ORG_HOME}/admin/msp ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}
+
+      # Get TLS cert for admin and copy to appropriate location
+      fabric-ca-client enroll -d --enrollment.profile tls -u https://${ORG_ADMIN_USER}:${ORG_ADMIN_PASS}@${CA} -M ${ORG_HOME}/admin/tls --tls.certfiles ${ROOT_TLS_CERT}  --csr.names "${SUBJECT}"
+
+      # Copy the TLS key and cert to the appropriate place
+      mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls
+      cp ${ORG_HOME}/admin/tls/keystore/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/client.key
+      cp ${ORG_HOME}/admin/tls/signcerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/client.crt
+      cp ${ORG_HOME}/admin/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/ca.crt
+    fi
+
+    cd ${CURRENT_DIR}
+  
+  orderer-script.sh: |-
+    #!/bin/bash
+    set -x
+
+    CURRENT_DIR=${PWD}
+    FULLY_QUALIFIED_ORG_NAME="{{ .Release.Namespace }}"
+    EXTERNAL_URL_SUFFIX="{{ .Values.global.proxy.externalUrlSuffix }}"
+    ALTERNATIVE_ORG_NAMES=("{{ .Release.Namespace }}.svc.cluster.local" "{{ .Values.orgData.orgName }}.net" "{{ .Release.Namespace }}.{{ .Values.global.proxy.externalUrlSuffix }}")
+    SUBJECT="{{ .Values.orgData.componentSubject }}"
+    CA="{{ .Values.orgData.caAddress }}"
+    CA_ADMIN_USER="{{ .Values.orgData.caAdminUser }}"
+    CA_ADMIN_PASS="{{ .Values.orgData.caAdminPassword }}"
+    ORDERER_NAME=$1
+
+    ORG_ADMIN_USER="Admin@${FULLY_QUALIFIED_ORG_NAME}"
+    ORG_ADMIN_PASS="Admin@${FULLY_QUALIFIED_ORG_NAME}-pw"
+
+    ORG_CYPTO_FOLDER="/crypto-config/ordererOrganizations/${FULLY_QUALIFIED_ORG_NAME}"
+    ROOT_TLS_CERT="/crypto-config/ordererOrganizations/${FULLY_QUALIFIED_ORG_NAME}/ca/ca.${FULLY_QUALIFIED_ORG_NAME}-cert.pem"
+
+    CAS_FOLDER="${HOME}/ca-tools/cas/ca"
+    ORG_HOME="${HOME}/ca-tools/org"
+
+    ## Register and enroll node and populate its MSP folder
+    PEER="${ORDERER_NAME}.${FULLY_QUALIFIED_ORG_NAME}"
+    CSR_HOSTS=${PEER}
+    for i in "${ALTERNATIVE_ORG_NAMES[@]}"
+    do
+      CSR_HOSTS="${CSR_HOSTS},${ORDERER_NAME}.${i}"
+    done
+    echo "Registering and enrolling $PEER with csr hosts ${CSR_HOSTS}"
+
+    # Register the peer
+    fabric-ca-client register -d --id.name ${PEER} --id.secret ${PEER}-pw --id.type orderer --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+
+    # Enroll to get peers TLS cert
+    fabric-ca-client enroll -d --enrollment.profile tls -u https://${PEER}:${PEER}-pw@${CA} -M ${ORG_HOME}/cas/orderers/tls --csr.hosts "${CSR_HOSTS}" --tls.certfiles ${ROOT_TLS_CERT} --csr.names "${SUBJECT}"
+
+    # Copy the TLS key and cert to the appropriate place
+    mkdir -p ${ORG_CYPTO_FOLDER}/orderers/${PEER}/tls
+    cp ${ORG_HOME}/cas/orderers/tls/keystore/* ${ORG_CYPTO_FOLDER}/orderers/${PEER}/tls/server.key
+    cp ${ORG_HOME}/cas/orderers/tls/signcerts/* ${ORG_CYPTO_FOLDER}/orderers/${PEER}/tls/server.crt
+    cp ${ORG_HOME}/cas/orderers/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/orderers/${PEER}/tls/ca.crt
+
+    rm -rf ${ORG_HOME}/cas/orderers/tls
+    
+    # Enroll again to get the peer's enrollment certificate (default profile)
+    fabric-ca-client enroll -d -u https://${PEER}:${PEER}-pw@${CA} -M ${ORG_CYPTO_FOLDER}/orderers/${PEER}/msp --tls.certfiles ${ROOT_TLS_CERT} --csr.names "${SUBJECT}"
+
+    # Create the TLS CA directories of the MSP folder if they don't exist.
+    mkdir ${ORG_CYPTO_FOLDER}/orderers/${PEER}/msp/tlscacerts
+
+    cp ${ORG_CYPTO_FOLDER}/orderers/${PEER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/orderers/${PEER}/msp/tlscacerts
+
+    # Copy the peer org's admin cert into target MSP directory
+    mkdir -p ${ORG_CYPTO_FOLDER}/orderers/${PEER}/msp/admincerts
+
+    cp ${ORG_CYPTO_FOLDER}/msp/admincerts/${ORG_ADMIN_USER}-cert.pem ${ORG_CYPTO_FOLDER}/orderers/${PEER}/msp/admincerts
+    cd ${CURRENT_DIR}
+
+  generate-crypto-peer.sh: |-
+    #!/bin/bash
+    set -x
+
+    CURRENT_DIR=${PWD}
+    FULLY_QUALIFIED_ORG_NAME="{{ .Release.Namespace }}"
+    ALTERNATIVE_ORG_NAMES=("{{ .Release.Namespace }}.svc.cluster.local" "{{ .Values.orgData.orgName }}.net" "{{ .Release.Namespace }}.{{ .Values.global.proxy.externalUrlSuffix }}")
+    EXTERNAL_URL_SUFFIX="{{ .Values.global.proxy.externalUrlSuffix }}"
+    AFFILIATION="{{ .Values.orgData.orgName }}"
+    SUBJECT="{{ .Values.orgData.componentSubject }}"
+    CA="{{ .Values.orgData.caAddress }}"
+    CA_ADMIN_USER="{{ .Values.orgData.caAdminUser }}"
+    CA_ADMIN_PASS="{{ .Values.orgData.caAdminPassword }}"
+
+    ORG_ADMIN_USER="Admin@${FULLY_QUALIFIED_ORG_NAME}"
+    ORG_ADMIN_PASS="Admin@${FULLY_QUALIFIED_ORG_NAME}-pw"
+
+    ORG_CYPTO_FOLDER="/crypto-config/peerOrganizations/${FULLY_QUALIFIED_ORG_NAME}"
+    ROOT_TLS_CERT="/crypto-config/peerOrganizations/${FULLY_QUALIFIED_ORG_NAME}/ca/ca.${FULLY_QUALIFIED_ORG_NAME}-cert.pem"
+
+    CAS_FOLDER="${HOME}/ca-tools/cas/ca"
+    ORG_HOME="${HOME}/ca-tools/org"
+
+    ## Enroll CA administrator for Org. This user will be used to create other identities
+    fabric-ca-client enroll -d -u https://${CA_ADMIN_USER}:${CA_ADMIN_PASS}@${CA} --tls.certfiles  ${ROOT_TLS_CERT} --home ${CAS_FOLDER}  --csr.names "${SUBJECT}"
+
+    ## Get the CA cert and store in Org MSP folder
+    fabric-ca-client getcacert -d -u https://${CA} --tls.certfiles ${ROOT_TLS_CERT} -M ${ORG_CYPTO_FOLDER}/msp
+
+    mkdir ${ORG_CYPTO_FOLDER}/msp/tlscacerts
+    cp ${ORG_CYPTO_FOLDER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/msp/tlscacerts
+    if [ ! -e /crypto-config/admin-msp-exists ] || [ ! -e /crypto-config/admin-tls-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+      # Add affiliation for organisation
+      fabric-ca-client affiliation add ${AFFILIATION} -u https://${CA_ADMIN_USER}:${CA_ADMIN_PASS}@${CA} --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+      ## Register and enroll admin for Org and populate admincerts for MSP
+      fabric-ca-client register -d --id.name ${ORG_ADMIN_USER} --id.secret ${ORG_ADMIN_PASS} --id.type admin --csr.names "${SUBJECT}" --id.affiliation ${AFFILIATION} --id.attrs "hf.Registrar.Roles=client,hf.Registrar.Attributes=*,hf.Revoker=true,hf.AffiliationMgr=true,hf.GenCRL=true,admin=true:ecert,abac.init=true:ecert" --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+
+      fabric-ca-client enroll -d -u https://${ORG_ADMIN_USER}:${ORG_ADMIN_PASS}@${CA} --id.affiliation ${AFFILIATION} --tls.certfiles ${ROOT_TLS_CERT} --home ${ORG_HOME}/admin  --csr.names "${SUBJECT}"
+
+      mkdir -p ${ORG_CYPTO_FOLDER}/msp/admincerts
+      cp ${ORG_HOME}/admin/msp/signcerts/* ${ORG_CYPTO_FOLDER}/msp/admincerts/${ORG_ADMIN_USER}-cert.pem
+
+      mkdir ${ORG_HOME}/admin/msp/admincerts
+      cp ${ORG_HOME}/admin/msp/signcerts/* ${ORG_HOME}/admin/msp/admincerts/${ORG_ADMIN_USER}-cert.pem
+
+      mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}
+      cp -R ${ORG_HOME}/admin/msp ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}
+
+      # Get TLS cert for admin and copy to appropriate location
+      fabric-ca-client enroll -d --enrollment.profile tls -u https://${ORG_ADMIN_USER}:${ORG_ADMIN_PASS}@${CA} -M ${ORG_HOME}/admin/tls --tls.certfiles ${ROOT_TLS_CERT} --csr.names "${SUBJECT}"
+
+      # Copy the TLS key and cert to the appropriate place
+      mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls
+      cp ${ORG_HOME}/admin/tls/keystore/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/client.key
+      cp ${ORG_HOME}/admin/tls/signcerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/client.crt
+      cp ${ORG_HOME}/admin/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/ca.crt
+    fi
+    ## Register and enroll peer as per argument provided and populate their MSP folder
+    PEER_NAME=$1
+    PEER="${PEER_NAME}.${FULLY_QUALIFIED_ORG_NAME}"
+    CSR_HOSTS=${PEER}
+    for i in "${ALTERNATIVE_ORG_NAMES[@]}"
+    do
+      CSR_HOSTS="${CSR_HOSTS},${PEER_NAME}.${i}"
+    done
+    echo "Registering and enrolling $PEER with csr hosts ${CSR_HOSTS}"
+    if [ ! -e /crypto-config/$PEER_NAME-msp-exists ] || [ ! -e /crypto-config/$PEER_NAME-tls-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+      # Register the peer
+      fabric-ca-client register -d --id.name ${PEER} --id.secret ${PEER}-pw --id.type peer --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+
+      # Enroll to get peers TLS cert
+      fabric-ca-client enroll -d --enrollment.profile tls -u https://${PEER}:${PEER}-pw@${CA} -M ${ORG_HOME}/cas/peers/tls --csr.hosts "${CSR_HOSTS}" --tls.certfiles ${ROOT_TLS_CERT}  --csr.names "${SUBJECT}"
+
+      # Copy the TLS key and cert to the appropriate place
+      mkdir -p ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls
+      cp ${ORG_HOME}/cas/peers/tls/keystore/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls/server.key
+      cp ${ORG_HOME}/cas/peers/tls/signcerts/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls/server.crt
+      cp ${ORG_HOME}/cas/peers/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls/ca.crt
+      
+      rm -rf ${ORG_HOME}/cas/peers/tls
+      
+      # Enroll again to get the peer's enrollment certificate (default profile)
+      fabric-ca-client enroll -d -u https://${PEER}:${PEER}-pw@${CA} -M ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp --tls.certfiles ${ROOT_TLS_CERT}  --csr.names "${SUBJECT}"
+
+      # Create the TLS CA directories of the MSP folder if they don't exist.
+      mkdir -p ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/tlscacerts	
+      
+      # Copy the peer org's admin cert into target MSP directory
+      mkdir -p ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/admincerts
+
+      cp ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/tlscacerts
+      cp ${ORG_CYPTO_FOLDER}/msp/admincerts/${ORG_ADMIN_USER}-cert.pem ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/admincerts
+    fi
+    cd ${CURRENT_DIR}
+
+  generate-crypto-add-peer.sh: |-
+    #!/bin/bash
+    set -x
+
+    CURRENT_DIR=${PWD}
+    FULLY_QUALIFIED_ORG_NAME="{{ .Release.Namespace }}"
+    ALTERNATIVE_ORG_NAMES=("{{ .Release.Namespace }}.svc.cluster.local" "{{ .Values.orgData.orgName }}.net" "{{ .Release.Namespace }}.{{ .Values.global.proxy.externalUrlSuffix }}")
+    EXTERNAL_URL_SUFFIX="{{ .Values.global.proxy.externalUrlSuffix }}"
+    AFFILIATION="{{ .Values.orgData.orgName }}"
+    SUBJECT="{{ .Values.orgData.componentSubject }}"
+    CA="{{ .Values.orgData.caAddress }}"
+    CA_ADMIN_USER="{{ .Values.orgData.caAdminUser }}"
+    CA_ADMIN_PASS="{{ .Values.orgData.caAdminPassword }}"
+
+    ORG_ADMIN_USER="Admin@${FULLY_QUALIFIED_ORG_NAME}"
+    ORG_ADMIN_PASS="Admin@${FULLY_QUALIFIED_ORG_NAME}-pw"
+
+    ORG_CYPTO_FOLDER="/crypto-config/peerOrganizations/${FULLY_QUALIFIED_ORG_NAME}"
+    ROOT_TLS_CERT="/crypto-config/peerOrganizations/${FULLY_QUALIFIED_ORG_NAME}/ca/ca.${FULLY_QUALIFIED_ORG_NAME}-cert.pem"
+
+    CAS_FOLDER="${HOME}/ca-tools/cas/ca"
+    ORG_HOME="${HOME}/ca-tools/org"
+
+    ## Enroll CA administrator for Org. This user will be used to create other identities
+    fabric-ca-client enroll -d -u https://${CA_ADMIN_USER}:${CA_ADMIN_PASS}@${CA} --tls.certfiles  ${ROOT_TLS_CERT} --home ${CAS_FOLDER}  --csr.names "${SUBJECT}"
+
+    ## Get the CA cert and store in Org MSP folder
+    fabric-ca-client getcacert -d -u https://${CA} --tls.certfiles ${ROOT_TLS_CERT} -M ${ORG_CYPTO_FOLDER}/msp
+
+    mkdir ${ORG_CYPTO_FOLDER}/msp/tlscacerts
+    cp ${ORG_CYPTO_FOLDER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/msp/tlscacerts
+
+    ## Enroll admin for Org and populate admincerts for MSP
+    fabric-ca-client enroll -d -u https://${ORG_ADMIN_USER}:${ORG_ADMIN_PASS}@${CA} --id.affiliation ${AFFILIATION} --tls.certfiles ${ROOT_TLS_CERT} --home ${ORG_HOME}/admin  --csr.names "${SUBJECT}"
+
+    # Copy existing org certs
+    mkdir -p ${ORG_CYPTO_FOLDER}/msp/admincerts
+    cp ${ORG_HOME}/admin/msp/signcerts/* ${ORG_CYPTO_FOLDER}/msp/admincerts/${ORG_ADMIN_USER}-cert.pem
+
+    mkdir -p ${ORG_HOME}/admin/msp/admincerts
+    cp ${ORG_HOME}/admin/msp/signcerts/* ${ORG_HOME}/admin/msp/admincerts/${ORG_ADMIN_USER}-cert.pem
+
+    mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}
+    cp -R ${ORG_HOME}/admin/msp ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}
+
+    # Get TLS cert for admin and copy to appropriate location
+    fabric-ca-client enroll -d --enrollment.profile tls -u https://${ORG_ADMIN_USER}:${ORG_ADMIN_PASS}@${CA} -M ${ORG_HOME}/admin/tls --tls.certfiles ${ROOT_TLS_CERT} --csr.names "${SUBJECT}"
+
+    # Copy the TLS key and cert to the appropriate place
+    mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls
+    cp ${ORG_HOME}/admin/tls/keystore/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/client.key
+    cp ${ORG_HOME}/admin/tls/signcerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/client.crt
+    cp ${ORG_HOME}/admin/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_ADMIN_USER}/tls/ca.crt
+
+    ## Register and enroll peers and populate their MSP folder
+    PEER_NAME=$1
+    PEER="${PEER_NAME}.${FULLY_QUALIFIED_ORG_NAME}"
+    CSR_HOSTS=${PEER}
+    for i in "${ALTERNATIVE_ORG_NAMES[@]}"
+    do
+      CSR_HOSTS="${CSR_HOSTS},${PEER_NAME}.${i}"
+    done
+    echo "Registering and enrolling $PEER with csr hosts ${CSR_HOSTS}"
+
+    # Register the peer
+    fabric-ca-client register -d --id.name ${PEER} --id.secret ${PEER}-pw --id.type peer --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER} -u https://${CA}
+
+    # Enroll to get peers TLS cert
+    fabric-ca-client enroll -d --enrollment.profile tls -u https://${PEER}:${PEER}-pw@${CA} -M ${ORG_HOME}/cas/peers/tls --csr.hosts "${CSR_HOSTS}" --tls.certfiles ${ROOT_TLS_CERT}  --csr.names "${SUBJECT}"
+
+    # Copy the TLS key and cert to the appropriate place
+    mkdir -p ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls
+    cp ${ORG_HOME}/cas/peers/tls/keystore/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls/server.key	
+    cp ${ORG_HOME}/cas/peers/tls/signcerts/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls/server.crt	
+    cp ${ORG_HOME}/cas/peers/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/tls/ca.crt
+    
+    rm -rf ${ORG_HOME}/cas/peers/tls
+    
+    # Enroll again to get the peer's enrollment certificate (default profile)
+    fabric-ca-client enroll -d -u https://${PEER}:${PEER}-pw@${CA} -M ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp --tls.certfiles ${ROOT_TLS_CERT}  --csr.names "${SUBJECT}"
+
+    # Create the TLS CA directories of the MSP folder if they don't exist.
+    mkdir -p ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/tlscacerts	
+    
+    # Copy the peer org's admin cert into target MSP directory
+    mkdir -p ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/admincerts
+
+    cp ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/tlscacerts
+    cp ${ORG_CYPTO_FOLDER}/msp/admincerts/${ORG_ADMIN_USER}-cert.pem ${ORG_CYPTO_FOLDER}/peers/${PEER}/msp/admincerts
+
+    cd ${CURRENT_DIR}
+
+  generate-user-crypto.sh: |-
+    #!/bin/bash
+    set -x
+
+    CURRENT_DIR=${PWD}
+    # Input parameters
+    FULLY_QUALIFIED_ORG_NAME="{{ .Release.Namespace }}"
+    TYPE_FOLDER=$1s
+    USER_IDENTITIES=$2
+    AFFILIATION="{{ .Values.orgData.orgName }}"
+    SUBJECT="{{ .Values.orgData.componentSubject }}"
+    CA="{{ .Values.orgData.caAddress }}"
+
+    ORG_CYPTO_FOLDER="/crypto-config/$1Organizations/${FULLY_QUALIFIED_ORG_NAME}"
+    ROOT_TLS_CERT="/crypto-config/$1Organizations/${FULLY_QUALIFIED_ORG_NAME}/ca/ca.${FULLY_QUALIFIED_ORG_NAME}-cert.pem"
+
+    CAS_FOLDER="${HOME}/ca-tools/cas/ca"
+    ORG_HOME="${HOME}/ca-tools/org"
+ 
+    ## Register and enroll users
+    CUR_USER=0
+    TOTAL_USERS=$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '. | length')
+    
+    while [ ${CUR_USER} -lt ${TOTAL_USERS} ]; do
+      # Get the user identity
+      USER=$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '.['${CUR_USER}'].identity' | sed -e 's/"//g')
+      ORG_USER="${USER}@${FULLY_QUALIFIED_ORG_NAME}"
+      ORG_USERPASS="${USER}@${FULLY_QUALIFIED_ORG_NAME}-pw"
+      ADMIN_USER="Admin@${FULLY_QUALIFIED_ORG_NAME}"
+      ADMIN_USERPASS="Admin@${FULLY_QUALIFIED_ORG_NAME}-pw"
+
+      # Creating current user's current attrs string to pass in as argument while registering/updating identity
+      CUR_ATTRS=0
+      ATTRS="hf.Revoker=true"
+      TOTAL_ATTRS=$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '.['${CUR_USER}'].attributes | length')
+      while [ ${CUR_ATTRS} -lt ${TOTAL_ATTRS} ]; do
+        ATTRS=${ATTRS}","$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '.['${CUR_USER}'].attributes['${CUR_ATTRS}'].key' | sed -e 's/"//g')"="$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '.['${CUR_USER}'].attributes['${CUR_ATTRS}'].value' | sed -e 's/"//g')":ecert"
+        CUR_ATTRS=$((CUR_ATTRS + 1))
+      done
+      
+      #Check if the user certs does not exist
+      if [ ! -e /crypto-config/${USER}-msp-exists ] || [ ! -e /crypto-config/${USER}-tls-exists ]; then
+        # if user certificates do not exist
+        ## Register and enroll User for Org
+        fabric-ca-client register -d --id.name ${ORG_USER} --id.secret ${ORG_USERPASS} --id.type client --csr.names "${SUBJECT}" --id.affiliation ${AFFILIATION} --id.attrs "${ATTRS}" --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+
+        # Enroll the registered user to generate enrollment certificate
+        fabric-ca-client enroll -d -u https://${ORG_USER}:${ORG_USERPASS}@${CA} --csr.names "${SUBJECT}" --tls.certfiles ${ROOT_TLS_CERT} --home ${ORG_HOME}/client${USER}
+
+        mkdir ${ORG_HOME}/client${USER}/msp/admincerts
+        cp ${ORG_HOME}/client${USER}/msp/signcerts/* ${ORG_HOME}/client${USER}/msp/admincerts/${ORG_USER}-cert.pem
+
+        mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_USER}
+        cp -R ${ORG_HOME}/client${USER}/msp ${ORG_CYPTO_FOLDER}/users/${ORG_USER}
+
+        mkdir ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/msp/tlscacerts
+        cp ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/msp/cacerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/msp/tlscacerts
+
+        # Get TLS cert for user and copy to appropriate location
+        fabric-ca-client enroll -d --enrollment.profile tls -u https://${ORG_USER}:${ORG_USERPASS}@${CA} -M ${ORG_HOME}/client${USER}/tls --tls.certfiles ${ROOT_TLS_CERT}
+
+        # Copy the TLS key and cert to the appropriate place
+        mkdir -p ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls
+        cp ${ORG_HOME}/client${USER}/tls/keystore/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls/client.key
+        cp ${ORG_HOME}/client${USER}/tls/signcerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls/client.crt
+        cp ${ORG_HOME}/client${USER}/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls/ca.crt
+      
+      else # If User certificate exists
+        
+        # Current datetime + 5 minutes | e.g. 20210302182036
+        CUR_DATETIME=$(date -d "$(echo $(date)' + 5 minutes')" +'%Y%m%d%H%M%S')
+        #TODO get ${ORG_HOME}/client${USER}/msp/signcerts/cert.pem from Kubernetes secret or Vault in job.yaml
+        # Extracting "notAfter" datetime from the existing user certificate | e.g. 20210302182036
+        CERT_DATETIME=$(date -d "$(echo $(openssl x509 -noout -enddate < ${ORG_HOME}/client${USER}/msp/signcerts/cert.pem) | sed 's/notAfter=//g')" +'%Y%m%d%H%M%S')
+
+        # Extracting the list of custom attrs from existing user certificate
+        ATTRS_CERT="$(openssl x509 -text -noout -certopt no_subject,no_header,no_version,no_serial,no_signame,no_validity,no_issuer,no_pubkey,no_sigdump,no_aux < ${ORG_HOME}/client${USER}/msp/signcerts/cert.pem )"
+        ATTRS_CERT="${ATTRS_CERT##*: }" # extracing the "attrs" JSON string
+        
+        # Check if the current list of attrs key and value pairs match with existing user certificate's attrs key and value pairs
+        CUR_ATTRS=0
+        MATCH_FLAG="true"
+        while [ ${CUR_ATTRS} -lt ${TOTAL_ATTRS} ]; do
+          CUR_KEY=$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '.['${CUR_USER}'].attributes['${CUR_ATTRS}'].key' | sed -e 's/"//g')
+          if [[ "$(echo ${ATTRS_CERT} | jq .attrs.${CUR_KEY} )" == "null" ]]; then
+            MATCH_FLAG="false"
+          fi
+          CUR_ATTRS=$((CUR_ATTRS + 1))
+        done
+
+        # In case the certificate is expired or attrs key and value pairs do not match completly, generate a new certificate for the user
+        if [ "${CUR_DATETIME}" -ge "$CERT_DATETIME" ] ||  [ "$MATCH_FLAG" == "false" ]; then
+
+          # Checking the validity of each attrs key and value pair, such that only the current list of attrs reflect in the new certificate
+          # whereas the other non-required attrs key and value pairs do not reflect on the new certificate
+          TOTAL_CERT_ATTRS=$(echo ${ATTRS_CERT} | jq '.attrs | length' )
+          CUR_CERT_ATTRS=0
+          while [ ${CUR_CERT_ATTRS} -lt ${TOTAL_CERT_ATTRS} ]; do
+            
+            # Since Fabric-CA puts three default key-value pairs, this check is to avoid them to enter the processing
+            if [ "$(echo ${ATTRS_CERT} | jq '.attrs | to_entries | .['${CUR_CERT_ATTRS}'].key' | sed -e 's/"//g')" != "hf.Affiliation" ] && [ "$(echo ${ATTRS_CERT} | jq '.attrs | to_entries | .['${CUR_CERT_ATTRS}'].key' | sed -e 's/"//g')" != "hf.Type" ] && [ "$(echo ${ATTRS_CERT} | jq '.attrs | to_entries | .['${CUR_CERT_ATTRS}'].key' | sed -e 's/"//g')" != "hf.EnrollmentID" ]; then
+              
+              # For each attrs key in the existing certificate checking if they exist in the current attrs list
+              KEY_PRESENT="false"
+              CUR_ATTRS=0
+              while [ ${CUR_ATTRS} -lt ${TOTAL_ATTRS} ]; do
+                if [ "$(echo ${ATTRS_CERT} | jq '.attrs | to_entries | .['${CUR_CERT_ATTRS}'].key' | sed -e 's/"//g')" == "$(echo ${USER_IDENTITIES} | base64 -d | sed -e 's/None/null/g' | tr "'" '"' | jq '.['${CUR_USER}'].attributes['${CUR_ATTRS}'].key' | sed -e 's/"//g')" ]; then
+                  KEY_PRESENT="true"
+                fi
+                CUR_ATTRS=$((CUR_ATTRS + 1))
+              done
+
+              # If the key is not present then, add it to the ${ATTRS} string without the 'ecert' flag, such that is doesnot appear on the new certificate
+              if [ "${KEY_PRESENT}" == "false" ]; then
+                ATTRS=${ATTRS}","$(echo ${ATTRS_CERT} | jq '.attrs | to_entries | .['${CUR_CERT_ATTRS}'].key' | sed -e 's/"//g')"="$(echo ${ATTRS_CERT} | jq '.attrs | to_entries | .['${CUR_CERT_ATTRS}'].value' | sed -e 's/"//g')
+              fi
+            
+            fi
+            CUR_CERT_ATTRS=$((CUR_CERT_ATTRS + 1))
+          done
+          
+          # Updating the identity with current attrs
+          fabric-ca-client identity modify ${ORG_USER} -d --type user --affiliation ${AFFILIATION} --attrs "${ATTRS}" --tls.certfiles ${ROOT_TLS_CERT} --home ${CAS_FOLDER}
+
+          # Generate a new enrollment certificate
+          fabric-ca-client enroll -d -u https://${ORG_USER}:${ORG_USERPASS}@${CA} --csr.names "${SUBJECT}" --tls.certfiles ${ROOT_TLS_CERT} --home ${ORG_HOME}/client${USER}
+          
+          cp ${ORG_HOME}/client${USER}/msp/signcerts/* ${ORG_HOME}/client${USER}/msp/admincerts/${ORG_USER}-cert.pem
+          cp -R ${ORG_HOME}/client${USER}/msp ${ORG_CYPTO_FOLDER}/users/${ORG_USER}
+
+          # Get TLS cert for user and copy to appropriate location
+          fabric-ca-client enroll -d --enrollment.profile tls -u https://${ORG_USER}:${ORG_USERPASS}@${CA} -M ${ORG_HOME}/client${USER}/tls --tls.certfiles ${ROOT_TLS_CERT}
+
+          # Copy the TLS key and cert to the appropriate place
+          cp ${ORG_HOME}/client${USER}/tls/keystore/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls/client.key
+          cp ${ORG_HOME}/client${USER}/tls/signcerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls/client.crt
+          cp ${ORG_HOME}/client${USER}/tls/tlscacerts/* ${ORG_CYPTO_FOLDER}/users/${ORG_USER}/tls/ca.crt
+        fi
+      fi
+
+      CUR_USER=$((CUR_USER + 1))
+    done
+    cd ${CURRENT_DIR}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: orderer-script-store-vault
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: orderer-script-vault
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ include "fabric-catools.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+data:
+  store-vault-orderer.sh: |-
+    #!/bin/bash
+
+    formatCertificate () {
+      NAME="${1##*/}"
+      while IFS= read -r line
+      do
+        echo "$line\n"
+      done < ${1} > ${2}/${NAME}.txt
+    }
+
+    function saveAdminSecrets {
+      TLS_KEY=admin-tls
+      MSP_KEY=admin-msp
+{{- if eq .Values.global.vault.type "hashicorp" }}
+      . ../bevel-vault.sh
+      # Calling a function to retrieve the vault token.
+      vaultBevelFunc "init"
+
+      FORMAT_CERTIFICATE_PATH="/formatcertificate"
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/tls
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/msp
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/tls"
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/client.crt" "${FORMAT_CERTIFICATE_PATH}/tls"
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/client.key" "${FORMAT_CERTIFICATE_PATH}/tls"
+
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/ca.crt.txt)
+        CLIENT_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/client.crt.txt)
+        CLIENT_KEY=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/client.key.txt)
+        
+        echo "
+          {
+            \"data\": 
+              {
+                \"ca_crt\": \"${CA_CRT}\",
+                \"client_crt\": \"${CLIENT_CRT}\",
+                \"client_key\": \"${CLIENT_KEY}\"
+              }  
+          }" > payload.json
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${TLS_KEY}" 'payload.json'
+        rm payload.json
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        SK_NAME=$(find ${ORG_CYPTO_FOLDER}/msp/keystore/ -name "*_sk")
+        formatCertificate "${ORG_CYPTO_FOLDER}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem" "${FORMAT_CERTIFICATE_PATH}/msp"
+        formatCertificate "${SK_NAME}" "${FORMAT_CERTIFICATE_PATH}/msp"
+        formatCertificate "${ORG_CYPTO_FOLDER}/msp/signcerts/cert.pem" "${FORMAT_CERTIFICATE_PATH}/msp"
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/tls"
+
+        ADMINCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/Admin@${COMPONENT_NAME}-cert.pem.txt)
+        KEYSTORE=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/*_sk.txt)
+        SIGNCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/cert.pem.txt)
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/ca.crt.txt)
+
+        formatCertificate "${ORG_CYPTO_FOLDER}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/msp"
+        CACERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/{{ include "fabric-catools.caFileName" . }}.txt)
+        
+        echo "
+          {
+            \"data\": 
+              {
+                \"admincerts\": \"${ADMINCERTS}\",
+                \"cacerts\": \"${CACERTS}\",
+                \"keystore\": \"${KEYSTORE}\",
+                \"signcerts\": \"${SIGNCERTS}\",
+                \"tlscacerts\": \"${CA_CRT}\"
+              }  
+          }" > payload.json
+
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${MSP_KEY}" 'payload.json'
+        rm payload.json
+      fi
+{{- end }} # end Vault if condition
+      # Files are stored as K8s secrets; add more conditions here for cloud KMS
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # Check if secret exists
+        kubectl get secret --namespace ${COMPONENT_NAME} ${TLS_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${TLS_KEY}
+        fi
+        kubectl create secret generic ${TLS_KEY} --namespace ${COMPONENT_NAME} --from-file=cacrt=${ORG_CYPTO_FOLDER}/tls/ca.crt \
+          --from-file=clientcrt=${ORG_CYPTO_FOLDER}/tls/client.crt  \
+          --from-file=clientkey=${ORG_CYPTO_FOLDER}/tls/client.key
+      fi
+      
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        SK_NAME=$(find ${ORG_CYPTO_FOLDER}/msp/keystore/ -name "*_sk")
+        kubectl get secret --namespace ${COMPONENT_NAME} ${MSP_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${MSP_KEY}
+        fi
+        kubectl create secret generic ${MSP_KEY} --namespace ${COMPONENT_NAME} \
+          --from-file=admincerts=${ORG_CYPTO_FOLDER}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem \
+          --from-file=cacerts=${ORG_CYPTO_FOLDER}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}  \
+          --from-file=keystore=${SK_NAME} \
+          --from-file=signcerts=${ORG_CYPTO_FOLDER}/msp/signcerts/cert.pem \
+          --from-file=tlscacerts=${ORG_CYPTO_FOLDER}/tls/ca.crt
+      fi
+      echo "Orderer Admin certificates are successfully stored."
+    }
+
+    function saveOrdererSecrets {
+      ORDERER_NAME=$1
+      TLS_KEY=$1-tls
+      MSP_KEY=$1-msp
+{{- if eq .Values.global.vault.type "hashicorp" }}
+      . ../bevel-vault.sh
+      # Calling a function to retrieve the vault token.
+      vaultBevelFunc "init"
+      FORMAT_CERTIFICATE_PATH="/formatcertificate"
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/cacerts
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/tlscacerts
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls"
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/server.crt" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls"
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/server.key" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls"
+
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls/ca.crt.txt)
+        SERVER_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls/server.crt.txt)
+        SERVER_KEY=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/tls/server.key.txt)
+
+        echo "
+        {
+          \"data\": 
+            {
+              \"ca_crt\": \"${CA_CRT}\",
+              \"server_crt\": \"${SERVER_CRT}\",
+              \"server_key\": \"${SERVER_KEY}\"
+            }  
+        }" > payload.json
+
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/orderers/${TLS_KEY}" 'payload.json'
+        rm payload.json
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        SK_NAME=$(find ${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/keystore/ -name "*_sk")
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp"
+        formatCertificate "${SK_NAME}" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp"
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/signcerts/cert.pem" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp"
+
+        ADMINCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/Admin@${COMPONENT_NAME}-cert.pem.txt)
+        KEYSTORE=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/*_sk.txt)
+        SIGNCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/cert.pem.txt)
+
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/cacerts"
+        formatCertificate "${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/tlscacerts"
+        CACERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}.txt)
+        TLSCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${ORDERER_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}.txt)
+
+        echo "
+          {
+            \"data\": 
+              {
+                \"admincerts\": \"${ADMINCERTS}\",
+                \"cacerts\": \"${CACERTS}\",
+                \"keystore\": \"${KEYSTORE}\",
+                \"signcerts\": \"${SIGNCERTS}\",
+                \"tlscacerts\": \"${TLSCERTS}\"
+              }  
+          }" > payload.json
+
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/orderers/${MSP_KEY}" 'payload.json'
+        rm payload.json
+      fi
+{{- end }} # End Vault if condition
+      # Files are stored as K8s secrets; add more conditions here for cloud KMS
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # Check if secret exists
+        kubectl get secret --namespace ${COMPONENT_NAME} ${TLS_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${TLS_KEY}
+        fi
+        kubectl create secret generic ${TLS_KEY} --namespace ${COMPONENT_NAME} \
+          --from-file=cacrt=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/ca.crt \
+          --from-file=servercrt=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/server.crt  \
+          --from-file=serverkey=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/server.key
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        SK_NAME=$(find ${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/keystore/ -name "*_sk")
+        kubectl get secret --namespace ${COMPONENT_NAME} ${MSP_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${MSP_KEY}
+        fi
+        kubectl create secret generic ${MSP_KEY} --namespace ${COMPONENT_NAME} \
+          --from-file=admincerts=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem \
+          --from-file=cacerts=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}  \
+          --from-file=keystore=${SK_NAME} \
+          --from-file=signcerts=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/signcerts/cert.pem \
+          --from-file=tlscacerts=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}
+      fi
+      echo "$ORDERER_NAME Client certificates are successfully stored."
+    }
+
+    function safeOrderererTlsConfigmap {
+      ORDERER_NAME=$1
+      kubectl get configmap --namespace {{ .Release.Namespace }} orderer-tls-cacert
+      if [ $? -ne 0 ]; then
+        kubectl create configmap --namespace {{ .Release.Namespace }} orderer-tls-cacert --from-file=cacert=${ORG_CYPTO_ORDERER_FOLDER}/${ORDERER_NAME}.${COMPONENT_NAME}/tls/ca.crt
+      fi
+    }
+
+    ORG_CYPTO_FOLDER="/crypto-config/ordererOrganizations/${COMPONENT_NAME}/users/Admin@${COMPONENT_NAME}"
+    ORG_CYPTO_ORDERER_FOLDER="/crypto-config/ordererOrganizations/${COMPONENT_NAME}/orderers"
+    
+    saveAdminSecrets
+    ORDERER=$1
+    saveOrdererSecrets $ORDERER
+    safeOrderererTlsConfigmap $ORDERER
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: peer-script-store-vault
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: peer-script-vault
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ include "fabric-catools.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+data:
+  store-vault-peer.sh: |-
+    #!/bin/bash
+
+    formatCertificate () {
+      NAME="${1##*/}"
+      while IFS= read -r line
+      do
+        echo "$line\n"
+      done < ${1} > ${2}/${NAME}.txt
+    }
+    function saveAdminSecrets {
+      TLS_KEY=admin-tls
+      MSP_KEY=admin-msp
+{{- if eq .Values.global.vault.type "hashicorp" }}
+      . ../bevel-vault.sh
+      # Calling a function to retrieve the vault token.
+      vaultBevelFunc "init"
+      FORMAT_CERTIFICATE_PATH="/formatcertificate"
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/tls
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/msp
+
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/tls"
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/client.crt" "${FORMAT_CERTIFICATE_PATH}/tls"
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/client.key" "${FORMAT_CERTIFICATE_PATH}/tls"
+
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/ca.crt.txt)
+        CLIENT_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/client.crt.txt)
+        CLIENT_KEY=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/client.key.txt)
+        
+        echo "
+        {
+          \"data\": 
+            {
+              \"ca_crt\": \"${CA_CRT}\",
+              \"client_crt\": \"${CLIENT_CRT}\",
+              \"client_key\": \"${CLIENT_KEY}\"
+            }  
+        }" > payload.json
+            
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${TLS_KEY}" 'payload.json'
+        rm payload.json
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        SK_NAME=$(find ${ORG_CYPTO_FOLDER}/msp/keystore/ -name "*_sk")
+        formatCertificate "${ORG_CYPTO_FOLDER}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem" "${FORMAT_CERTIFICATE_PATH}/msp"
+        formatCertificate "${SK_NAME}" "${FORMAT_CERTIFICATE_PATH}/msp"
+        formatCertificate "${ORG_CYPTO_FOLDER}/msp/signcerts/cert.pem" "${FORMAT_CERTIFICATE_PATH}/msp"
+        formatCertificate "${ORG_CYPTO_FOLDER}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/tls"
+
+        ADMINCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/Admin@${COMPONENT_NAME}-cert.pem.txt)
+        KEYSTORE=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/*_sk.txt)
+        SIGNCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/cert.pem.txt)
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/tls/ca.crt.txt)
+
+        formatCertificate "${ORG_CYPTO_FOLDER}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/msp"
+        CACERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/msp/{{ include "fabric-catools.caFileName" . }}.txt)
+            
+        echo "
+        {
+          \"data\": 
+            {
+              \"admincerts\": \"${ADMINCERTS}\",
+              \"cacerts\": \"${CACERTS}\",
+              \"keystore\": \"${KEYSTORE}\",
+              \"signcerts\": \"${SIGNCERTS}\",
+              \"tlscacerts\": \"${CA_CRT}\"
+            }  
+        }" > payload.json
+
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${MSP_KEY}" 'payload.json'
+        rm payload.json
+      fi
+{{- end }} # End Vault if condition
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # Check if secret exists
+        kubectl get secret --namespace ${COMPONENT_NAME} ${TLS_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${TLS_KEY}
+        fi
+        kubectl create secret generic ${TLS_KEY} --namespace ${COMPONENT_NAME} --from-file=cacrt=${ORG_CYPTO_FOLDER}/tls/ca.crt \
+          --from-file=clientcrt=${ORG_CYPTO_FOLDER}/tls/client.crt  \
+          --from-file=clientkey=${ORG_CYPTO_FOLDER}/tls/client.key
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        SK_NAME=$(find ${ORG_CYPTO_FOLDER}/msp/keystore/ -name "*_sk")
+        kubectl get secret --namespace ${COMPONENT_NAME} ${MSP_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${MSP_KEY}
+        fi
+        kubectl create secret generic ${MSP_KEY} --namespace ${COMPONENT_NAME} \
+        --from-file=admincerts=${ORG_CYPTO_FOLDER}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem \
+        --from-file=cacerts=${ORG_CYPTO_FOLDER}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}  \
+        --from-file=keystore=${SK_NAME} \
+        --from-file=signcerts=${ORG_CYPTO_FOLDER}/msp/signcerts/cert.pem \
+        --from-file=tlscacerts=${ORG_CYPTO_FOLDER}/tls/ca.crt
+      fi
+
+      echo "Peer Admin certificates are successfully stored."
+    }
+
+    function savePeerSecrets {
+      PEER_NAME=$1
+      TLS_KEY=$1-tls
+      MSP_KEY=$1-msp
+{{- if eq .Values.global.vault.type "hashicorp" }}
+      . ../bevel-vault.sh
+      # Calling a function to retrieve the vault token.
+      vaultBevelFunc "init"
+      FORMAT_CERTIFICATE_PATH="/formatcertificate"
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/cacerts
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/tlscacerts
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls"
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/tls/server.crt" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls"
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/tls/server.key" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls"
+
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls/ca.crt.txt)
+        SERVER_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls/server.crt.txt)
+        SERVER_KEY=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/tls/server.key.txt)
+
+        echo "
+        {
+          \"data\": 
+            {
+              \"ca_crt\": \"${CA_CRT}\",
+              \"server_crt\": \"${SERVER_CRT}\",
+              \"server_key\": \"${SERVER_KEY}\"
+            }  
+        }" > payload.json
+
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/peers/${TLS_KEY}" 'payload.json'
+        rm payload.json
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        SK_NAME=$(find ${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/keystore/ -name "*_sk")
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp"
+        formatCertificate "${SK_NAME}" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp"
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/signcerts/cert.pem" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp"
+
+        ADMINCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/Admin@${COMPONENT_NAME}-cert.pem.txt)
+        KEYSTORE=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/*_sk.txt)
+        SIGNCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/cert.pem.txt)
+
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/cacerts"
+        formatCertificate "${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/tlscacerts"
+        CACERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}.txt)
+        TLSCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${PEER_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}.txt)
+
+        echo "
+        {
+          \"data\": 
+            {
+              \"admincerts\": \"${ADMINCERTS}\",
+              \"cacerts\": \"${CACERTS}\",
+              \"keystore\": \"${KEYSTORE}\",
+              \"signcerts\": \"${SIGNCERTS}\",
+              \"tlscacerts\": \"${TLSCERTS}\"
+            }  
+        }" > payload.json
+
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/peers/${MSP_KEY}" 'payload.json'
+        rm payload.json
+      fi
+{{- end }} # End Vault if condition
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # Check if secret exists
+        kubectl get secret --namespace ${COMPONENT_NAME} ${TLS_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${TLS_KEY}
+        fi
+        kubectl create secret generic ${TLS_KEY} --namespace ${COMPONENT_NAME} \
+          --from-file=cacrt=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/tls/ca.crt \
+          --from-file=servercrt=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/tls/server.crt  \
+          --from-file=serverkey=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/tls/server.key
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        SK_NAME=$(find ${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/keystore/ -name "*_sk")
+        kubectl get secret --namespace ${COMPONENT_NAME} ${MSP_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${MSP_KEY}
+        fi
+        kubectl create secret generic ${MSP_KEY} --namespace ${COMPONENT_NAME} \
+        --from-file=admincerts=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/admincerts/Admin@${COMPONENT_NAME}-cert.pem \
+        --from-file=cacerts=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}  \
+        --from-file=keystore=${SK_NAME} \
+        --from-file=signcerts=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/signcerts/cert.pem \
+        --from-file=tlscacerts=${ORG_CYPTO_PEER_FOLDER}/${PEER_NAME}.${COMPONENT_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}
+      fi
+      echo "${PEER_NAME} Client certificates are successfully stored."
+    }
+
+    ORG_CYPTO_FOLDER="/crypto-config/peerOrganizations/${COMPONENT_NAME}/users/Admin@${COMPONENT_NAME}"
+    ORG_CYPTO_PEER_FOLDER="/crypto-config/peerOrganizations/${COMPONENT_NAME}/peers"
+
+    saveAdminSecrets
+    savePeerSecrets $1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: users-script-store-vault
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: users-script-vault
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/part-of: {{ include "fabric-catools.fullname" . }}
+    app.kubernetes.io/namespace: {{ .Release.Namespace }}
+    app.kubernetes.io/release: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: helm
+data:
+  store-vault-users.sh: |-
+    #!/bin/bash
+
+    formatCertificate () {
+      NAME="${1##*/}"
+      while IFS= read -r line
+      do
+        echo "$line\n"
+      done < ${1} > ${2}/${NAME}.txt
+    }
+    function saveUserSecrets {
+      USER=$1
+      TLS_KEY=$1-tls
+      MSP_KEY=$1-msp
+{{- if eq .Values.global.vault.type "hashicorp" }}
+      . ../bevel-vault.sh
+      # Calling a function to retrieve the vault token.
+      vaultBevelFunc "init"
+  
+      FORMAT_CERTIFICATE_PATH="/formatcertificate"
+      ORG_CYPTO_USERS_FOLDER="/crypto-config/peerOrganizations/${COMPONENT_NAME}/users"
+
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${USER}/tls
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${USER}/msp
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/cacerts
+      mkdir -p ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/tlscacerts
+
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/tls/ca.crt" "${FORMAT_CERTIFICATE_PATH}/${USER}/tls"
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/tls/client.crt" "${FORMAT_CERTIFICATE_PATH}/${USER}/tls"
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/tls/client.key" "${FORMAT_CERTIFICATE_PATH}/${USER}/tls"
+
+        CA_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/tls/ca.crt.txt)
+        CLIENT_CRT=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/tls/client.crt.txt)
+        CLIENT_KEY=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/tls/client.key.txt)
+
+        echo "
+        {
+          \"data\": 
+            {
+              \"ca_crt\": \"${CA_CRT}\",
+              \"client_crt\": \"${CLIENT_CRT}\",
+              \"client_key\": \"${CLIENT_KEY}\"
+            }  
+        }" > payload.json
+
+        # This command copy the crypto material for users (tls)
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${TLS_KEY}" 'payload.json'
+        rm payload.json
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        # This commands put the certificates with correct format for the curl command
+        SK_NAME=$(find ${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/keystore/ -name "*_sk")
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/admincerts/${USER}@${COMPONENT_NAME}-cert.pem" "${FORMAT_CERTIFICATE_PATH}/${USER}/msp"
+        formatCertificate "${SK_NAME}" "${FORMAT_CERTIFICATE_PATH}/${USER}/msp"
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/signcerts/cert.pem" "${FORMAT_CERTIFICATE_PATH}/${USER}/msp"
+
+        ADMINCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/${USER}@${COMPONENT_NAME}-cert.pem.txt)
+        KEYSTORE=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/*_sk.txt)
+        SIGNCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/cert.pem.txt)
+
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/${USER}/msp/cacerts"
+        formatCertificate "${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}" "${FORMAT_CERTIFICATE_PATH}/${USER}/msp/tlscacerts"
+        CACERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}.txt)
+        # En el rol lo copia directamente del tls
+        TLSCERTS=$(cat ${FORMAT_CERTIFICATE_PATH}/${USER}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}.txt)
+
+        echo "
+        {
+          \"data\": 
+            {
+              \"admincerts\": \"${ADMINCERTS}\",
+              \"cacerts\": \"${CACERTS}\",
+              \"keystore\": \"${KEYSTORE}\",
+              \"signcerts\": \"${SIGNCERTS}\",
+              \"tlscacerts\": \"${TLSCERTS}\"
+            }  
+        }" > payload.json
+
+        #This command copy the msp certificates to the Vault
+        vaultBevelFunc 'write' "${VAULT_SECRET_ENGINE}/${VAULT_SECRET_PREFIX}/users/${MSP_KEY}" 'payload.json'
+        rm payload.json
+      fi
+{{- end }}
+      # Check if secret exists
+      if [ ! -e /crypto-config/${TLS_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        kubectl get secret --namespace ${COMPONENT_NAME} ${TLS_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${TLS_KEY}
+        fi
+
+        kubectl create secret generic ${TLS_KEY} --namespace ${COMPONENT_NAME} \
+          --from-file=cacrt=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/tls/ca.crt \
+          --from-file=clientcrt=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/tls/client.crt  \
+          --from-file=clientkey=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/tls/client.key
+      fi
+
+      if [ ! -e /crypto-config/${MSP_KEY}-exists ] || [ "$REFRESH_CERT_VALUE" = "true" ]; then
+        SK_NAME=$(find ${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/keystore/ -name "*_sk")
+        kubectl get secret --namespace ${COMPONENT_NAME} ${MSP_KEY} >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          # Delete the secret if exists
+          kubectl delete secret --namespace ${COMPONENT_NAME} ${MSP_KEY}
+        fi
+        kubectl create secret generic ${MSP_KEY} --namespace ${COMPONENT_NAME} \
+          --from-file=admincerts=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/admincerts/${USER}@${COMPONENT_NAME}-cert.pem \
+          --from-file=cacerts=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/cacerts/{{ include "fabric-catools.caFileName" . }}  \
+          --from-file=keystore=${SK_NAME} \
+          --from-file=signcerts=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/signcerts/cert.pem \
+          --from-file=tlscacerts=${ORG_CYPTO_USERS_FOLDER}/${USER}@${COMPONENT_NAME}/msp/tlscacerts/{{ include "fabric-catools.caFileName" . }}
+      fi
+      echo "${USER} certificates are successfully stored."
+    }
+
+    ORG_CYPTO_USERS_FOLDER="/crypto-config/peerOrganizations/${COMPONENT_NAME}/users"
+    saveUserSecrets $1
+
+{{- end }} # End createConfigMaps condition

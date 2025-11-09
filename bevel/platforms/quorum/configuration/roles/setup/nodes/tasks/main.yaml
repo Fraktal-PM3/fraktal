@@ -1,0 +1,37 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Install Secondary Genesis
+- name: "Install Secondary Genesis"
+  include_role:
+    name: setup/genesis/secondary_genesis
+  vars:
+    component_name: "{{ org_name }}-genesis"
+  when: org_name != network.organizations[0].name
+
+# Process primary organization's validators
+- name: "Deploy validators of {{ org_name }}"
+  include_role:
+    name: create/validator_node
+  vars:
+    name: "{{ org_name }}"
+    component_name: "{{ validator.name | lower }}"
+  loop: "{{ validators }}"
+  loop_control:
+    loop_var: validator
+  when: validator is defined
+
+# Process primary organization's validators
+- name: "Deploy members of {{ org_name }}"
+  include_role:
+    name: create/member_node
+  vars:
+    name: "{{ org_name }}"
+    component_name: "{{ member.name | lower }}"
+  loop: "{{ members }}"
+  loop_control:
+    loop_var: member
+  when: members is defined

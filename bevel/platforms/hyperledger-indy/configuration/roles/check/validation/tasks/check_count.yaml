@@ -1,0 +1,26 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Counting the number of steward nodes
+- name: "Count steward nodes"
+  set_fact:
+    total_stewards: "{{ total_stewards | int + 1 }}"
+  loop: "{{ org.services.stewards }}"
+  loop_control:
+    loop_var: stewards
+  when: (stewards is defined) and (stewards | length > 0)
+
+# Counting the number of trustee nodes
+- name: "Count trustee nodes"
+  set_fact:
+    total_trustee: "{{ total_trustee | int + 1 }}"
+  when: (org.services.trustee is defined) and (org.services.trustee.name | length > 0)
+
+# Counting the number of endorser nodes
+- name: "Count endorser nodes"
+  set_fact:
+    total_endorser: "{{ total_endorser | int + 1 }}"
+  when: (org.services.endorser is defined) and (org.services.endorser.name | length > 0)

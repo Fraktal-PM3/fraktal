@@ -1,0 +1,90 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+##############################################################################################
+# This playbook deploys a DLT network on existing Kubernetes clusters
+# The Kubernetes clusters should already be created and the infomation to connect to the
+#  clusters be updated in the network.yaml file that is used as an input to this playbook
+###########################################################################################
+# To Run this playbook from this directory, use the following command (network.yaml also in this directory)
+#  ansible-playbook deploy-network.yaml -e "@./network.yaml"
+############################################################################################
+
+# Please ensure that the ../../shared/configuration playbooks have been run using the same network.yaml
+- hosts: ansible_provisioners
+  gather_facts: no
+  no_log: "{{ no_ansible_log | default(false) }}"
+  tasks:
+  # delete build directory
+  - name: Remove build directory
+    file:
+      path: "./build"
+      state: absent
+  
+  # Validate input network.yaml
+  - name: "Validating network.yaml"
+    include_role:
+      name: check/validation
+  
+  # create namespace
+  - name: "Create namespace"
+    include_role:
+      name: create/namespace
+    vars:
+      component_ns: "{{ item.name | lower }}-quo"
+      organisation: "{{ item.name | lower }}"
+      kubernetes: "{{ item.k8s }}"
+      gitops: "{{ item.gitops }}"
+    loop: "{{ network['organizations'] }}"
+  
+  # Create necessary secrets
+  - name: "Create k8s secrets"
+    include_role:
+      name: create/secrets
+    vars:
+      component_ns: "{{ org.name | lower }}-quo"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+    when: 
+    - org.org_status is not defined or org.org_status == 'new'
+  
+  # Install primary Genesis
+  - name: "Install primary Genesis"
+    include_role:
+      name: setup/genesis/primary_genesis
+    vars:
+      validator_count: "{{ total_validators | int }}"
+  
+  # Deploy nodes
+  - name: "Deploy nodes"
+    include_role:
+      name: setup/nodes
+    vars:
+      org_name: "{{ org.name | lower }}"
+      component_ns: "{{ org_name }}-quo"
+      validators: "{{ org.services.validators }}"
+      members: "{{ org.services.peers }}"
+      cloud_provider: "{{ org.cloud_provider | lower }}"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+      gitops: "{{ org.gitops }}"
+      charts_dir: "{{ org.gitops.chart_source }}"
+      values_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ org_name }}"
+      current_org_index: "{{ org_index }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+      index_var: org_index
+  
+  #These variables can be overriden from the command line
+  vars:
+    install_os: "linux"           # Default to linux OS
+    install_arch:  "amd64"        # Default to amd64 architecture
+    bin_install_dir:  "~/bin"     # Default to /bin install directory for binaries
+    add_new_org: false            # 'add_new_org' flag, defaults to false when not defined.

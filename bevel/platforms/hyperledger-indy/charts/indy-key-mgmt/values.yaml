@@ -1,0 +1,49 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+---
+# The following are for overriding global values
+global:
+  #Provide the service account name which will be created.
+  serviceAccountName: vault-auth
+  cluster:
+    provider: aws  # choose from: minikube | aws | azure | gcp
+    cloudNativeServices: false # only 'false' is implemented
+    #Provide the kubernetes host url
+    #Eg. kubernetesUrl: https://10.3.8.5:8443
+    kubernetesUrl: 
+  vault:
+    #Provide the type of vault
+    type: hashicorp   # hashicorp | kubernetes
+    #Provide the vault role used.
+    role: vault-role
+    #Provide the network type
+    network: indy
+    #Provide the vault server address
+    address: 
+    #Provide the vault authPath configured to be used.
+    authPath: authority
+    #Provide the secret engine.
+    secretEngine: secretsv2
+    #Provide the vault path where the secrets will be stored
+    secretPrefix: "data/authority"
+
+image:
+  #Provide the image for the job container
+  #Eg. keyUtils: ghcr.io/hyperledger/bevel-indy-key-mgmt:1.12.6
+  keyUtils: ghcr.io/hyperledger/bevel-indy-key-mgmt:1.12.6
+  #Provide the secret to use if private repository
+  #Eg. pullSecret: regcred
+  pullSecret:
+
+settings:
+  removeKeysOnDelete: true
+  identities:
+    trustee: authority-trustee
+    endorser: 
+    stewards: []
+

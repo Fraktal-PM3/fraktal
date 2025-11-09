@@ -1,0 +1,162 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# This playbook adds an organization to a DLT with Fabric network on existing Kubernetes clusters
+# The Kubernetes clusters should already be created and the infomation to connect to the
+#  clusters be updated in the network.yaml file that is used as an input to this playbook
+###########################################################################################
+# To Run this playbook from this directory, use the following command (network.yaml also in this directory)
+#  ansible-playbook add-organization.yaml -e "@./network.yaml" -e "add_new_org='true'"
+############################################################################################
+# Please ensure that the ../../shared/configuration playbooks have been run and a DLT network exists.
+# Please ensure the orderer certificates are placed on the paths mentioned in orderer.certificate in network.yaml
+---
+  # This will apply to ansible_provisioners. /etc/ansible/hosts should be configured with this group
+- hosts: ansible_provisioners
+  gather_facts: no
+  no_log: "{{ no_ansible_log | default(false) }}"
+  tasks:
+
+    # delete build directory
+    - name: Remove build directory
+      file:
+        path: "./build"
+        state: absent
+        
+    # Create Namespaces and Vault-rbac kubernetes-value files
+    - name: Create namespace and Vault auth for each organization
+      include_role:
+        name: "create/namespace"
+      vars:
+        component_name: "{{ org.name | lower }}-net"
+        kubernetes: "{{ org.k8s }}"
+        release_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ org.name | lower }}"
+      loop: "{{ network['organizations'] }}"
+      loop_control:
+        loop_var: org
+
+    # Create necessary secrets
+    - name: "Create k8s secrets"
+      include_role:
+        name: create/secrets
+      vars:
+        component_ns: "{{ org.name | lower }}-net"
+        kubernetes: "{{ org.k8s }}"
+        vault: "{{ org.vault }}"
+      loop: "{{ network['organizations'] }}"
+      loop_control:
+        loop_var: org
+      when: 
+      - org.org_status is not defined or org.org_status == 'new'
+        
+    # Create CA Server helm-value files and check-in
+    - name: Create CA server for each organization
+      include_role:
+        name: "create/ca_server"
+      vars:
+        component_ns: "{{ org.name | lower}}-net"
+        component: "{{ org.name | lower}}"
+        component_services: "{{ org.services }}"
+        kubernetes: "{{ org.k8s }}"
+        vault: "{{ org.vault }}"
+        ca: "{{ org.services.ca }}"
+        docker_url: "{{ network.docker.url }}"
+        gitops: "{{ org.gitops }}"
+        values_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ org.name | lower }}"
+      loop: "{{ network['organizations'] }}"
+      loop_control:
+        loop_var: org
+      when: 
+        - org.services.ca is defined
+        - org.org_status is not defined or org.org_status == 'new'
+
+    #Creating a pause so that the client certificates are valid
+    # You can continue if the CA-server pods are running for more than 5 minutes
+    - pause:
+        prompt: "Sleeping... so that the client certificates are valid"
+        minutes: 6
+
+    # Generate script to modify the fetched configuration block
+    - include_role:
+        name: "create/new_organization/create_block"
+      vars:
+        build_path: "./build"
+        participants: "{{ channel.participants }}"
+        channel_name: "{{ channel.channel_name | lower}}"
+      loop: "{{ network['channels'] }}"
+      loop_control:
+        loop_var: channel
+
+    # This role creates the value file for peers of organisations and write couch db credentials
+    # to the vault.
+    - name: Create all peers
+      include_role:
+        name: "create/peers"
+      vars:
+        build_path: "./build"
+        namespace: "{{ org.name | lower}}-net"
+        component_type: "{{ org.type | lower}}"
+        component_services: "{{ org.services }}"
+        kubernetes: "{{ org.k8s }}"
+        vault: "{{ org.vault }}"
+        git_protocol: "{{ org.gitops.git_protocol }}"
+        git_url: "{{ org.gitops.git_url }}"
+        git_branch: "{{ org.gitops.branch }}"
+        docker_url: "{{ network.docker.url }}"
+        charts_dir: "{{ org.gitops.chart_source }}"
+        values_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ org.name | lower }}"
+      loop: "{{ network['organizations'] }}"
+      loop_control:
+        loop_var: org
+      when: 
+        - org.services.peers is defined and org.services.peers | length > 0
+        - org.org_status is not defined or org.org_status == 'new'
+  
+    - name: "Create genesis block"
+      include_role: 
+        name: "create/genesis"
+      vars:
+        org: "{{ network['organizations'] | first }}"
+        docker_url: "{{ network.docker.url }}"
+        kubernetes: "{{ org.k8s  }}"
+        generateGenisis: false
+      when: genererate_configtx is defined and genererate_configtx == 'true'
+
+    # This role is to start the existing peer cli
+    # Fetch the configuration block and modify the block
+    - include_role:
+        name: "setup/config_block/fetch"
+      vars:
+        build_path: "./build"
+        participants: "{{ item.participants }}"
+        docker_url: "{{ network.docker.url }}"
+      loop: "{{ network['channels'] }}"
+
+     # This role fetch the block from the ansible host and get it signed from each existing organization admin
+    - include_role:
+        name: "setup/config_block/sign_and_update"
+      vars:
+        build_path: "./build"
+        participants: "{{ item.participants }}"
+        docker_url: "{{ network.docker.url }}"
+      loop: "{{ network['channels'] }}"      
+
+    # This role fetches block 0 and joins peers of new organizaion to the channel
+    - include_role:
+        name: "create/channels_join"
+      vars:
+        build_path: "./build"
+        participants: "{{ item.participants }}"
+        docker_url: "{{ network.docker.url }}"
+      loop: "{{ network['channels'] }}"
+
+  vars: # These variables can be overriden from the command line
+    privilege_escalate: false           # Default to NOT escalate to root privledges
+    install_os: "linux"                 # Default to linux OS
+    install_arch:  "amd64"              # Default to amd64 architecture
+    bin_install_dir:  "~/bin"           # Default to /bin install directory for binaries
+    add_new_org: "true"                 # Default to true
+    genererate_configtx: "true" 

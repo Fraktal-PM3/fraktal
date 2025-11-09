@@ -1,0 +1,15 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+helm_templates:
+  primary_genesis: primary_genesis.tpl
+  validator: validator.tpl
+  besu_crypto_tessera: crypto_tessera.tpl
+  tessera: tessera.tpl
+  besu_member: member.tpl
+  node_key_mgmt: node_key_mgmt.tpl
+  ambassador_besu: ambassador_besu.tpl
+bevel_alpine_version: latest # Change to tag version when using tag specific images

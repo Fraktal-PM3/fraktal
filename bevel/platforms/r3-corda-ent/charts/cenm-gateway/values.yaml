@@ -1,0 +1,57 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Default values for cenm-gateway chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+global:
+  serviceAccountName: vault-auth
+  cluster:
+    provider: aws  # choose from: minikube | aws | azure | gcp
+    cloudNativeServices: false # set to true to use Cloud Native Services (SecretsManager and IAM for AWS; KeyVault & Managed Identities for Azure)
+  vault:
+    type: hashicorp
+    role: vault-role
+    address: 
+    authPath: supplychain
+    secretEngine: secretsv2
+    secretPrefix: "data/supplychain"
+  proxy:
+    #This will be the proxy/ingress provider. Can have values "ambassador" or "none"
+    #Eg. provider: "ambassador"
+    provider: "ambassador"
+    #This field contains the external URL of the node
+    #Eg. externalUrlSuffix: test.blockchaincloudpoc.com
+    externalUrlSuffix: test.blockchaincloudpoc.com
+  cenm:
+    sharedCreds:
+      truststore: password
+      keystore: password
+    gateway:
+      port: 8080
+    zone:
+      adminPort: 12345
+
+storage:
+  size: 1Gi
+  allowedTopologies:
+    enabled: false
+image: 
+  #Provide the docker secret name in the namespace
+  #Eg. pullSecret: regcred
+  pullSecret:
+  #Pull policy to be used for the Docker image
+  #Eg. pullPolicy: IfNotPresent
+  pullPolicy: IfNotPresent
+  #Provide a valid image and version for enterprise-gateway service
+  gateway:
+    repository: corda/enterprise-gateway
+    tag: 1.5.9-zulu-openjdk8u382
+
+# Sleep time (in seconds) after an error occured
+sleepTimeAfterError: 300
+# path to base dir
+baseDir: /opt/cenm

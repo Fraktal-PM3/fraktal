@@ -1,0 +1,25 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# Find and delete .json files in platforms/quorum/charts/quorum-genesis/files directory
+- name: "Find .json files in quorum-genesis files directory"
+  find:
+    paths: "{{ playbook_dir }}/../../quorum/charts/quorum-genesis/files"
+    patterns: "*.json"
+  register: genesis_and_static_node
+
+# Delete .json files in quorum-genesis files directory
+- name: "Delete .json files in quorum-genesis files directory"
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ genesis_and_static_node.files }}"
+
+# Delete the build directory in platforms/quorum/configuration
+- name: "Remove build directory from configuration"
+  file:
+    path: "{{ playbook_dir }}/../../quorum/configuration/build"
+    state: absent

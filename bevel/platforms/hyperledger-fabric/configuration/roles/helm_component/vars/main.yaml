@@ -1,0 +1,44 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+helm_templates:
+  ca-server: ca-server.tpl
+  ca-tools: ca-tools.tpl
+  cas: ca.tpl
+  orderers: orderernode.tpl
+  zkkafka: zkkafka.tpl
+  peers: peernode.tpl
+  value_peer: value_peer.tpl
+  create_channel_job: create_channel_job.tpl
+  osn_create_channel_job: osn_create_channel_job.tpl
+  join_channel_job: join_channel_job.tpl
+  install_chaincode_job: install_chaincode_job.tpl
+  instantiate_chaincode_job: instantiate_chaincode_job.tpl
+  upgrade_chaincode_job: upgrade_chaincode_job.tpl
+  anchorpeer_job: anchorpeer_job.tpl
+  invoke_chaincode_job: invoke_chaincode_job.tpl
+  cli: cli.tpl
+  commit_chaincode_job: commit_chaincode_job.tpl
+  approve_chaincode_job: approve_chaincode_job.tpl
+  cacerts_job: cacerts_job.tpl
+  vault_kubernetes_job: vault_kubernetes_job.tpl
+  operations_console: operations_console.tpl
+  external_chaincode: external_chaincode.tpl
+  install_external_chaincode_job: install_external_chaincode_job.tpl
+
+bevel_alpine_version: latest # Change to tag version when using tag specific images
+fabric_tools_image: bevel-fabric-tools
+kafka_image: bevel-fabric-kafka:0.4.18
+zookeeper_image: bevel-fabric-zookeeper:0.4.18
+fabric_console_image: bevel-fabric-console:latest
+orderer_image: bevel-fabric-orderer
+peer_image: bevel-fabric-peer
+couchdb_image: bevel-fabric-couchdb
+
+ca_image:
+  1.4.8: bevel-fabric-ca:1.4.8
+  2.2.2: bevel-fabric-ca:1.4.8
+  2.5.4: bevel-fabric-ca:latest

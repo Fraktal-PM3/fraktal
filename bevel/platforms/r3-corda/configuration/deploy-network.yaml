@@ -1,0 +1,145 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+# This playbook deploys a DLT network on existing Kubernetes clusters
+# The Kubernetes clusters should already be created and the infomation to connect to the
+#  clusters be updated in the network.yaml file that is used as an input to this playbook
+
+##################################################################################################################
+
+# To Run this playbook from this directory, use the following command (network.yaml also in this directory)
+#  ansible-playbook deploy-network.yaml -e "@./network.yaml"
+
+##################################################################################################################
+
+# Note: Please ensure that the ../../shared/configuration playbooks have been run using the same network.yaml
+
+##################################################################################################################
+---
+- hosts: ansible_provisioners
+  gather_facts: no
+  no_log: "{{ no_ansible_log | default(false) }}"
+  tasks:    
+  # Delete build directory
+  - name: Remove build directory
+    file:
+      path: "./build"
+      state: absent
+
+  # create namespace
+  - name: "Create namespace"
+    include_role: 
+      name: create/namespace 
+    vars: 
+      component_name: "{{ org.name }}-ns"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+
+  # Create necessary secrets
+  - name: "Create k8s secrets"
+    include_role:
+      name: create/secrets
+    vars:
+      component_ns: "{{ org.name | lower }}-ns"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+    when: 
+    - org.org_status is not defined or org.org_status == 'new'
+
+  # Execute primary init for the network-service organization
+  - name: "Setup primary init with network-service org"
+    include_role:
+      name: init
+    vars:
+      build_path: "./build"
+      name: "{{ org.name | lower }}"
+      component_ns: "{{ org.name | lower }}-ns"
+      init_type: "primary_init"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+      charts_dir: "{{ org.gitops.chart_source }}"
+      values_dir: "./build/{{ component_ns }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+    when: 
+    - org.type == 'network-service'
+    - org.org_status is not defined or org.org_status == 'new'
+
+  # Deploy Corda network services
+  - name: Deploy Network service
+    include_role:
+      name: setup/network_service
+    vars:
+      name: "{{ org.name | lower }}"
+      component_ns: "{{ org.name | lower }}-ns"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+      gitops: "{{ org.gitops }}"
+      charts_dir: "{{ org.gitops.chart_source }}"
+      values_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ component_ns }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+    when: 
+      - org.type == 'network-service'
+      - org.org_status is not defined or org.org_status == 'new'
+  
+  # Wait for network services to respond  
+  - name: Check that network services uri are reachable
+    uri:
+      url: "{{ item.uri }}"
+      validate_certs: no
+    register: this
+    until: this.status == 200 or this.status == 401
+    loop: "{{ network['network_services'] }}"
+    retries: "{{ network.env.retry_count}}"
+    delay: 50
+    ignore_errors: true
+    when: network.env.proxy != 'none'
+
+  # Deploy notaries
+  - name: Deploy notary service
+    include_role:
+      name: setup/notary
+    vars:
+      name: "{{ org.name | lower }}"
+      node: "{{ org.services.notary }}"
+      component_ns: "{{ org.name | lower }}-ns"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+      gitops: "{{ org.gitops }}"
+      charts_dir: "{{ org.gitops.chart_source }}"
+      values_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ component_ns }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+    when: 
+      - org.services.notary is defined
+      - org.org_status is not defined or org.org_status == 'new'
+
+  # Deploy all other nodes
+  - name: Deploy Corda nodes
+    include_role:
+      name: setup/node
+    vars:
+      name: "{{ org.name | lower }}"
+      component_ns: "{{ org.name | lower }}-ns"
+      kubernetes: "{{ org.k8s }}"
+      vault: "{{ org.vault }}"
+      gitops: "{{ org.gitops }}"
+      charts_dir: "{{ org.gitops.chart_source }}"
+      values_dir: "{{playbook_dir}}/../../../{{org.gitops.release_dir}}/{{ component_ns }}"
+    loop: "{{ network['organizations'] }}"
+    loop_control:
+      loop_var: org
+    when: 
+      - org.type == 'node'
+      - org.org_status is not defined or org.org_status == 'new'

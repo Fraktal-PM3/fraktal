@@ -1,0 +1,48 @@
+##############################################################################################
+#  Copyright Accenture. All Rights Reserved.
+#
+#  SPDX-License-Identifier: Apache-2.0
+##############################################################################################
+
+##############################################################################################
+# This role checks for validation of network.yaml
+# Conditions to be checked:
+# - Exactly 1 trustee is required per organization.
+# - Up to 1 endorser is allowed per organization.
+# - At least 4 stewards are required collectively across the entire Indy network.
+##############################################################################################
+
+# Set variables
+- name: Set counters
+  set_fact:
+    total_stewards=0
+    total_trustee=0
+    total_endorser=0
+    organization_count="{{ network['organizations'] | length }}"
+
+# Loop through each organization to count nodes
+- name: Count nodes
+  include_tasks: check_count.yaml
+  vars:
+    peers: "{{ item.services.peers }}"
+  loop: "{{ network['organizations'] }}"
+  loop_control:
+    loop_var: org
+
+# Stop execution if total trustee is not equal to 1
+- name: "Stop execution if total trustee is not equal to 1"
+  fail:
+    msg: "Exactly 1 trustee is required per indy network."
+  when: (total_trustee | int) != (organization_count | int)
+
+# Stop execution if total endorser is not equal to 1
+- name: "Stop execution if total endorser is not equal to 1"
+  fail:
+    msg: "Up to 1 endorser is allowed per organization."
+  when: (total_endorser | int) > (organization_count | int)
+
+# Stop execution if total stewards are less than 4
+- name: Stop execution if total stewards are less than 4
+  fail:
+    msg: "At least 4 stewards are required collectively across the entire Indy network."
+  when: (total_stewards | int) < 4
