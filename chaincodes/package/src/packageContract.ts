@@ -8,13 +8,7 @@ import {
 } from "fabric-contract-api"
 import stringify from "json-stringify-deterministic"
 import sortKeysRecursive from "sort-keys-recursive"
-import {
-    BlockchainPackageSchema,
-    PackageDetails,
-    PackagePII,
-    Status,
-    TransferTerms,
-} from "./package"
+import { BlockchainPackageSchema, Status, TransferTerms } from "./package"
 import {
     callerMSP,
     getImplicitCollection,
@@ -28,6 +22,8 @@ import {
     isUUID,
     isISODateString,
 } from "./utils"
+
+const compositeKeyPrefix = "transferTerms"
 
 @Info({
     title: "PackageContract",
@@ -47,11 +43,11 @@ export class PackageContract extends Contract {
     public async CreatePackage(
         ctx: Context,
         externalId: string,
-        salt: string,
+        salt: string
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
-            `[CreatePackage] Called by: ${callerMSPID} for package: ${externalId}`,
+            `[CreatePackage] Called by: ${callerMSPID} for package: ${externalId}`
         )
 
         if (!externalId || externalId.trim() === "") {
@@ -78,12 +74,12 @@ export class PackageContract extends Contract {
         const packageDetails = tmap.get("packageDetails")
         if (!packageDetails) {
             throw new Error(
-                "Missing transient field 'packageDetails' (must be JSON of PackageDetails)",
+                "Missing transient field 'packageDetails' (must be JSON of PackageDetails)"
             )
         }
 
         const parsedPackageInfo = validateJSONToPackageDetails(
-            packageDetails.toString(),
+            packageDetails.toString()
         )
         const storeObject = {
             salt,
@@ -99,16 +95,16 @@ export class PackageContract extends Contract {
         // Store private data in the owner organization's implicit collection
         const ownerCollection = getImplicitCollection(ownerOrgMSPID)
         console.log(
-            `[CreatePackage] Writing private data to collection: ${ownerCollection}`,
+            `[CreatePackage] Writing private data to collection: ${ownerCollection}`
         )
         await ctx.stub.putPrivateData(
             ownerCollection,
             externalId,
-            Buffer.from(stringify(sortKeysRecursive(storeObject))),
+            Buffer.from(stringify(sortKeysRecursive(storeObject)))
         )
 
         console.log(
-            `[CreatePackage] Successfully wrote private data to ${ownerCollection}`,
+            `[CreatePackage] Successfully wrote private data to ${ownerCollection}`
         )
 
         const blockchainPackage = BlockchainPackageSchema.parse({
@@ -119,12 +115,12 @@ export class PackageContract extends Contract {
         })
 
         const stateBuffer = Buffer.from(
-            stringify(sortKeysRecursive(blockchainPackage)),
+            stringify(sortKeysRecursive(blockchainPackage))
         )
         const eventBuffer = Buffer.from(
             stringify(
-                sortKeysRecursive({ id: externalId, status: Status.PENDING }),
-            ),
+                sortKeysRecursive({ id: externalId, status: Status.PENDING })
+            )
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
@@ -140,7 +136,7 @@ export class PackageContract extends Contract {
     @Transaction(false)
     public async ReadBlockchainPackage(
         ctx: Context,
-        externalId: string,
+        externalId: string
     ): Promise<string> {
         const packageJSON = await ctx.stub.getState(externalId) // get the package from chaincode state
         if (packageJSON.length === 0) {
@@ -159,60 +155,60 @@ export class PackageContract extends Contract {
     @Transaction(false)
     public async ReadPackageDetailsAndPII(
         ctx: Context,
-        externalId: string,
+        externalId: string
     ): Promise<string> {
         const callerMSPID = callerMSP(ctx)
         console.log(
-            `[ReadPackageDetailsAndPII] Called by: ${callerMSPID} for package: ${externalId}`,
+            `[ReadPackageDetailsAndPII] Called by: ${callerMSPID} for package: ${externalId}`
         )
 
         const blockchainPackageString = await this.ReadBlockchainPackage(
             ctx,
-            externalId,
+            externalId
         ) // Verify package exists
         const blockchainPackage = validateJSONToBlockchainPackage(
-            blockchainPackageString,
+            blockchainPackageString
         )
 
         console.log(
-            `[ReadPackageDetailsAndPII] Package owner: ${blockchainPackage.ownerOrgMSP}, Caller: ${callerMSPID}`,
+            `[ReadPackageDetailsAndPII] Package owner: ${blockchainPackage.ownerOrgMSP}, Caller: ${callerMSPID}`
         )
 
         // CRITICAL: Only the owner organization can read private data from their implicit collection
         if (blockchainPackage.ownerOrgMSP !== callerMSPID) {
             console.log(
-                `[ReadPackageDetailsAndPII] ACCESS DENIED: ${callerMSPID} tried to read package owned by ${blockchainPackage.ownerOrgMSP}`,
+                `[ReadPackageDetailsAndPII] ACCESS DENIED: ${callerMSPID} tried to read package owned by ${blockchainPackage.ownerOrgMSP}`
             )
             throw new Error(
-                `The caller organization (${callerMSPID}) is not authorized to read the private details of package ${externalId} owned by ${blockchainPackage.ownerOrgMSP}`,
+                `The caller organization (${callerMSPID}) is not authorized to read the private details of package ${externalId} owned by ${blockchainPackage.ownerOrgMSP}`
             )
         }
 
         console.log(
-            `[ReadPackageDetailsAndPII] ACCESS GRANTED: Reading from ${callerMSPID}'s implicit collection`,
+            `[ReadPackageDetailsAndPII] ACCESS GRANTED: Reading from ${callerMSPID}'s implicit collection`
         )
 
         // Read from the owner's implicit collection (which is also the caller's collection after the check above)
         const ownerCollection = getImplicitCollection(callerMSPID)
         console.log(
-            `[ReadPackageDetailsAndPII] Collection name: ${ownerCollection}`,
+            `[ReadPackageDetailsAndPII] Collection name: ${ownerCollection}`
         )
 
         const privateBuf = await ctx.stub.getPrivateData(
             ownerCollection,
-            externalId,
+            externalId
         )
         if (privateBuf.length === 0) {
             console.log(
-                `[ReadPackageDetailsAndPII] ERROR: No data found in collection ${ownerCollection} for key ${externalId}`,
+                `[ReadPackageDetailsAndPII] ERROR: No data found in collection ${ownerCollection} for key ${externalId}`
             )
             throw new Error(
-                `The private package information for package ${externalId} does not exist in ${callerMSPID}'s collection`,
+                `The private package information for package ${externalId} does not exist in ${callerMSPID}'s collection`
             )
         }
 
         console.log(
-            `[ReadPackageDetailsAndPII] SUCCESS: Retrieved private data for ${externalId}`,
+            `[ReadPackageDetailsAndPII] SUCCESS: Retrieved private data for ${externalId}`
         )
         return privateBuf.toString()
     }
@@ -229,7 +225,7 @@ export class PackageContract extends Contract {
     public async UpdatePackageStatus(
         ctx: Context,
         externalId: string,
-        status: Status,
+        status: Status
     ): Promise<void> {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
@@ -240,19 +236,19 @@ export class PackageContract extends Contract {
         // Enforce that only the owner organization can update the package status
         if (!isOwner) {
             throw new Error(
-                `The caller is not authorized to update the package ${externalId} status`,
+                `The caller is not authorized to update the package ${externalId} status`
             )
         }
 
         // Enforce valid status transitions
         if (status == Status.SUCCEEDED && !requireAttr(ctx, "role", "pm3")) {
             throw new Error(
-                "The caller is not authorized to update the package status to SUCCEEDED",
+                "The caller is not authorized to update the package status to SUCCEEDED"
             )
         }
         if (!isAllowedTransition(packageData.status, status)) {
             throw new Error(
-                `The status transition from ${packageData.status} to ${status} is not allowed`,
+                `The status transition from ${packageData.status} to ${status} is not allowed`
             )
         }
 
@@ -260,18 +256,17 @@ export class PackageContract extends Contract {
         packageData.status = status
 
         const stateBuffer = Buffer.from(
-            stringify(sortKeysRecursive(packageData)),
+            stringify(sortKeysRecursive(packageData))
         )
         const eventBuffer = Buffer.from(
-            stringify(sortKeysRecursive({ id: externalId, status })),
+            stringify(sortKeysRecursive({ id: externalId, status }))
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
         ctx.stub.setEvent("StatusUpdated", eventBuffer)
     }
 
-    
- /** Deletes a package from the world state
+    /** Deletes a package from the world state
      * - Owner can delete if status is PENDING
      * - Owner can delete if there's an active transfer proposal (before execution)
      * @param ctx - The transaction context
@@ -281,34 +276,70 @@ export class PackageContract extends Contract {
     @Transaction()
     public async DeletePackage(
         ctx: Context,
-        externalId: string,
+        externalId: string
     ): Promise<void> {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
-
         const callerMSPID = callerMSP(ctx)
         const isOwner = packageData.ownerOrgMSP === callerMSPID
-    
-        if (isOwner && packageData.status === Status.PENDING) {
+
+        if (
+            isOwner &&
+            (packageData.status === Status.PENDING ||
+                packageData.status === Status.PROPOSED ||
+                packageData.status === Status.READY_FOR_PICKUP)
+        ) {
+            const iterator = await ctx.stub.getStateByPartialCompositeKey(
+                compositeKeyPrefix,
+                [externalId]
+            )
+
+            let result = await iterator.next()
+            while (!result.done) {
+                const compositeKey = result.value.key
+                const attributes = ctx.stub.splitCompositeKey(compositeKey)
+
+                if (attributes.attributes.length >= 2) {
+                    const termsId = attributes.attributes[1]
+
+                    const termsJSON = await ctx.stub.getState(termsId)
+                    if (termsJSON && termsJSON.length > 0) {
+                        const terms = validateJSONToTransferTerms(
+                            termsJSON.toString()
+                        )
+
+                        const privateTermsCollection = getImplicitCollection(
+                            terms.toMSP
+                        )
+                        await ctx.stub.deletePrivateData(
+                            privateTermsCollection,
+                            termsId
+                        )
+                    }
+
+                    await ctx.stub.deleteState(termsId)
+
+                    await ctx.stub.deleteState(compositeKey)
+                }
+
+                result = await iterator.next()
+            }
+            await iterator.close()
+
+            const ownerCollection = getImplicitCollection(callerMSPID)
+            await ctx.stub.deletePrivateData(ownerCollection, externalId)
+
             await ctx.stub.deleteState(externalId)
+
             ctx.stub.setEvent(
                 "DeletePackage",
-                Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
+                Buffer.from(stringify(sortKeysRecursive({ id: externalId })))
             )
             return
-            }
-            throw new Error(
-            `Not authorized to delete package ${externalId}.`
-            )
         }
-
-      
-
-
-
- 
-
+        throw new Error(`Not authorized to delete package ${externalId}.`)
+    }
     /**
      * PackageExists returns true when a public package with the given ID exists
      * in the world state.
@@ -320,7 +351,7 @@ export class PackageContract extends Contract {
     @Returns("boolean")
     public async PackageExists(
         ctx: Context,
-        externalId: string,
+        externalId: string
     ): Promise<boolean> {
         const data = await ctx.stub.getState(externalId)
         return data.length > 0
@@ -342,7 +373,7 @@ export class PackageContract extends Contract {
         termsId: string,
         toMSP: string,
         createdISO: string,
-        expiryISO?: string,
+        expiryISO?: string
     ): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
@@ -354,16 +385,18 @@ export class PackageContract extends Contract {
 
         if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
             throw new Error(
-                `Only the owner organization may propose a transfer for package ${externalId}`,
+                `Only the owner organization may propose a transfer for package ${externalId}`
             )
         }
 
         if (!isUUID(termsId)) {
             throw new Error("Invalid termsId format — must be a UUID string.")
         }
-          
+
         if (!isISODateString(createdISO)) {
-            throw new Error("Invalid createdISO format — must be an ISO-8601 string.")
+            throw new Error(
+                "Invalid createdISO format — must be an ISO-8601 string."
+            )
         }
 
         const terms: TransferTerms = {
@@ -374,34 +407,50 @@ export class PackageContract extends Contract {
             toMSP,
         }
 
-        const toMSPCollection = getImplicitCollection(toMSP)
+        const privateTermsCollection = getImplicitCollection(toMSP)
         const tmap = ctx.stub.getTransient()
 
         const privateTransferTermsData = tmap.get("privateTransferTerms")
         if (!privateTransferTermsData || !privateTransferTermsData.length) {
             throw new Error(
-                "Missing transient field 'privateTransferTerms' for private transfer terms",
+                "Missing transient field 'privateTransferTerms' for private transfer terms"
             )
         }
 
         const privateTransferTerms = validateJSONToPrivateTransferTerms(
-            privateTransferTermsData.toString(),
+            privateTransferTermsData.toString()
         )
 
-        // Store private data in the recipient organization's implicit collection
-        await ctx.stub.putPrivateData(
-            toMSPCollection,
+        const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
+            externalId,
             termsId,
-            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
+        ])
+
+        await ctx.stub.putPrivateData(
+            privateTermsCollection,
+            termsId,
+            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms)))
         )
 
         await ctx.stub.putState(
             termsId,
-            Buffer.from(stringify(sortKeysRecursive(terms))),
+            Buffer.from(stringify(sortKeysRecursive(terms)))
         )
+
+        await ctx.stub.putState(
+            compositeKey,
+            Buffer.from(stringify(sortKeysRecursive(terms)))
+        )
+
+        packageData.status = Status.PROPOSED
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData)))
+        )
+
         ctx.stub.setEvent(
             "ProposeTransfer",
-            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
+            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId })))
         )
     }
 
@@ -417,15 +466,15 @@ export class PackageContract extends Contract {
     public async CheckPackageDetailsAndPIIHash(
         ctx: Context,
         externalId: string,
-        expectedHash: string,
+        expectedHash: string
     ): Promise<boolean> {
         console.log(
-            `[CheckPacageDetailsAndPIIHash] Called for package: ${externalId}`,
+            `[CheckPackageDetailsAndPIIHash] Called for package: ${externalId}`
         )
 
         const blockchainPackageData = await this.ReadBlockchainPackage(
             ctx,
-            externalId,
+            externalId
         )
 
         if (!blockchainPackageData) {
@@ -433,36 +482,25 @@ export class PackageContract extends Contract {
         }
 
         const blockchainPackage = validateJSONToBlockchainPackage(
-            blockchainPackageData,
+            blockchainPackageData
         )
 
         // Read the package details and PII
         const ownerCollection = getImplicitCollection(
-            blockchainPackage.ownerOrgMSP,
+            blockchainPackage.ownerOrgMSP
         )
         console.log(
-            `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
+            `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`
         )
-        const packageDetailsAndPII = await ctx.stub.getPrivateData(
-            ownerCollection,
-            externalId,
-        )
+        const dataHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(ownerCollection, externalId)
+        ).toString("hex")
 
         // No need to validate, checked validation on store
-        const parsedData = JSON.parse(packageDetailsAndPII.toString()) as {
-            salt: string
-            packageDetails: PackageDetails
-            pii: PackagePII
-        }
-
-        const canonicalPackageInfo = stringify(sortKeysRecursive(parsedData))
-        const dataHash = createHash("sha256")
-            .update(canonicalPackageInfo)
-            .digest("hex")
 
         if (dataHash !== expectedHash) {
             console.log(
-                `[CheckPacageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${dataHash}`,
+                `[CheckPackageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${dataHash.toString()}`
             )
             return false
         }
@@ -478,7 +516,7 @@ export class PackageContract extends Contract {
     @Transaction(false)
     public async ReadTransferTerms(
         ctx: Context,
-        termsId: string,
+        termsId: string
     ): Promise<string> {
         const termsJSON = await ctx.stub.getState(termsId) // get the package from chaincode state
         if (!termsJSON || termsJSON.length === 0) {
@@ -497,11 +535,11 @@ export class PackageContract extends Contract {
     @Transaction(false)
     public async ReadPrivateTransferTerms(
         ctx: Context,
-        termsId: string,
+        termsId: string
     ): Promise<string> {
         const callerMSPID = callerMSP(ctx)
         console.log(
-            `[ReadPrivateTransferTerms] Called by: ${callerMSPID} for proposalId: ${termsId}`,
+            `[ReadPrivateTransferTerms] Called by: ${callerMSPID} for proposalId: ${termsId}`
         )
 
         const publicTransferTerms = await this.ReadTransferTerms(ctx, termsId) // Verify transfer terms exists
@@ -509,43 +547,43 @@ export class PackageContract extends Contract {
         const parsedTerms = validateJSONToTransferTerms(publicTransferTerms)
 
         console.log(
-            `[ReadPrivateTransferTerms] Transfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`,
+            `[ReadPrivateTransferTerms] Transfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`
         )
 
         if (parsedTerms.toMSP !== callerMSPID) {
             console.log(
-                `[ReadPrivateTransferTerms] ACCESS DENIED: ${callerMSPID} tried to read private terms owned by ${parsedTerms.toMSP}`,
+                `[ReadPrivateTransferTerms] ACCESS DENIED: ${callerMSPID} tried to read private terms owned by ${parsedTerms.toMSP}`
             )
             throw new Error(
-                `The caller organization (${callerMSPID}) is not authorized to read the private details of terms ${termsId} owned by ${parsedTerms.toMSP}`,
+                `The caller organization (${callerMSPID}) is not authorized to read the private details of terms ${termsId} owned by ${parsedTerms.toMSP}`
             )
         }
 
         console.log(
-            `[ReadPrivateTransferTerms] ACCESS GRANTED: Reading from ${callerMSPID}'s implicit collection`,
+            `[ReadPrivateTransferTerms] ACCESS GRANTED: Reading from ${callerMSPID}'s implicit collection`
         )
 
         // Read from the owner's implicit collection (which is also the caller's collection after the check above)
         const ownerCollection = getImplicitCollection(callerMSPID)
         console.log(
-            `[ReadPrivateTransferTerms] Collection name: ${ownerCollection}`,
+            `[ReadPrivateTransferTerms] Collection name: ${ownerCollection}`
         )
 
         const privateBuf = await ctx.stub.getPrivateData(
             ownerCollection,
-            termsId,
+            termsId
         )
         if (privateBuf.length === 0) {
             console.log(
-                `[ReadPrivateTransferTerms] ERROR: No data found in collection ${ownerCollection} for key ${termsId}`,
+                `[ReadPrivateTransferTerms] ERROR: No data found in collection ${ownerCollection} for key ${termsId}`
             )
             throw new Error(
-                `The private information for terms ${termsId} does not exist in ${callerMSPID}'s collection`,
+                `The private information for terms ${termsId} does not exist in ${callerMSPID}'s collection`
             )
         }
 
         console.log(
-            `[ReadPrivateTransferTerms] SUCCESS: Retrieved private data for ${termsId}`,
+            `[ReadPrivateTransferTerms] SUCCESS: Retrieved private data for ${termsId}`
         )
         return privateBuf.toString()
     }
@@ -565,29 +603,29 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string,
         termsId: string,
-        packageDetailsAndPIIHash: string,
+        packageDetailsAndPIIHash: string
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
-            `[AcceptTransfer] Called by: ${callerMSPID} for proposalId: ${termsId} and externalId: ${externalId}`,
+            `[AcceptTransfer] Called by: ${callerMSPID} for proposalId: ${termsId} and externalId: ${externalId}`
         )
         const publictransferTerms = await this.ReadTransferTerms(ctx, termsId)
         const parsedTerms = validateJSONToTransferTerms(publictransferTerms)
 
         if (parsedTerms.toMSP !== callerMSPID) {
             console.log(
-                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${parsedTerms.toMSP}`,
+                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${parsedTerms.toMSP}`
             )
             throw new Error(
-                `The caller organization (${callerMSPID}) is not authorized to accept terms ${termsId} meant for ${parsedTerms.toMSP}`,
+                `The caller organization (${callerMSPID}) is not authorized to accept terms ${termsId} meant for ${parsedTerms.toMSP}`
             )
         }
         if (parsedTerms.externalPackageId !== externalId) {
             console.log(
-                `[AcceptTransfer] ERROR: proposalId ${termsId} is not for package ${externalId}`,
+                `[AcceptTransfer] ERROR: proposalId ${termsId} is not for package ${externalId}`
             )
             throw new Error(
-                `The proposalId ${termsId} is not for package ${externalId}`,
+                `The proposalId ${termsId} is not for package ${externalId}`
             )
         }
 
@@ -596,24 +634,24 @@ export class PackageContract extends Contract {
             !(await this.CheckPackageDetailsAndPIIHash(
                 ctx,
                 externalId,
-                packageDetailsAndPIIHash,
+                packageDetailsAndPIIHash
             ))
         ) {
             console.log(
-                `[AcceptTransfer] ERROR: Hash mismatch for package ${externalId}`,
+                `[AcceptTransfer] ERROR: Hash mismatch for package ${externalId}`
             )
             throw new Error(
-                `[AcceptTransfer] Hash mismatch for package ${externalId}`,
+                `[AcceptTransfer] Hash mismatch for package ${externalId}`
             )
         }
 
         // Get the package, PII and transfer terms through the pdc
-        const privateTransferTerms = await this.ReadPrivateTransferTerms(
-            ctx,
-            termsId,
-        )
-        const parsedPrivateTerms =
-            validateJSONToPrivateTransferTerms(privateTransferTerms)
+        const privateTransferTermsHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(
+                getImplicitCollection(parsedTerms.toMSP),
+                termsId
+            )
+        ).toString("hex")
         const tmap = ctx.stub.getTransient()
         const transferTermsData = tmap.get("privateTransferTerms")
 
@@ -622,21 +660,38 @@ export class PackageContract extends Contract {
         }
 
         const parsedInputPrivateTerms = validateJSONToPrivateTransferTerms(
-            transferTermsData.toString(),
+            transferTermsData.toString()
         )
 
-        if (parsedPrivateTerms.price !== parsedInputPrivateTerms.price) {
+        const inputHash = createHash("sha256")
+            .update(
+                Buffer.from(
+                    stringify(sortKeysRecursive(parsedInputPrivateTerms))
+                )
+            )
+            .digest("hex")
+
+        if (privateTransferTermsHash !== inputHash) {
             console.log(
-                `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`,
+                `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`
             )
             throw new Error(
-                `The provided private transfer terms do not match the stored terms for proposalId ${termsId}`,
+                `The provided private transfer terms do not match the stored terms for proposalId ${termsId}`
             )
         }
 
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
+        packageData.status = Status.READY_FOR_PICKUP
+
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData)))
+        )
+
         ctx.stub.setEvent(
             "AcceptTransfer",
-            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
+            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId })))
         )
     }
 
@@ -655,21 +710,25 @@ export class PackageContract extends Contract {
     public async ExecuteTransfer(
         ctx: Context,
         externalId: string,
-        termsId: string,
+        termsId: string
     ): Promise<void> {
         // Read public transfer terms
         const termsJSON = await this.ReadTransferTerms(ctx, termsId)
         const terms = validateJSONToTransferTerms(termsJSON)
 
         if (terms.externalPackageId !== externalId) {
-            throw new Error(`Transfer terms ${termsId} are not for package ${externalId}`)
+            throw new Error(
+                `Transfer terms ${termsId} are not for package ${externalId}`
+            )
         }
 
         const caller = callerMSP(ctx)
 
         // Only the original proposer (fromMSP) may execute the transfer
         if (caller !== terms.fromMSP) {
-            throw new Error(`Only the proposer (${terms.fromMSP}) may execute the transfer`)
+            throw new Error(
+                `Only the proposer (${terms.fromMSP}) may execute the transfer`
+            )
         }
 
         // Read public package and verify ownership
@@ -684,28 +743,43 @@ export class PackageContract extends Contract {
         if (terms.expiryISO) {
             const exp = new Date(terms.expiryISO)
             if (isNaN(exp.getTime())) {
-                throw new Error(`Invalid expiryISO on transfer terms: ${terms.expiryISO}`)
+                throw new Error(
+                    `Invalid expiryISO on transfer terms: ${terms.expiryISO}`
+                )
             }
             if (exp < new Date()) {
-                throw new Error(`The transfer terms ${termsId} for package ${externalId} have expired`)
+                throw new Error(
+                    `The transfer terms ${termsId} for package ${externalId} have expired`
+                )
             }
         }
 
         // Read private package data from current owner's implicit collection
         const ownerCollection = getImplicitCollection(caller)
-        const privateBuf = await ctx.stub.getPrivateData(ownerCollection, externalId)
+        const privateBuf = await ctx.stub.getPrivateData(
+            ownerCollection,
+            externalId
+        )
         if (!privateBuf || privateBuf.length === 0) {
-            throw new Error(`Private package data for ${externalId} not found in ${ownerCollection}`)
+            throw new Error(
+                `Private package data for ${externalId} not found in ${ownerCollection}`
+            )
         }
 
         // If recipient is different, copy private package data into recipient's implicit collection
         const recipientCollection = getImplicitCollection(terms.toMSP)
         if (recipientCollection === ownerCollection) {
             // same org — nothing to move, but still update public owner
-            console.log(`[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`)
+            console.log(
+                `[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`
+            )
         } else {
             // write into recipient collection first (move semantics)
-            await ctx.stub.putPrivateData(recipientCollection, externalId, privateBuf)
+            await ctx.stub.putPrivateData(
+                recipientCollection,
+                externalId,
+                privateBuf
+            )
             // remove from owner's collection
             await ctx.stub.deletePrivateData(ownerCollection, externalId)
         }
@@ -714,15 +788,19 @@ export class PackageContract extends Contract {
         packageData.ownerOrgMSP = terms.toMSP
         await ctx.stub.putState(
             externalId,
-            Buffer.from(stringify(sortKeysRecursive(packageData))),
+            Buffer.from(stringify(sortKeysRecursive(packageData)))
         )
 
         // Emit minimal event
         ctx.stub.setEvent(
             "TransferExecuted",
             Buffer.from(
-                stringify({ externalId, termsId, newOwner: packageData.ownerOrgMSP }),
-            ),
+                stringify({
+                    externalId,
+                    termsId,
+                    newOwner: packageData.ownerOrgMSP,
+                })
+            )
         )
     }
 }
