@@ -90,69 +90,64 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
  * const role = callerRoleFromAttrs(ctx)
  * if (!role) throw new Error('missing role attribute')
  */
-export function callerRoleFromAttrs(ctx: Context): Role | null {
-    // this assumes certificate attribute 'role' exists and is a single value
-    // adapt if you allow multiple roles, then parse CSV/JSON
-    const attr = ctx.clientIdentity.getAttributeValue('role')
-    if (!attr) return null
-    // normalize and validate
+
+
+export const PM3_MSPID = 'PM3MSP'
+
+function permissionsKey(identityId: string): string {
+    return `roleauth:perms:${identityId}`
+}
+
+function identityIdentifierFromCtx(ctx: Context): string {
+    // Use MSPID + client id to form a unique identifier. getID() returns the
+    // Fabric certificate principal string (suitable as a stable identifier).
+    return `${ctx.clientIdentity.getMSPID()}:${ctx.clientIdentity.getID()}`
+}
+
+/**
+ * Get permissions for a specific identity identifier (or the caller when not
+ * provided). Returns an empty array when no explicit permissions are set.
+ */
+export async function getPermissions(
+    ctx: Context,
+    identityIdentifier?: string,
+): Promise<Permission[]> {
+    const id = identityIdentifier ?? identityIdentifierFromCtx(ctx)
+    const data = await ctx.stub.getState(permissionsKey(id))
+    if (!data || data.length === 0) return []
     try {
-        return RoleSchema.parse(attr)
+        const parsed = JSON.parse(data.toString()) as unknown
+        return z.array(PermissionSchema).parse(parsed)
     } catch {
-        return null
+        // on corruption/parse error, return empty to be safe
+        return []
     }
 }
 
 /**
- * Returns true if the caller (as determined from identity attributes) has the
- * specified permission according to the provided mapping (or the default
- * mapping when none is provided).
- *
- * @param ctx - Fabric transaction context
- * @param permission - Permission to check
- * @param mapping - Optional role->permission mapping to consult
- * @returns boolean indicating whether the caller has the permission
- *
- * @example
- * if (!hasPermission(ctx, 'package:create')) {
- *   throw new Error('not authorized')
- * }
+ * Set explicit permissions for an identity. Only callers from the PM3 MSP may
+ * update permissions for other identities. This writes the Permission[] into
+ * the ledger under a stable key.
  */
-export function hasPermission(
+export async function setPermissions(
     ctx: Context,
-    permission: Permission,
-    mapping: RolePermissions = DEFAULT_ROLE_PERMISSIONS,
-): boolean {
-    const role = callerRoleFromAttrs(ctx)
-    if (!role) return false
-    const perms = mapping[role] || []
+    targetIdentityIdentifier: string,
+    permissions: Permission[],
+): Promise<void> {
+    const callerMsp = ctx.clientIdentity.getMSPID()
+    if (callerMsp !== PM3_MSPID) {
+        throw new Error('ACCESS DENIED: only PM3 may update permissions')
+    }
+
+    const parsed = z.array(PermissionSchema).parse(permissions)
+    await ctx.stub.putState(permissionsKey(targetIdentityIdentifier), Buffer.from(JSON.stringify(parsed)))
+}
+
+/**
+ * Check whether the caller has the supplied permission by reading the caller's
+ * stored permissions from the ledger.
+ */
+export async function hasPermission(ctx: Context, permission: Permission): Promise<boolean> {
+    const perms = await getPermissions(ctx)
     return perms.includes(permission)
-}
-
-/**
- * Require that the caller has a given permission and throw an Error when they
- * do not. Use this at the start of transaction handlers to enforce role-based
- * access control.
- *
- * @param ctx - Fabric transaction context
- * @param permission - Permission required for the operation
- * @param mapping - Optional role->permission mapping (defaults to built-in mapping)
- * @throws {Error} when the caller lacks the permission
- *
- * @example
- * // inside a transaction method
- * requirePermission(ctx, 'package:updateStatus')
- */
-export function requirePermission(
-    ctx: Context,
-    permission: Permission,
-    mapping: RolePermissions = DEFAULT_ROLE_PERMISSIONS,
-): void {
-    if (!hasPermission(ctx, permission, mapping)) {
-        throw new Error(
-            `ACCESS DENIED: caller (role=${ctx.clientIdentity.getAttributeValue(
-                'role',
-            )}) lacks permission ${permission}`,
-        )
-    }
 }
