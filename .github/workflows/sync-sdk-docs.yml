@@ -20,11 +20,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Checkout source repository
         uses: actions/checkout@v4
@@ -62,7 +63,7 @@ jobs:
             "position": 10,
             "link": {
               "type": "generated-index",
-              "description": "Auto-generated SDK documentation from the SDK source code.",
+              "description": "Auto-generated SDK documentation from the SDK source code."
             }
           }
           EOF
@@ -70,14 +71,18 @@ jobs:
       - name: Check for changes
         id: git-check
         run: |
-          git diff --exit-code docs/docs/Development/SDK || echo "has_changes=true" >> $GITHUB_OUTPUT
+          git add docs/docs/Development/SDK
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Commit and push changes
         if: steps.git-check.outputs.has_changes == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/docs/Development/SDK
           git commit -m "docs: update SDK documentation from ${{ github.event.client_payload.repository || 'fraktal-lib' }}
 
           Source commit: ${{ github.event.client_payload.sha || 'manual trigger' }}"
