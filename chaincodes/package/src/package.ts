@@ -9,6 +9,7 @@ export enum Status {
     DELIVERED = "delivered",
     SUCCEEDED = "succeeded",
     FAILED = "failed",
+    PROPOSED = "proposed",
 }
 
 export enum Urgency {
