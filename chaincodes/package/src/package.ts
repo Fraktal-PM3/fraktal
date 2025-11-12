@@ -93,6 +93,12 @@ export const BlockchainPackageSchema = z
     })
     .strict()
 
+export const StoreObjectSchema = z.object({
+    salt: z.string().nonempty(),
+    pii: PackagePIISchema,
+    packageDetails: PackageDetailsSchema,
+})
+
 export type Size = z.infer<typeof SizeSchema>
 export type Location = z.infer<typeof LocationSchema>
 export type PackageDetails = z.infer<typeof PackageDetailsSchema>

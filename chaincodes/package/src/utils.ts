@@ -5,8 +5,9 @@ import {
     PackagePIISchema,
     PrivateTransferTermsSchema,
     Status,
+    StoreObjectSchema,
     TransferTermsSchema,
-    Urgency
+    Urgency,
 } from "./package"
 
 export const callerMSP = (ctx: Context) => {
@@ -22,7 +23,11 @@ export const requireMSP = (ctx: Context, expected: string) => {
     return msp !== expected
 }
 
-export const proposalKey = (ctx: Context, pkgId: string, proposalId: string) => {
+export const proposalKey = (
+    ctx: Context,
+    pkgId: string,
+    proposalId: string,
+) => {
     return ctx.stub.createCompositeKey("proposal", [pkgId, proposalId])
 }
 
@@ -74,7 +79,6 @@ export const validateJSONToPII = (json: string) => {
             `Invalid JSON format for PackagePII: ${(e as Error).message}`,
         )
     }
-
 }
 
 
@@ -98,9 +102,20 @@ export const validateJSONToTransferTerms = (json: string) => {
     }
 }
 
+export const validateJSONToStoreObject = (json: string) => {
+    try {
+        return StoreObjectSchema.parse(JSON.parse(json))
+    } catch (e) {
+        throw new Error(
+            `Invalid JSON format for StoreObject: ${(e as Error).message}`,
+        )
+    }
+}
+
 export const isUUID = (str: string): boolean => {
     if (typeof str !== "string") return false
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    const uuidRegex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     return uuidRegex.test(str.trim())
 }
 
@@ -118,5 +133,4 @@ export const isISODateString = (str: string): boolean => {
 export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
-
 
