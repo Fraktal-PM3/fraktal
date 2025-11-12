@@ -19,10 +19,11 @@ import {
     validateJSONToPII,
     validateJSONToPrivateTransferTerms,
     validateJSONToTransferTerms,
-    validateJSONToStoreObject,
     isUUID,
     isISODateString,
 } from "./utils"
+
+const compositeKeyPrefix = "transferTerms"
 
 @Info({
     title: "PackageContract",
@@ -265,12 +266,12 @@ export class PackageContract extends Contract {
         ctx.stub.setEvent("StatusUpdated", eventBuffer)
     }
 
-    /**
-     * DeletePackage deletes the public package record. Only an 'ombud' may
-     * delete a PENDING package; 'pm3' may always delete.
-     * @param {Context} ctx - Fabric transaction context
-     * @param {string} externalId - External package identifier
-     * @returns {Promise<void>}
+    /** Deletes a package from the world state
+     * - Owner can delete if status is PENDING
+     * - Owner can delete if there's an active transfer proposal (before execution)
+     * @param ctx - The transaction context
+     * @param externalId - Unique identifier for the package
+     * @throws {Error} If caller doesn't have required permissions
      */
     @Transaction()
     public async DeletePackage(
@@ -280,21 +281,65 @@ export class PackageContract extends Contract {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
-        // Check that the caller has the role of 'ombud' if status is PENDING
-        const isOmbud = requireAttr(ctx, "role", "ombud")
-        const isPM3 = requireAttr(ctx, "role", "pm3")
-        if ((isOmbud && packageData.status === Status.PENDING) || isPM3) {
+        const callerMSPID = callerMSP(ctx)
+        const isOwner = packageData.ownerOrgMSP === callerMSPID
+
+        if (
+            isOwner &&
+            (packageData.status === Status.PENDING ||
+                packageData.status === Status.PROPOSED ||
+                packageData.status === Status.READY_FOR_PICKUP)
+        ) {
+            const iterator = await ctx.stub.getStateByPartialCompositeKey(
+                compositeKeyPrefix,
+                [externalId]
+            )
+
+            let result = await iterator.next()
+            while (!result.done) {
+                const compositeKey = result.value.key
+                const attributes = ctx.stub.splitCompositeKey(compositeKey)
+
+                if (attributes.attributes.length >= 2) {
+                    const termsId = attributes.attributes[1]
+
+                    const termsJSON = await ctx.stub.getState(termsId)
+                    if (termsJSON && termsJSON.length > 0) {
+                        const terms = validateJSONToTransferTerms(
+                            termsJSON.toString()
+                        )
+
+                        const toMSPCollection = getImplicitCollection(
+                            terms.toMSP
+                        )
+                        await ctx.stub.deletePrivateData(
+                            toMSPCollection,
+                            termsId
+                        )
+                    }
+
+                    await ctx.stub.deleteState(termsId)
+
+                    await ctx.stub.deleteState(compositeKey)
+                }
+
+                result = await iterator.next()
+            }
+            await iterator.close()
+
+            const ownerCollection = getImplicitCollection(callerMSPID)
+            await ctx.stub.deletePrivateData(ownerCollection, externalId)
+
             await ctx.stub.deleteState(externalId)
+
             ctx.stub.setEvent(
                 "DeletePackage",
                 Buffer.from(stringify(sortKeysRecursive({ id: externalId })))
             )
             return
         }
-
-        throw new Error("Not authorized to delete this package")
+        throw new Error(`Not authorized to delete package ${externalId}.`)
     }
-
     /**
      * PackageExists returns true when a public package with the given ID exists
      * in the world state.
@@ -382,6 +427,11 @@ export class PackageContract extends Contract {
 
         const toMSPCollection = getImplicitCollection(toMSP)
 
+        const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
+            externalId,
+            termsId,
+        ])
+
         // Store private data in the recipient organization's implicit collection
         await ctx.stub.putPrivateData(
             toMSPCollection,
@@ -393,6 +443,18 @@ export class PackageContract extends Contract {
             termsId,
             Buffer.from(stringify(sortKeysRecursive(terms)))
         )
+
+        await ctx.stub.putState(
+            compositeKey,
+            Buffer.from(stringify(sortKeysRecursive(terms)))
+        )
+
+        packageData.status = Status.PROPOSED
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData)))
+        )
+
         ctx.stub.setEvent(
             "ProposeTransfer",
             Buffer.from(stringify(sortKeysRecursive({ externalId, termsId })))
@@ -464,7 +526,7 @@ export class PackageContract extends Contract {
         termsId: string
     ): Promise<string> {
         const termsJSON = await ctx.stub.getState(termsId) // get the package from chaincode state
-        if (termsJSON.length === 0) {
+        if (!termsJSON || termsJSON.length === 0) {
             throw new Error(`The package ${termsId} does not exist`)
         }
         return termsJSON.toString()
@@ -699,39 +761,32 @@ export class PackageContract extends Contract {
             }
         }
 
-        const tmap = ctx.stub.getTransient()
-        const storeData = tmap.get("storeObject")
-        if (!storeData || !storeData.length) {
-            throw new Error("Missing transient field 'storeObject'")
-        }
-        const parsedStoreObject = validateJSONToStoreObject(
-            storeData.toString()
+        // Read private package data from current owner's implicit collection
+        const ownerCollection = getImplicitCollection(caller)
+        const privateBuf = await ctx.stub.getPrivateData(
+            ownerCollection,
+            externalId
         )
-
-        const canonicalPackageInfo = stringify(
-            sortKeysRecursive(parsedStoreObject)
-        )
-        const packageInfoHash = createHash("sha256")
-            .update(canonicalPackageInfo)
-            .digest("hex")
-
-        const recipientCollection = getImplicitCollection(terms.toMSP)
-        if (
-            await this.CheckPackageDetailsAndPIIHash(
-                ctx,
-                externalId,
-                packageInfoHash
+        if (!privateBuf || privateBuf.length === 0) {
+            throw new Error(
+                `Private package data for ${externalId} not found in ${ownerCollection}`
             )
-        ) {
+        }
+
+        // If recipient is different, copy private package data into recipient's implicit collection
+        const recipientCollection = getImplicitCollection(terms.toMSP)
+        if (recipientCollection === ownerCollection) {
             // same org — nothing to move, but still update public owner
+            console.log(
+                `[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`
+            )
         } else {
             // write into recipient collection first (move semantics)
             await ctx.stub.putPrivateData(
                 recipientCollection,
                 externalId,
-                Buffer.from(stringify(sortKeysRecursive(parsedStoreObject)))
+                privateBuf
             )
-            const ownerCollection = getImplicitCollection(terms.fromMSP)
             // remove from owner's collection
             await ctx.stub.deletePrivateData(ownerCollection, externalId)
         }

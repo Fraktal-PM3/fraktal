@@ -73,6 +73,7 @@ export const TransferSchema = z
     .object({
         terms: TransferTermsSchema,
         status: TransferStatusEnumSchema,
+        transferTermsHash: z.hash("sha256"),
     })
     .strict()
 
@@ -93,12 +94,6 @@ export const BlockchainPackageSchema = z
         packageDetailsHash: z.hash("sha256"),
     })
     .strict()
-
-export const StoreObjectSchema = z.object({
-    salt: z.string().nonempty(),
-    pii: PackagePIISchema,
-    packageDetails: PackageDetailsSchema,
-})
 
 export type Size = z.infer<typeof SizeSchema>
 export type Location = z.infer<typeof LocationSchema>
