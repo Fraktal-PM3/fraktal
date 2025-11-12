@@ -1,6 +1,3 @@
-// import { Context } from "fabric-contract-api"
-// import { ChaincodeStub, ClientIdentity } from "fabric-shim"
-
 type Bytes = Buffer | Uint8Array
 
 export class MockStub {
@@ -8,7 +5,6 @@ export class MockStub {
     private pdc = new Map<string, Map<string, Buffer>>() // collection -> (key -> value)
     private transient = new Map<string, Uint8Array>()
     public events: Array<{ name: string; payload?: Buffer }> = []
-    // private txID = "TX-" + Math.random().toString(36).slice(2)
 
     //  world state
     getState = (key: string): Promise<Buffer> =>
@@ -118,26 +114,13 @@ export class MockStub {
 }
 
 export class MockClientIdentity {
-    constructor(
-        private mspId = "Org1MSP",
-        private attrs: Record<string, string> = { role: "ombud" }
-    ) {}
+    constructor(private mspId = "Org1MSP") {}
     getMSPID(): string {
         return this.mspId
-    }
-    // matches Fabric’s semantic for requireAttr-style checks
-    getAttributeValue(name: string): string | null {
-        return this.attrs[name] ?? null
-    }
-    assertAttributeValue(name: string, value: string): boolean {
-        return this.attrs[name] === value
     }
     // helpers for tests:
     setMSP(id: string) {
         this.mspId = id
-    }
-    setAttr(name: string, value: string) {
-        this.attrs[name] = value
     }
 }
 
@@ -151,10 +134,7 @@ export class MockContext {
         transient?: Record<string, any>
     }) {
         this.stub = new MockStub()
-        this.clientIdentity = new MockClientIdentity(
-            opts?.mspId || "Org1MSP",
-            opts?.attrs || {}
-        )
+        this.clientIdentity = new MockClientIdentity(opts?.mspId || "Org1MSP")
         if (opts?.transient) {
             this.stub.setTransient(opts.transient)
         }
