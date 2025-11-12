@@ -359,10 +359,13 @@ export class PackageContract extends Contract {
 
     /**
      * ProposeTransfer creates a public transfer term and stores private transfer
-     * terms (e.g. price) in the recipient's implicit collection.
+     * terms (including price and salt) in the recipient's implicit collection.
+     * The salt is used to create a hash of the private terms for later verification.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
+     * @param {string} termsId - Unique transfer terms identifier (UUID)
      * @param {string} toMSP - Recipient organization's MSP ID
+     * @param {string} createdISO - ISO timestamp when terms were created
      * @param {string=} expiryISO - Optional ISO expiry timestamp
      * @returns {Promise<void>}
      */
