@@ -19,6 +19,7 @@ import {
     validateJSONToPII,
     validateJSONToPrivateTransferTerms,
     validateJSONToTransferTerms,
+    validateJSONToStoreObject,
     isUUID,
     isISODateString,
 } from "./utils"
@@ -764,32 +765,39 @@ export class PackageContract extends Contract {
             }
         }
 
-        // Read private package data from current owner's implicit collection
-        const ownerCollection = getImplicitCollection(caller)
-        const privateBuf = await ctx.stub.getPrivateData(
-            ownerCollection,
-            externalId
-        )
-        if (!privateBuf || privateBuf.length === 0) {
-            throw new Error(
-                `Private package data for ${externalId} not found in ${ownerCollection}`
-            )
+        const tmap = ctx.stub.getTransient()
+        const storeData = tmap.get("storeObject")
+        if (!storeData || !storeData.length) {
+            throw new Error("Missing transient field 'storeObject'")
         }
+        const parsedStoreObject = validateJSONToStoreObject(
+            storeData.toString()
+        )
 
-        // If recipient is different, copy private package data into recipient's implicit collection
+        const canonicalPackageInfo = stringify(
+            sortKeysRecursive(parsedStoreObject)
+        )
+        const packageInfoHash = createHash("sha256")
+            .update(canonicalPackageInfo)
+            .digest("hex")
+
         const recipientCollection = getImplicitCollection(terms.toMSP)
-        if (recipientCollection === ownerCollection) {
-            // same org — nothing to move, but still update public owner
-            console.log(
-                `[ExecuteTransfer] Owner and recipient collections are the same (${ownerCollection}); skipping private data move`
+        if (
+            await this.CheckPackageDetailsAndPIIHash(
+                ctx,
+                externalId,
+                packageInfoHash
             )
+        ) {
+            // same org — nothing to move, but still update public owner
         } else {
             // write into recipient collection first (move semantics)
             await ctx.stub.putPrivateData(
                 recipientCollection,
                 externalId,
-                privateBuf
+                Buffer.from(stringify(sortKeysRecursive(parsedStoreObject)))
             )
+            const ownerCollection = getImplicitCollection(terms.fromMSP)
             // remove from owner's collection
             await ctx.stub.deletePrivateData(ownerCollection, externalId)
         }
