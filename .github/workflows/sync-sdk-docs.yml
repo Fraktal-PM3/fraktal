@@ -1,0 +1,89 @@
+name: Sync SDK Documentation from External Repo
+
+on:
+  # This workflow will be triggered by repository_dispatch from the source repo
+  repository_dispatch:
+    types: [update-sdk-docs]
+
+  # Allow manual triggering
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.client_payload.repository || 'Fraktal-PM3/fraktal-lib' }}
+          path: source-repo
+          token: ${{ secrets.PAT_TOKEN }}
+
+      - name: Install dependencies in source repository
+        run: |
+          cd source-repo
+          npm ci
+
+      - name: Generate TypeDoc markdown documentation
+        run: |
+          cd source-repo
+          npx typedoc
+
+      - name: Copy generated docs to Docusaurus
+        run: |
+          # Remove old SDK docs if they exist
+          rm -rf docs/docs/Development/SDK
+
+          # Create SDK docs directory
+          mkdir -p docs/docs/Development/SDK
+
+          # Copy generated markdown files
+          cp -r source-repo/docs/* docs/docs/Development/SDK/
+
+      - name: Create category metadata for SDK docs
+        run: |
+          cat > docs/docs/Development/SDK/_category_.json << 'EOF'
+          {
+            "label": "SDK Reference",
+            "position": 10,
+            "link": {
+              "type": "generated-index",
+              "description": "Auto-generated SDK documentation from the SDK source code."
+            }
+          }
+          EOF
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git add docs/docs/Development/SDK
+          if git diff --cached --quiet; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: update SDK documentation from ${{ github.event.client_payload.repository || 'fraktal-lib' }}
+
+          Source commit: ${{ github.event.client_payload.sha || 'manual trigger' }}"
+          git push

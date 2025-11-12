@@ -9,6 +9,7 @@ export enum Status {
     DELIVERED = "delivered",
     SUCCEEDED = "succeeded",
     FAILED = "failed",
+    PROPOSED = "proposed",
 }
 
 export enum Urgency {
@@ -91,6 +92,12 @@ export const BlockchainPackageSchema = z
         packageDetailsHash: z.hash("sha256"),
     })
     .strict()
+
+export const StoreObjectSchema = z.object({
+    salt: z.string().nonempty(),
+    pii: PackagePIISchema,
+    packageDetails: PackageDetailsSchema,
+})
 
 export type Size = z.infer<typeof SizeSchema>
 export type Location = z.infer<typeof LocationSchema>
