@@ -9,6 +9,7 @@ export enum Status {
     DELIVERED = "delivered",
     SUCCEEDED = "succeeded",
     FAILED = "failed",
+    PROPOSED = "proposed",
 }
 
 export enum Urgency {
@@ -64,6 +65,7 @@ export const TransferTermsSchema = z
         toMSP: z.string().nonempty(),
         createdISO: z.iso.datetime(),
         expiryISO: z.iso.datetime().nullable().optional(),
+        privateTermsHash: z.hash("sha256"),
     })
     .strict()
 
@@ -71,12 +73,12 @@ export const TransferSchema = z
     .object({
         terms: TransferTermsSchema,
         status: TransferStatusEnumSchema,
-        transferTermsHash: z.hash("sha256"),
     })
     .strict()
 
 export const PrivateTransferTermsSchema = z
     .object({
+        salt: z.string().nonempty(),
         price: z.number().nonnegative(),
     })
     .strict()
