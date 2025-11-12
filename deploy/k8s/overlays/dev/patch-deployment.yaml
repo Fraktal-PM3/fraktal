@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placeholder-api
+  namespace: fraktal-dev
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: placeholder-api
+  template:
+    metadata:
+      labels:
+        app: placeholder-api
+    spec:
+      containers:
+        - name: placeholder-api
+          image: ghcr.io/your-org/fraktal-api:dev
+          ports:
+            - containerPort: 8080

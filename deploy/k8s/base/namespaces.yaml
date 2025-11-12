@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraktal
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraktal-dev
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraktal-staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fraktal-prod
