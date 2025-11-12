@@ -16,5 +16,5 @@
         "esModuleInterop": true,
         "skipLibCheck": true
     },
-    "include": ["src", "../roleAuth/src/roleUtils.ts", "../roleAuth/src/roleAuthContract.ts"]
+    "include": ["src"]
 }
