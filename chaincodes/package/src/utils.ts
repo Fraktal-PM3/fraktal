@@ -26,7 +26,7 @@ export const requireMSP = (ctx: Context, expected: string) => {
 export const proposalKey = (
     ctx: Context,
     pkgId: string,
-    proposalId: string,
+    proposalId: string
 ) => {
     return ctx.stub.createCompositeKey("proposal", [pkgId, proposalId])
 }
@@ -41,6 +41,7 @@ export const validUrgencies = new Set<string>([
 export const isAllowedTransition = (from: Status, to: Status): boolean => {
     const edges: Record<Status, Status[]> = {
         [Status.PENDING]: [Status.READY_FOR_PICKUP],
+        [Status.PROPOSED]: [Status.READY_FOR_PICKUP],
         [Status.READY_FOR_PICKUP]: [Status.PICKED_UP],
         [Status.PICKED_UP]: [Status.IN_TRANSIT],
         [Status.IN_TRANSIT]: [Status.DELIVERED],
@@ -56,7 +57,7 @@ export const validateJSONToBlockchainPackage = (json: string) => {
         return BlockchainPackageSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for BlockchainPackage: ${(e as Error).message}`,
+            `Invalid JSON format for BlockchainPackage: ${(e as Error).message}`
         )
     }
 }
@@ -66,7 +67,7 @@ export const validateJSONToPackageDetails = (json: string) => {
         return PackageDetailsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PackageDetails: ${(e as Error).message}`,
+            `Invalid JSON format for PackageDetails: ${(e as Error).message}`
         )
     }
 }
@@ -76,7 +77,7 @@ export const validateJSONToPII = (json: string) => {
         return PackagePIISchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PackagePII: ${(e as Error).message}`,
+            `Invalid JSON format for PackagePII: ${(e as Error).message}`
         )
     }
 }
@@ -86,7 +87,9 @@ export const validateJSONToPrivateTransferTerms = (json: string) => {
         return PrivateTransferTermsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PrivateTransferTerms: ${(e as Error).message}`,
+            `Invalid JSON format for PrivateTransferTerms: ${
+                (e as Error).message
+            }`
         )
     }
 }
@@ -96,7 +99,7 @@ export const validateJSONToTransferTerms = (json: string) => {
         return TransferTermsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for TransferTerms: ${(e as Error).message}`,
+            `Invalid JSON format for TransferTerms: ${(e as Error).message}`
         )
     }
 }
@@ -106,7 +109,7 @@ export const validateJSONToStoreObject = (json: string) => {
         return StoreObjectSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for StoreObject: ${(e as Error).message}`,
+            `Invalid JSON format for StoreObject: ${(e as Error).message}`
         )
     }
 }
@@ -132,4 +135,3 @@ export const isISODateString = (str: string): boolean => {
 export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
-
