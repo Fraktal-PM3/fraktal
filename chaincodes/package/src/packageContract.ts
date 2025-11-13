@@ -112,7 +112,7 @@ export class PackageContract extends Contract {
             externalId: externalId,
             ownerOrgMSP: ownerOrgMSPID,
             status: Status.PENDING,
-            packageDetailsHash: packageInfoHash,
+            packageDetailsAndPIIHash: packageInfoHash,
         })
 
         const stateBuffer = Buffer.from(
@@ -595,7 +595,6 @@ export class PackageContract extends Contract {
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
      * @param {string} termsId - Transfer term identifier
-     * @param {string} packageDetailsAndPIIHash - Hash of package details+PII
      * @returns {Promise<void>}
      */
     @Transaction()
@@ -603,7 +602,6 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string,
         termsId: string,
-        packageDetailsAndPIIHash: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
@@ -629,12 +627,18 @@ export class PackageContract extends Contract {
             )
         }
 
+        const blockchainPackage = await this.ReadBlockchainPackage(
+            ctx,
+            externalId,
+        )
+        const parsedPackage = validateJSONToBlockchainPackage(blockchainPackage)
+
         // Validate that the package externalId has correct hash as I have recieved
         if (
             !(await this.CheckPackageDetailsAndPIIHash(
                 ctx,
                 externalId,
-                packageDetailsAndPIIHash,
+                parsedPackage.packageDetailsAndPIIHash,
             ))
         ) {
             console.log(
