@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fabconnect.fullname" . }}
+  labels:
+    app: {{ include "fabconnect.name" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "fabconnect.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "fabconnect.name" . }}
+    spec:
+      containers:
+        - name: fabconnect
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/usr/bin/fabconnect"]
+          args: ["-f", "/etc/fabconnect-config/config.json"]
+          ports:
+            - containerPort: {{ .Values.service.port }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/fabconnect-config
+              readOnly: true
+            - name: connection
+              mountPath: /etc/fabconnect-certs
+              readOnly: true
+            - name: admin-signcert
+              mountPath: /etc/fabconnect-admin/signcert/cert.pem
+              subPath: cert.pem
+              readOnly: true
+            - name: admin-keystore
+              mountPath: /etc/fabconnect-admin/keystore/key.pem
+              subPath: key.pem
+              readOnly: true
+            - name: receipts
+              mountPath: /fabconnect/receipts
+            - name: events
+              mountPath: /fabconnect/events
+            - name: wallet
+              mountPath: /tmp/fabconnect/wallet
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "fabconnect.fullname" . }}-config
+        - name: connection
+          secret:
+            secretName: {{ .Values.connectionSecret }}
+            items:
+              - key: connection.json
+                path: connection.json
+        - name: admin-signcert
+          secret:
+            secretName: {{ .Values.adminSecret }}
+            items:
+              - key: cert.pem
+                path: cert.pem
+        - name: admin-keystore
+          secret:
+            secretName: {{ .Values.adminSecret }}
+            items:
+              - key: key.pem
+                path: key.pem
+        - name: receipts
+          emptyDir: {}
+        - name: events
+          emptyDir: {}
+        - name: wallet
+          emptyDir: {}

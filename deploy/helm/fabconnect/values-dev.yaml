@@ -1,0 +1,20 @@
+image:
+  # For local dev you can build and load ghcr.io/your-org/fabconnect:dev into kind.
+  # By default use the upstream image so deployment works without building.
+  repository: ghcr.io/hyperledger/firefly-fabconnect
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+connectionSecret: fabconnect-conn
+adminSecret: fabconnect-admin
+
+service:
+  type: ClusterIP
+  port: 3000
+
+mounts:
+  connectionPath: /etc/fabconnect/connection.json
+  adminSigncertPath: /etc/fabconnect/signcert
+  adminKeystorePath: /etc/fabconnect/keystore

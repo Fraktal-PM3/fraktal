@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: { { include "fabconnect.fullname" . } }
+spec:
+  type: { { .Values.service.type } }
+  selector:
+    app: { { include "fabconnect.name" . } }
+  ports:
+    - port: { { .Values.service.port } }
+      targetPort: { { .Values.service.port } }
+      protocol: TCP

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: { { include "fabconnect.fullname" . } }
+  labels:
+    app: { { include "fabconnect.name" . } }
+spec:
+  replicas: { { .Values.replicaCount } }
+  selector:
+    matchLabels:
+      app: { { include "fabconnect.name" . } }
+  template:
+    metadata:
+      labels:
+        app: { { include "fabconnect.name" . } }
+    spec:
+      containers:
+        - name: fabconnect
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: { { .Values.image.pullPolicy } }
+          ports:
+            - containerPort: { { .Values.service.port } }
+          volumeMounts:
+            - name: connection
+              mountPath: { { .Values.mounts.connectionPath } }
+              subPath: connection.json
+            - name: admin-signcert
+              mountPath: { { .Values.mounts.adminSigncertPath } }
+            - name: admin-keystore
+              mountPath: { { .Values.mounts.adminKeystorePath } }
+      volumes:
+        - name: connection
+          secret:
+            secretName: { { .Values.connectionSecret } }
+            items:
+              - key: connection.json
+                path: connection.json
+        - name: admin-signcert
+          secret:
+            secretName: { { .Values.adminSecret } }
+            items:
+              - key: signcert
+                path: signcert
+        - name: admin-keystore
+          secret:
+            secretName: { { .Values.adminSecret } }
+            items:
+              - key: keystore
+                path: keystore

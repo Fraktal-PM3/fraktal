@@ -1,0 +1,25 @@
+image:
+  repository: ghcr.io/hyperledger/firefly-fabconnect
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# Names of pre-created secrets (connection profile and admin identity)
+connectionSecret: fabconnect-conn
+adminSecret: fabconnect-admin
+
+service:
+  type: ClusterIP
+  port: 3000
+
+mounts:
+  connectionPath: /etc/fabconnect/connection.json
+  adminSigncertPath: /etc/fabconnect/signcert
+  adminKeystorePath: /etc/fabconnect/keystore
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

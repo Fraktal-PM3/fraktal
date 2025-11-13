@@ -1,0 +1,433 @@
+{
+    "kind": "EventList",
+    "apiVersion": "v1",
+    "metadata": {
+        "resourceVersion": "605"
+    },
+    "items": [
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f5a241b4e4",
+                "namespace": "default",
+                "uid": "ee265811-0f39-4b4b-9324-c57538f0d549",
+                "resourceVersion": "225",
+                "creationTimestamp": "2025-11-13T08:34:30Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "Starting",
+            "message": "Starting kubelet.",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-control-plane"
+            },
+            "firstTimestamp": "2025-11-13T08:34:30Z",
+            "lastTimestamp": "2025-11-13T08:34:30Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f5a39da06f",
+                "namespace": "default",
+                "uid": "7ff45a4f-66cf-4efb-a1fa-46f463c0922d",
+                "resourceVersion": "227",
+                "creationTimestamp": "2025-11-13T08:34:30Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "NodeAllocatableEnforced",
+            "message": "Updated Node Allocatable limit across pods",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-control-plane"
+            },
+            "firstTimestamp": "2025-11-13T08:34:30Z",
+            "lastTimestamp": "2025-11-13T08:34:30Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f5a9a1fe18",
+                "namespace": "default",
+                "uid": "912a87c4-8012-4d1d-94d1-22ab4987852d",
+                "resourceVersion": "232",
+                "creationTimestamp": "2025-11-13T08:34:30Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "NodeHasSufficientMemory",
+            "message": "Node fraktal-control-plane status is now: NodeHasSufficientMemory",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-control-plane"
+            },
+            "firstTimestamp": "2025-11-13T08:34:30Z",
+            "lastTimestamp": "2025-11-13T08:34:30Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f5a9a22910",
+                "namespace": "default",
+                "uid": "93f7d04e-da6e-4a8c-b19c-340758238915",
+                "resourceVersion": "233",
+                "creationTimestamp": "2025-11-13T08:34:30Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "NodeHasNoDiskPressure",
+            "message": "Node fraktal-control-plane status is now: NodeHasNoDiskPressure",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-control-plane"
+            },
+            "firstTimestamp": "2025-11-13T08:34:30Z",
+            "lastTimestamp": "2025-11-13T08:34:30Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f5a9a23669",
+                "namespace": "default",
+                "uid": "8e7e55c5-26c6-44f6-bc20-2823375131ef",
+                "resourceVersion": "234",
+                "creationTimestamp": "2025-11-13T08:34:30Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "NodeHasSufficientPID",
+            "message": "Node fraktal-control-plane status is now: NodeHasSufficientPID",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-control-plane"
+            },
+            "firstTimestamp": "2025-11-13T08:34:30Z",
+            "lastTimestamp": "2025-11-13T08:34:30Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f70445ad7b",
+                "namespace": "default",
+                "uid": "61a60667-5bb7-42c3-a3d5-acab753cfaa0",
+                "resourceVersion": "312",
+                "creationTimestamp": "2025-11-13T08:34:36Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "8dcb4332-56c9-4a4f-b5bd-3aaf4e31b8e7",
+                "apiVersion": "v1"
+            },
+            "reason": "RegisteredNode",
+            "message": "Node fraktal-control-plane event: Registered Node fraktal-control-plane in Controller",
+            "source": {
+                "component": "node-controller"
+            },
+            "firstTimestamp": "2025-11-13T08:34:36Z",
+            "lastTimestamp": "2025-11-13T08:34:36Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "node-controller",
+            "reportingInstance": ""
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783f78bfcf7fb",
+                "namespace": "default",
+                "uid": "cc6219c3-e7b2-4885-9616-07c7042ef938",
+                "resourceVersion": "417",
+                "creationTimestamp": "2025-11-13T08:34:38Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "Starting",
+            "source": {},
+            "firstTimestamp": null,
+            "lastTimestamp": null,
+            "type": "Normal",
+            "eventTime": "2025-11-13T08:34:38.367609Z",
+            "action": "StartKubeProxy",
+            "reportingComponent": "kube-proxy",
+            "reportingInstance": "kube-proxy-fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-control-plane.187783fa10d80d88",
+                "namespace": "default",
+                "uid": "25175244-47e8-478f-a227-c67c13b8311e",
+                "resourceVersion": "461",
+                "creationTimestamp": "2025-11-13T08:34:49Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-control-plane",
+                "uid": "fraktal-control-plane"
+            },
+            "reason": "NodeReady",
+            "message": "Node fraktal-control-plane status is now: NodeReady",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-control-plane"
+            },
+            "firstTimestamp": "2025-11-13T08:34:49Z",
+            "lastTimestamp": "2025-11-13T08:34:49Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-control-plane"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f765da4772",
+                "namespace": "default",
+                "uid": "704d017d-8602-4ba4-895d-58c46d0aa256",
+                "resourceVersion": "383",
+                "creationTimestamp": "2025-11-13T08:34:37Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "Starting",
+            "message": "Starting kubelet.",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-worker"
+            },
+            "firstTimestamp": "2025-11-13T08:34:37Z",
+            "lastTimestamp": "2025-11-13T08:34:37Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-worker"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f7661e0b97",
+                "namespace": "default",
+                "uid": "8cfd4f11-bc95-42da-8a88-0c186d69b13a",
+                "resourceVersion": "393",
+                "creationTimestamp": "2025-11-13T08:34:37Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "NodeHasSufficientMemory",
+            "message": "Node fraktal-worker status is now: NodeHasSufficientMemory",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-worker"
+            },
+            "firstTimestamp": "2025-11-13T08:34:37Z",
+            "lastTimestamp": "2025-11-13T08:34:37Z",
+            "count": 3,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-worker"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f7661e4341",
+                "namespace": "default",
+                "uid": "dd0a70a9-2525-4e59-8c17-5068ec29a2f1",
+                "resourceVersion": "398",
+                "creationTimestamp": "2025-11-13T08:34:37Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "NodeHasNoDiskPressure",
+            "message": "Node fraktal-worker status is now: NodeHasNoDiskPressure",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-worker"
+            },
+            "firstTimestamp": "2025-11-13T08:34:37Z",
+            "lastTimestamp": "2025-11-13T08:34:37Z",
+            "count": 3,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-worker"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f7661e4b3a",
+                "namespace": "default",
+                "uid": "f6552a33-3b1e-4eb0-964d-0fa2f6c09918",
+                "resourceVersion": "402",
+                "creationTimestamp": "2025-11-13T08:34:37Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "NodeHasSufficientPID",
+            "message": "Node fraktal-worker status is now: NodeHasSufficientPID",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-worker"
+            },
+            "firstTimestamp": "2025-11-13T08:34:37Z",
+            "lastTimestamp": "2025-11-13T08:34:37Z",
+            "count": 3,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-worker"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f76bbb13f6",
+                "namespace": "default",
+                "uid": "0173e13d-4240-4dd7-881d-232dd2313d11",
+                "resourceVersion": "390",
+                "creationTimestamp": "2025-11-13T08:34:37Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "NodeAllocatableEnforced",
+            "message": "Updated Node Allocatable limit across pods",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-worker"
+            },
+            "firstTimestamp": "2025-11-13T08:34:37Z",
+            "lastTimestamp": "2025-11-13T08:34:37Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-worker"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f7d3c0a46b",
+                "namespace": "default",
+                "uid": "9a8e6046-f8b5-4973-80bf-49dd9ca99eec",
+                "resourceVersion": "431",
+                "creationTimestamp": "2025-11-13T08:34:39Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "Starting",
+            "source": {},
+            "firstTimestamp": null,
+            "lastTimestamp": null,
+            "type": "Normal",
+            "eventTime": "2025-11-13T08:34:39.571616Z",
+            "action": "StartKubeProxy",
+            "reportingComponent": "kube-proxy",
+            "reportingInstance": "kube-proxy-fraktal-worker"
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783f82e631769",
+                "namespace": "default",
+                "uid": "8287bfd6-9cd9-41b4-87b1-3b0d215529e5",
+                "resourceVersion": "445",
+                "creationTimestamp": "2025-11-13T08:34:41Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "00fd2fef-1828-40f8-bed1-7359da905805",
+                "apiVersion": "v1"
+            },
+            "reason": "RegisteredNode",
+            "message": "Node fraktal-worker event: Registered Node fraktal-worker in Controller",
+            "source": {
+                "component": "node-controller"
+            },
+            "firstTimestamp": "2025-11-13T08:34:41Z",
+            "lastTimestamp": "2025-11-13T08:34:41Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "node-controller",
+            "reportingInstance": ""
+        },
+        {
+            "metadata": {
+                "name": "fraktal-worker.187783fa4da23099",
+                "namespace": "default",
+                "uid": "53d0b3e0-d16e-44fd-9cab-6fb62de58f3f",
+                "resourceVersion": "477",
+                "creationTimestamp": "2025-11-13T08:34:50Z"
+            },
+            "involvedObject": {
+                "kind": "Node",
+                "name": "fraktal-worker",
+                "uid": "fraktal-worker"
+            },
+            "reason": "NodeReady",
+            "message": "Node fraktal-worker status is now: NodeReady",
+            "source": {
+                "component": "kubelet",
+                "host": "fraktal-worker"
+            },
+            "firstTimestamp": "2025-11-13T08:34:50Z",
+            "lastTimestamp": "2025-11-13T08:34:50Z",
+            "count": 1,
+            "type": "Normal",
+            "eventTime": null,
+            "reportingComponent": "kubelet",
+            "reportingInstance": "fraktal-worker"
+        }
+    ]
+}
