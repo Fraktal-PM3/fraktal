@@ -1,0 +1,80 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "firefly.fullname" . }}-config
+  labels:
+    {{- include "firefly.labels" . | nindent 4 }}
+data:
+  firefly.yml: |
+    log:
+      level: debug
+    
+    http:
+      port: {{ .Values.service.httpPort }}
+      address: 0.0.0.0
+    
+    admin:
+      port: {{ .Values.service.adminPort }}
+      address: 0.0.0.0
+    
+    org:
+      name: {{ .Values.organizationName }}
+    
+    node:
+      name: {{ .Values.nodeName }}
+    
+    plugins:
+      database:
+        - name: database0
+          type: postgres
+          postgres:
+            url: postgres://{{ .Values.postgresql.username }}:{{ .Values.postgresql.password }}@{{ include "firefly.fullname" . }}-postgres:{{ .Values.postgresql.port }}/{{ .Values.postgresql.database }}?sslmode=disable
+            migrations:
+              auto: true
+      
+      blockchain:
+        - name: fabric0
+          type: fabric
+          fabric:
+            fabconnect:
+              url: {{ .Values.fabconnect.url }}
+              channel: {{ .Values.fabconnect.channel }}
+              chaincode: {{ .Values.fabconnect.chaincode }}
+              topic: "0"
+              signer: {{ .Values.fabconnect.signer }}
+      
+      {{- if .Values.dataexchange.enabled }}
+      dataexchange:
+        - name: dataexchange0
+          type: ffdx
+          ffdx:
+            url: http://{{ include "firefly.fullname" . }}-dataexchange:3001
+      {{- end }}
+      
+      {{- if .Values.ipfs.enabled }}
+      sharedstorage:
+        - name: ipfs0
+          type: ipfs
+          ipfs:
+            api:
+              url: http://{{ include "firefly.fullname" . }}-ipfs:5001
+            gateway:
+              url: http://{{ include "firefly.fullname" . }}-ipfs:8080
+      {{- end }}
+    
+    namespaces:
+      default: default
+      predefined:
+        - name: default
+          defaultKey: {{ .Values.fabconnect.signer }}
+          multiparty:
+            enabled: false
+          plugins:
+            - database0
+            - fabric0
+            {{- if .Values.dataexchange.enabled }}
+            - dataexchange0
+            {{- end }}
+            {{- if .Values.ipfs.enabled }}
+            - ipfs0
+            {{- end }}

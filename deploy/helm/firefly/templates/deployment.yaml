@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "firefly.fullname" . }}
+  labels:
+    {{- include "firefly.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "firefly.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "firefly.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: core
+    spec:
+      containers:
+      - name: firefly
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - name: http
+          containerPort: {{ .Values.service.httpPort }}
+          protocol: TCP
+        - name: admin
+          containerPort: {{ .Values.service.adminPort }}
+          protocol: TCP
+        env:
+        - name: FIREFLY_CONFIG_PATH
+          value: /etc/firefly
+        args:
+        - -f
+        - /etc/firefly/firefly.yml
+        volumeMounts:
+        - name: config
+          mountPath: /etc/firefly
+        - name: data
+          mountPath: /etc/firefly/data
+        livenessProbe:
+          httpGet:
+            path: /api/v1/status
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/v1/status
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "firefly.fullname" . }}-config
+      - name: data
+        emptyDir: {}
