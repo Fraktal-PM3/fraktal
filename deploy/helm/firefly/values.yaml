@@ -1,0 +1,38 @@
+image:
+  repository: ghcr.io/hyperledger/firefly
+  tag: v1.4.0
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+organizationName: org1
+nodeName: node1
+
+# FabConnect configuration (connects to existing FabConnect service)
+fabconnect:
+  url: "http://fabconnect-fabconnect:3000"
+  channel: "pm3"
+  chaincode: "firefly"
+  signer: "org1"
+
+# PostgreSQL configuration
+postgresql:
+  enabled: true
+  image: postgres:16-alpine
+  database: firefly
+  username: postgres
+  password: f1refly  # Change in production
+  port: 5432
+
+# Service configuration
+service:
+  type: ClusterIP
+  httpPort: 5000
+  adminPort: 5001
+
+# Optional components (disabled by default to keep setup minimal)
+dataexchange:
+  enabled: false
+
+ipfs:
+  enabled: false
