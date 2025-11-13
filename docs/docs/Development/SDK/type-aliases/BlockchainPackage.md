@@ -8,7 +8,7 @@
 
 > **BlockchainPackage** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:162](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L162)
+Defined in: [src/lib/services/package/types.common.ts:164](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L164)
 
 The on-chain/public representation of a package.
 
@@ -18,7 +18,7 @@ The on-chain/public representation of a package.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:164](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L164)
+Defined in: [src/lib/services/package/types.common.ts:166](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L166)
 
 External, business-level identifier.
 
@@ -28,17 +28,17 @@ External, business-level identifier.
 
 > **ownerOrgMSP**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:166](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L166)
+Defined in: [src/lib/services/package/types.common.ts:168](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L168)
 
 MSP/organization that currently owns the package.
 
 ***
 
-### packageDetailsHash
+### packageDetailsAndPIIHash
 
-> **packageDetailsHash**: `string`
+> **packageDetailsAndPIIHash**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:174](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L174)
+Defined in: [src/lib/services/package/types.common.ts:176](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L176)
 
 Hash of the package details (and possibly PII+salt, per implementation).
 
@@ -52,6 +52,6 @@ Enables integrity checks without disclosing private content.
 
 > **status**: [`Status`](../enumerations/Status.md)
 
-Defined in: [src/lib/services/package/types.common.ts:168](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L168)
+Defined in: [src/lib/services/package/types.common.ts:170](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L170)
 
 Current [Status](../enumerations/Status.md).

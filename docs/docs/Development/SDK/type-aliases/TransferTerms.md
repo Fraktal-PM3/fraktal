@@ -8,7 +8,7 @@
 
 > **TransferTerms** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:95](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L95)
+Defined in: [src/lib/services/package/types.common.ts:97](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L97)
 
 Public transfer terms that identify the package and counterparties.
 
@@ -18,7 +18,7 @@ Public transfer terms that identify the package and counterparties.
 
 > **createdISO**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:103](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L103)
+Defined in: [src/lib/services/package/types.common.ts:105](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L105)
 
 ISO-8601 creation timestamp of the proposal.
 
@@ -28,7 +28,7 @@ ISO-8601 creation timestamp of the proposal.
 
 > **expiryISO**: `string` \| `null` \| `undefined`
 
-Defined in: [src/lib/services/package/types.common.ts:108](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L108)
+Defined in: [src/lib/services/package/types.common.ts:110](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L110)
 
 Optional ISO-8601 expiry timestamp.
 If `null`/`undefined`, the proposal does not expire automatically.
@@ -39,7 +39,7 @@ If `null`/`undefined`, the proposal does not expire automatically.
 
 > **externalPackageId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:97](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L97)
+Defined in: [src/lib/services/package/types.common.ts:99](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L99)
 
 External identifier of the package being transferred.
 
@@ -49,7 +49,7 @@ External identifier of the package being transferred.
 
 > **fromMSP**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:99](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L99)
+Defined in: [src/lib/services/package/types.common.ts:101](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L101)
 
 MSP/organization initiating the transfer.
 
@@ -59,6 +59,6 @@ MSP/organization initiating the transfer.
 
 > **toMSP**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:101](https://github.com/Fraktal-PM3/fraktal-lib/blob/ded2c1ea4e3b1d3dd2d70ae81d5c478a768191ee/src/lib/services/package/types.common.ts#L101)
+Defined in: [src/lib/services/package/types.common.ts:103](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L103)
 
 MSP/organization targeted to receive the package.
