@@ -6,7 +6,7 @@
 
 # Enumeration: TransferStatus
 
-Defined in: [src/lib/services/package/types.common.ts:64](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L64)
+Defined in: [src/lib/services/package/types.common.ts:64](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L64)
 
 Status of a transfer proposal between organizations.
 
@@ -16,7 +16,7 @@ Status of a transfer proposal between organizations.
 
 > **ACCEPTED**: `"accepted"`
 
-Defined in: [src/lib/services/package/types.common.ts:68](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L68)
+Defined in: [src/lib/services/package/types.common.ts:68](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L68)
 
 Proposal accepted by the recipient.
 
@@ -26,7 +26,7 @@ Proposal accepted by the recipient.
 
 > **CANCELLED**: `"cancelled"`
 
-Defined in: [src/lib/services/package/types.common.ts:72](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L72)
+Defined in: [src/lib/services/package/types.common.ts:72](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L72)
 
 Proposal was explicitly cancelled.
 
@@ -36,7 +36,7 @@ Proposal was explicitly cancelled.
 
 > **EXECUTED**: `"executed"`
 
-Defined in: [src/lib/services/package/types.common.ts:70](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L70)
+Defined in: [src/lib/services/package/types.common.ts:70](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L70)
 
 Transfer finalized/executed on-chain.
 
@@ -46,7 +46,7 @@ Transfer finalized/executed on-chain.
 
 > **EXPIRED**: `"expired"`
 
-Defined in: [src/lib/services/package/types.common.ts:76](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L76)
+Defined in: [src/lib/services/package/types.common.ts:76](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L76)
 
 Proposal expired without action.
 
@@ -56,7 +56,7 @@ Proposal expired without action.
 
 > **PROPOSED**: `"proposed"`
 
-Defined in: [src/lib/services/package/types.common.ts:66](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L66)
+Defined in: [src/lib/services/package/types.common.ts:66](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L66)
 
 Transfer has been proposed by the sender.
 
@@ -66,6 +66,6 @@ Transfer has been proposed by the sender.
 
 > **REJECTED**: `"rejected"`
 
-Defined in: [src/lib/services/package/types.common.ts:74](https://github.com/Fraktal-PM3/fraktal-lib/blob/2e76cd0c2cc25e0f764a51fc62e7fd6300773081/src/lib/services/package/types.common.ts#L74)
+Defined in: [src/lib/services/package/types.common.ts:74](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L74)
 
 Proposal was explicitly rejected.
