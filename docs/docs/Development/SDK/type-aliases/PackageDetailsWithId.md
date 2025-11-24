@@ -8,7 +8,7 @@
 
 > **PackageDetailsWithId** = [`PackageDetails`](PackageDetails.md) & `object`
 
-Defined in: [src/lib/services/package/types.common.ts:182](https://github.com/Fraktal-PM3/fraktal-lib/blob/3bb28aef27366ea851309d078ee663a9c495ab10/src/lib/services/package/types.common.ts#L182)
+Defined in: [src/lib/services/package/types.common.ts:182](https://github.com/Fraktal-PM3/fraktal-lib/blob/b07ed9aeba46e12fba1e290c6cf479cd66273b27/src/lib/services/package/types.common.ts#L182)
 
 Convenience type: public package details with a system-assigned identifier.
 
