@@ -5,6 +5,13 @@ on:
       - main
     paths:
       - "docs/**"
+  # Trigger when SDK docs sync workflow completes
+  workflow_run:
+    workflows: ["Sync SDK Documentation from External Repo"]
+    types:
+      - completed
+    branches:
+      - main
   # Allow manual triggering of the workflow
   workflow_dispatch:
 

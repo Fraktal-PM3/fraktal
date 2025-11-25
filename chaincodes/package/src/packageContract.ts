@@ -24,6 +24,8 @@ import {
     isISODateString,
 } from "./utils"
 
+const compositeKeyPrefix = "transferTerms"
+
 @Info({
     title: "PackageContract",
     description: "Smart contract for managing packages",
@@ -110,7 +112,7 @@ export class PackageContract extends Contract {
             externalId: externalId,
             ownerOrgMSP: ownerOrgMSPID,
             status: Status.PENDING,
-            packageDetailsHash: packageInfoHash,
+            packageDetailsAndPIIHash: packageInfoHash,
         })
 
         const stateBuffer = Buffer.from(
@@ -265,12 +267,12 @@ export class PackageContract extends Contract {
         ctx.stub.setEvent("StatusUpdated", eventBuffer)
     }
 
-    /**
-     * DeletePackage deletes the public package record. Only an 'ombud' may
-     * delete a PENDING package; 'pm3' may always delete.
-     * @param {Context} ctx - Fabric transaction context
-     * @param {string} externalId - External package identifier
-     * @returns {Promise<void>}
+    /** Deletes a package from the world state
+     * - Owner can delete if status is PENDING
+     * - Owner can delete if there's an active transfer proposal (before execution)
+     * @param ctx - The transaction context
+     * @param externalId - Unique identifier for the package
+     * @throws {Error} If caller doesn't have required permissions
      */
     @Transaction()
     public async DeletePackage(
@@ -280,21 +282,64 @@ export class PackageContract extends Contract {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
-        // Check that the caller has the role of 'ombud' if status is PENDING
-        const isOmbud = requireAttr(ctx, "role", "ombud")
-        const isPM3 = requireAttr(ctx, "role", "pm3")
-        if ((isOmbud && packageData.status === Status.PENDING) || isPM3) {
+        const callerMSPID = callerMSP(ctx)
+        const isOwner = packageData.ownerOrgMSP === callerMSPID
+
+        if (
+            isOwner &&
+            (packageData.status === Status.PENDING ||
+                packageData.status === Status.PROPOSED ||
+                packageData.status === Status.READY_FOR_PICKUP)
+        ) {
+            const iterator = await ctx.stub.getStateByPartialCompositeKey(
+                compositeKeyPrefix,
+                [externalId],
+            )
+
+            let result = await iterator.next()
+            while (!result.done) {
+                const compositeKey = result.value.key
+                const attributes = ctx.stub.splitCompositeKey(compositeKey)
+
+                if (attributes.attributes.length >= 2) {
+                    const termsId = attributes.attributes[1]
+
+                    const termsJSON = await ctx.stub.getState(termsId)
+                    if (termsJSON.length > 0) {
+                        const terms = validateJSONToTransferTerms(
+                            termsJSON.toString(),
+                        )
+
+                        const privateTermsCollection = getImplicitCollection(
+                            terms.toMSP,
+                        )
+                        await ctx.stub.deletePrivateData(
+                            privateTermsCollection,
+                            termsId,
+                        )
+                    }
+
+                    await ctx.stub.deleteState(termsId)
+                    await ctx.stub.deleteState(compositeKey)
+                }
+
+                result = await iterator.next()
+            }
+            await iterator.close()
+
+            const ownerCollection = getImplicitCollection(callerMSPID)
+            await ctx.stub.deletePrivateData(ownerCollection, externalId)
+
             await ctx.stub.deleteState(externalId)
+
             ctx.stub.setEvent(
                 "DeletePackage",
                 Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
             )
             return
         }
-
-        throw new Error("Not authorized to delete this package")
+        throw new Error(`Not authorized to delete package ${externalId}.`)
     }
-
     /**
      * PackageExists returns true when a public package with the given ID exists
      * in the world state.
@@ -362,7 +407,7 @@ export class PackageContract extends Contract {
             toMSP,
         }
 
-        const toMSPCollection = getImplicitCollection(toMSP)
+        const privateTermsCollection = getImplicitCollection(toMSP)
         const tmap = ctx.stub.getTransient()
 
         const privateTransferTermsData = tmap.get("privateTransferTerms")
@@ -376,9 +421,13 @@ export class PackageContract extends Contract {
             privateTransferTermsData.toString(),
         )
 
-        // Store private data in the recipient organization's implicit collection
+        const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
+            externalId,
+            termsId,
+        ])
+
         await ctx.stub.putPrivateData(
-            toMSPCollection,
+            privateTermsCollection,
             termsId,
             Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
         )
@@ -387,6 +436,18 @@ export class PackageContract extends Contract {
             termsId,
             Buffer.from(stringify(sortKeysRecursive(terms))),
         )
+
+        await ctx.stub.putState(
+            compositeKey,
+            Buffer.from(stringify(sortKeysRecursive(terms))),
+        )
+
+        packageData.status = Status.PROPOSED
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
+
         ctx.stub.setEvent(
             "ProposeTransfer",
             Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
@@ -534,7 +595,6 @@ export class PackageContract extends Contract {
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
      * @param {string} termsId - Transfer term identifier
-     * @param {string} packageDetailsAndPIIHash - Hash of package details+PII
      * @returns {Promise<void>}
      */
     @Transaction()
@@ -542,7 +602,6 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string,
         termsId: string,
-        packageDetailsAndPIIHash: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
@@ -568,12 +627,18 @@ export class PackageContract extends Contract {
             )
         }
 
+        const blockchainPackage = await this.ReadBlockchainPackage(
+            ctx,
+            externalId,
+        )
+        const parsedPackage = validateJSONToBlockchainPackage(blockchainPackage)
+
         // Validate that the package externalId has correct hash as I have recieved
         if (
             !(await this.CheckPackageDetailsAndPIIHash(
                 ctx,
                 externalId,
-                packageDetailsAndPIIHash,
+                parsedPackage.packageDetailsAndPIIHash,
             ))
         ) {
             console.log(
@@ -618,6 +683,15 @@ export class PackageContract extends Contract {
                 `The provided private transfer terms do not match the stored terms for proposalId ${termsId}`,
             )
         }
+
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
+        packageData.status = Status.READY_FOR_PICKUP
+
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
 
         ctx.stub.setEvent(
             "AcceptTransfer",

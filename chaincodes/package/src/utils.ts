@@ -40,7 +40,8 @@ export const validUrgencies = new Set<string>([
 
 export const isAllowedTransition = (from: Status, to: Status): boolean => {
     const edges: Record<Status, Status[]> = {
-        [Status.PENDING]: [Status.READY_FOR_PICKUP],
+        [Status.PENDING]: [Status.PROPOSED],
+        [Status.PROPOSED]: [Status.READY_FOR_PICKUP],
         [Status.READY_FOR_PICKUP]: [Status.PICKED_UP],
         [Status.PICKED_UP]: [Status.IN_TRANSIT],
         [Status.IN_TRANSIT]: [Status.DELIVERED],
@@ -132,4 +133,3 @@ export const isISODateString = (str: string): boolean => {
 export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
-
