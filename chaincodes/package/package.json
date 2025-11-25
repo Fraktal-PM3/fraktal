@@ -11,7 +11,6 @@
         "lint": "eslint src",
         "pretest": "echo skipping lint",
         "test": "vitest",
-        "prestart": "npm run package"
         "start": "set -x && fabric-chaincode-node start",
         "build": "tsc",
         "build:watch": "tsc -w",
