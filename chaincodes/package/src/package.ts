@@ -120,5 +120,5 @@ export class BlockchainPackage {
     public status: Status = Status.PENDING
 
     @Property()
-    public packageDetailsHash: string = ""
+    public packageDetailsAndPIIHash: string = ""
 }
