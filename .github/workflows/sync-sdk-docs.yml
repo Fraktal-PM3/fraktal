@@ -1,11 +1,7 @@
 name: Sync SDK Documentation from External Repo
-
 on:
-  # This workflow will be triggered by repository_dispatch from the source repo
   repository_dispatch:
     types: [update-sdk-docs]
-
-  # Allow manual triggering
   workflow_dispatch:
 
 permissions:
@@ -16,10 +12,17 @@ jobs:
   update-docs:
     runs-on: ubuntu-latest
     steps:
+      - name: Generate token from GitHub App
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Checkout this repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.generate-token.outputs.token }}
           persist-credentials: true
 
       - name: Setup Node.js
@@ -46,13 +49,8 @@ jobs:
 
       - name: Copy generated docs to Docusaurus
         run: |
-          # Remove old SDK docs if they exist
           rm -rf docs/docs/Development/SDK
-
-          # Create SDK docs directory
           mkdir -p docs/docs/Development/SDK
-
-          # Copy generated markdown files
           cp -r source-repo/docs/* docs/docs/Development/SDK/
 
       - name: Create category metadata for SDK docs
@@ -84,6 +82,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "docs: update SDK documentation from ${{ github.event.client_payload.repository || 'fraktal-lib' }}
-
           Source commit: ${{ github.event.client_payload.sha || 'manual trigger' }}"
           git push

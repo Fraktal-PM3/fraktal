@@ -89,7 +89,7 @@ export const BlockchainPackageSchema = z
         externalId: z.string().nonempty(),
         ownerOrgMSP: z.string().nonempty(),
         status: StatusEnumSchema,
-        packageDetailsHash: z.hash("sha256"),
+        packageDetailsAndPIIHash: z.hash("sha256"),
     })
     .strict()
 

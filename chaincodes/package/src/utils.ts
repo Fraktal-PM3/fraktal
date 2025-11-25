@@ -82,7 +82,6 @@ export const validateJSONToPII = (json: string) => {
     }
 }
 
-
 export const validateJSONToPrivateTransferTerms = (json: string) => {
     try {
         return PrivateTransferTermsSchema.parse(JSON.parse(json))
@@ -135,34 +134,3 @@ export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
 
-const ROLE_AUTH_CHAINCODE_NAME = "pm3roleauth"
-const CHANNEL_NAME = "pm3"
-
-export const assertPermission = async(ctx: Context, permission: string): Promise<void> => {
-    const fn = "RoleAuthContract:hasPermission" 
-    const args = [fn, permission]
-
-    const response = await ctx.stub.invokeChaincode(
-        ROLE_AUTH_CHAINCODE_NAME,
-        args,
-        CHANNEL_NAME,
-    )
-
-    if (!response) {
-        throw new Error(
-            `[RoleAuth] invokeChaincode(${fn}) returned empty response`,
-        )
-    }
-
-    const raw = response.toString()
-    // contract-api normally serializes primitives as JSON, but boolean may come back as 'true'/'false'
-    const hasPermission =
-        raw === "true" ||
-        raw === "false"
-            ? raw === "true"
-            : JSON.parse(raw) // fallback if it's JSON encoded
-
-    if (!hasPermission) {
-        throw new Error(`[RoleAuth] Caller lacks required permission '${permission}'`)
-    }
-}

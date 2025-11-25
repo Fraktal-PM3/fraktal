@@ -8,7 +8,7 @@
 
 > **PackageEventHandler** = (`res`) => `void`
 
-Defined in: [src/lib/services/package/types.common.ts:185](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L185)
+Defined in: [src/lib/services/package/types.common.ts:187](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L187)
 
 Callback signature for package-related blockchain events.
 
@@ -16,17 +16,7 @@ Callback signature for package-related blockchain events.
 
 ### res
 
-#### output
-
-`any`
-
-#### timestamp
-
-`string`
-
-#### txid
-
-`string` \| `undefined`
+\{ `output`: `any`; `timestamp`: `string`; `txid`: `string` \| `undefined`; \} | \{ `created`: `string`; `hash`: `string`; `id`: `string`; `namespace`: `string`; `validator`: `string`; `value`: `any`; \}
 
 ## Returns
 

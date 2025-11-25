@@ -8,7 +8,7 @@
 
 > **PackageDetails** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:130](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L130)
+Defined in: [src/lib/services/package/types.common.ts:132](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L132)
 
 Public package details that are safe to share on-chain.
 
@@ -18,7 +18,7 @@ Public package details that are safe to share on-chain.
 
 > **dropLocation**: [`Location`](Location.md)
 
-Defined in: [src/lib/services/package/types.common.ts:134](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L134)
+Defined in: [src/lib/services/package/types.common.ts:136](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L136)
 
 Drop/delivery location.
 
@@ -28,7 +28,7 @@ Drop/delivery location.
 
 > **pickupLocation**: [`Location`](Location.md)
 
-Defined in: [src/lib/services/package/types.common.ts:132](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L132)
+Defined in: [src/lib/services/package/types.common.ts:134](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L134)
 
 Pickup location.
 
@@ -38,7 +38,7 @@ Pickup location.
 
 > **size**: [`Size`](Size.md)
 
-Defined in: [src/lib/services/package/types.common.ts:136](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L136)
+Defined in: [src/lib/services/package/types.common.ts:138](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L138)
 
 Physical dimensions (meters).
 
@@ -48,7 +48,7 @@ Physical dimensions (meters).
 
 > **urgency**: [`Urgency`](../enumerations/Urgency.md)
 
-Defined in: [src/lib/services/package/types.common.ts:140](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L140)
+Defined in: [src/lib/services/package/types.common.ts:142](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L142)
 
 Delivery urgency.
 
@@ -58,6 +58,6 @@ Delivery urgency.
 
 > **weightKg**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:138](https://github.com/Fraktal-PM3/fraktal-lib/blob/fb7e8d6fe7788d4f61b3eac0583e0a47cc3cedd1/src/lib/services/package/types.common.ts#L138)
+Defined in: [src/lib/services/package/types.common.ts:140](https://github.com/Fraktal-PM3/fraktal-lib/blob/42ed2c0d7806c035e329da10c570436d90115bb6/src/lib/services/package/types.common.ts#L140)
 
 Weight in kilograms.
