@@ -23,7 +23,7 @@ import { Permission, PermissionSchema } from './roleUtils'
  */
 
 // PM3 MSP identifier used to gate administrative actions
-export const PM3_MSPID = 'PM3MSP'
+export const PM3_MSPID = 'org_7ab6de'
 
 export class RoleAuthContract extends Contract {
 

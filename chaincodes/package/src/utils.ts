@@ -41,6 +41,7 @@ export const validUrgencies = new Set<string>([
 export const isAllowedTransition = (from: Status, to: Status): boolean => {
     const edges: Record<Status, Status[]> = {
         [Status.PENDING]: [Status.READY_FOR_PICKUP],
+        [Status.PROPOSED]: [Status.READY_FOR_PICKUP],
         [Status.READY_FOR_PICKUP]: [Status.PICKED_UP],
         [Status.PICKED_UP]: [Status.IN_TRANSIT],
         [Status.IN_TRANSIT]: [Status.DELIVERED],
