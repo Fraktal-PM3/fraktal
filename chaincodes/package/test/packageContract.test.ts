@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { PackageContract } from "../src/packageContract"
 import { MockContext } from "./helpers/mockContext"
 import { Status, Urgency, PackageDetails, PackagePII } from "../src/package"
-import { de } from "zod/v4/locales"
 
 // Mock the fabric-contract-api decorators before importing classes that use them
 vi.mock("fabric-contract-api", async (importOriginal: any) => {
@@ -66,7 +65,6 @@ describe("PackageContract (unit)", () => {
             const externalId = "PKG-001"
             const salt = "randomSalt123"
             await c.CreatePackage(ctxOmbud as any, externalId, salt)
-            // Verify the package was created by checking if it exists
             const exists = await c.PackageExists(ctxOmbud as any, externalId)
             expect(exists).toBe(true)
             // prettier-ignore
@@ -77,15 +75,45 @@ describe("PackageContract (unit)", () => {
             expect(parsedPkg.pii).toEqual(pii)
         })
     })
-    describe("ReadBlockchainPackage", () => {})
-    describe("ReadPackageDetailsAndPII", () => {})
-    describe("UpdatePackageStatus", () => {})
-    describe("DeletePackage", () => {})
-    describe("PackageExists", () => {})
-    describe("ProposeTransfer", () => {})
-    describe("CheckPackageDetailsAndPIIHash", () => {})
-    describe("ReadTransferTerms", () => {})
-    describe("ReadPrivateTransferTerms", () => {})
-    describe("AcceptTransfer", () => {})
-    describe("ExecuteTransfer", () => {})
+    describe("ReadBlockchainPackage", () => {
+        it("Should read back the created package", async () => {
+            const externalId = "PKG-002"
+            const salt = "randomSalt456"
+            await c.CreatePackage(ctxPM3 as any, externalId, salt)
+            const pkgStr = await c.ReadBlockchainPackage(
+                ctxPM3 as any,
+                externalId
+            )
+            const pkg = JSON.parse(pkgStr)
+            expect(pkg.externalId).toBe(externalId)
+            expect(pkg.status).toBe(Status.PENDING)
+            expect(pkg.ownerOrgMSP).toBe("Org1MSP")
+            expect(pkg.packageDetailsAndPIIHash).toBeDefined()
+            expect(pkg.packageDetailsAndPIIHash).toMatch(/^[a-f0-9]{64}$/) // SHA256 hash format
+        })
+    })
+    describe("ReadPackageDetailsAndPII", () => {
+        it("Should read back the package details and PII", async () => {
+            const externalId = "PKG-003"
+            const salt = "randomSalt789"
+            await c.CreatePackage(ctxTransporter as any, externalId, salt)
+            const pkgStr = await c.ReadPackageDetailsAndPII(
+                ctxTransporter as any,
+                externalId
+            )
+            const pkg = JSON.parse(pkgStr)
+            expect(pkg.salt).toBe(salt)
+            expect(pkg.packageDetails).toEqual(packageDetails)
+            expect(pkg.pii).toEqual(pii)
+        })
+    })
+    describe.skip("UpdatePackageStatus", () => {})
+    describe.skip("DeletePackage", () => {})
+    describe.skip("PackageExists", () => {})
+    describe.skip("ProposeTransfer", () => {})
+    describe.skip("CheckPackageDetailsAndPIIHash", () => {})
+    describe.skip("ReadTransferTerms", () => {})
+    describe.skip("ReadPrivateTransferTerms", () => {})
+    describe.skip("AcceptTransfer", () => {})
+    describe.skip("ExecuteTransfer", () => {})
 })
