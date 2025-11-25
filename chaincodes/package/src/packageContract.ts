@@ -37,14 +37,12 @@ export class PackageContract extends Contract {
      * and a public package record (with a hash of the private blob) on the ledger.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier (unique)
-     * @param {string} salt - Random salt used when hashing/storing private data
      * @returns {Promise<void>}
      */
     @Transaction()
     public async CreatePackage(
         ctx: Context,
         externalId: string,
-        salt: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
@@ -79,13 +77,18 @@ export class PackageContract extends Contract {
             )
         }
 
+        
         const parsedPackageInfo = validateJSONToPackageDetails(
             packageDetails.toString(),
         )
+
+        const salt = tmap.get("salt")
+        if (!salt) throw new Error("Missing transient field 'salt'")
+        const parsedSalt = salt.toString()
         const storeObject = {
-            salt,
             packageDetails: parsedPackageInfo,
             pii: parsedPII,
+            salt: parsedSalt
         }
 
         const canonicalPackageInfo = stringify(sortKeysRecursive(storeObject))
