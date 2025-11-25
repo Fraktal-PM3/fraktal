@@ -1,9 +1,13 @@
+#!/usr/bin/env bash
+
 FRAKTALDIR=$(cd "$(dirname "$0")" && pwd)
 NETWORKDIR=${FRAKTALDIR}/fabric-samples/test-network
 CHANNEL_NAME="pm3"
 CONTAINER_CLI=docker
 export PATH=${FRAKTALDIR}/fabric-samples/bin:$PATH
 export FABRIC_CFG_PATH=${FRAKTALDIR}/fabric-samples/config/
+
+# Default chaincode settings (used if not overridden)
 CC_NAME=${CC_NAME:-pm3package}
 CC_VERSION=${CC_VERSION:-1.0}
 CC_SEQUENCE=${CC_SEQUENCE:-1}
@@ -27,6 +31,49 @@ function errorln() {
   echo -e "\033[1;31m$1\033[0m"
 }
 
+########################################
+# Chaincode selection helper
+########################################
+# Usage: selectChaincode <package|roleauth>
+# Sets CC_NAME and CC_PATH appropriately.
+function selectChaincode() {
+  local contract=$1
+
+  case "${contract}" in
+  "" | package | pm3package)
+    infoln "Using pm3 *package* chaincode configuration"
+    # Always use this name for the package contract
+    CC_NAME=pm3package
+    CC_PATH=${FRAKTALDIR}/chaincodes/package
+    ;;
+  roleauth | roleAuth | role-auth | role)
+    infoln "Using *roleAuth* chaincode configuration"
+    # Separate chaincode name for role authorization
+    CC_NAME=pm3roleauth
+    CC_PATH=${FRAKTALDIR}/chaincodes/roleAuth
+    ;;
+  *)
+    errorln "Unknown chaincode '${contract}'. Valid options: package, roleauth"
+    exit 1
+    ;;
+  esac
+
+  # Normalize language flag just in case
+  case "${CC_LANG}" in
+  node | Node | NODE) CC_LANG=javascript ;;
+  js | JS | JavaScript) CC_LANG=javascript ;;
+  ts | TS | TypeScript) CC_LANG=typescript ;;
+  esac
+
+  infoln "Selected chaincode:"
+  infoln "  Name=${CC_NAME}"
+  infoln "  Path=${CC_PATH}"
+  infoln "  Lang=${CC_LANG}"
+}
+
+########################################
+# IPFS image build
+########################################
 function buildIPFSImage() {
   infoln "==============================="
   infoln "Building custom IPFS image..."
@@ -44,7 +91,11 @@ function buildIPFSImage() {
   infoln "Custom IPFS image built successfully"
 }
 
-# Build the PM3 chaincode (TypeScript -> dist JS)
+########################################
+# Chaincode build / deploy helpers
+########################################
+
+# Build the selected chaincode (TypeScript -> dist JS)
 function buildChaincode() {
   infoln "==============================="
   infoln "Building chaincode at: ${CC_PATH}"
@@ -61,7 +112,7 @@ function buildChaincode() {
   popd >/dev/null
 }
 
-# Deploy the PM3 chaincode via test-network/network.sh
+# Deploy the selected chaincode via test-network/network.sh
 function deployChaincode() {
   infoln "======================================"
   infoln "Deploying chaincode to channel: ${CHANNEL_NAME}"
@@ -81,7 +132,7 @@ function deployChaincode() {
   return ${rc}
 }
 
-# Upgrade the PM3 chaincode to a new version
+# Upgrade the selected chaincode to a new version
 function upgradeChaincode() {
   infoln "======================================"
   infoln "Upgrading chaincode on channel: ${CHANNEL_NAME}"
@@ -97,14 +148,14 @@ function upgradeChaincode() {
   infoln "  2. Increment CC_SEQUENCE (e.g., 1 -> 2)"
   infoln ""
   infoln "Set these via environment variables:"
-  infoln "  CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc"
+  infoln "  CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc <package|roleauth>"
   infoln ""
 
   # Check if this looks like an initial deployment (version 1.0 and sequence 1)
   if [[ "${CC_VERSION}" == "1.0" && "${CC_SEQUENCE}" == "1" ]]; then
     errorln "Error: CC_VERSION and CC_SEQUENCE appear to be at initial values."
     errorln "Please increment them before upgrading:"
-    errorln "  CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc"
+    errorln "  CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc <package|roleauth>"
     return 1
   fi
 
@@ -135,6 +186,10 @@ function upgradeChaincode() {
 
   return ${rc}
 }
+
+########################################
+# CA admin + identity helpers
+########################################
 
 # Enroll CA admins for both organizations
 function enrollCaAdmins() {
@@ -223,8 +278,12 @@ function listIdentities() {
     --tls.certfiles "${CA_TLS}"
 }
 
+########################################
+# Fabric test network & FireFly
+########################################
+
 # Start the fabric test network using the network.sh script. Setting the channel name to pm3.
-# if the network is already running, this will do nothing.
+# Note: this still deploys the FireFly chaincode, but NO pm3/roleAuth chaincode anymore.
 function networkUp() {
   if [[ ! -d ${NETWORKDIR} ]]; then
     errorln "Fabric test network directory not found: ${NETWORKDIR}"
@@ -293,6 +352,7 @@ function installfireflychaincode() {
 }
 
 # Makes sure that the configs are in order and then starts the firefly containers.
+# NOTE: This no longer auto-deploys pm3/roleAuth chaincodes.
 function fireflyUp() {
   ORG1_KEYSTORE=${NETWORKDIR}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp/keystore
   ORG2_KEYSTORE=${NETWORKDIR}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp/keystore
@@ -372,8 +432,10 @@ function fireflyUp() {
 
   ff start dev --no-rollback -v
 
-  buildChaincode
-  deployChaincode
+  # NOTE: pm3 / roleAuth chaincodes are *not* built/deployed here anymore.
+  # Use:
+  #   ./dev.sh deploycc package
+  #   ./dev.sh deploycc roleauth
 }
 
 function networkDown() {
@@ -488,8 +550,10 @@ function printHelp() {
   echo "  down           Stop and remove the PM3 test network and/or Firefly containers"
   echo "  status         Show the status of the PM3 test network and/or Firefly containers"
   echo "  install        Install prerequisites for the PM3 test network"
-  echo "  deploycc       Build and deploy the PM3 chaincode to the Fabric network"
-  echo "  upgradecc      Upgrade the PM3 chaincode to a new version (usage: CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc)"
+  echo "  deploycc       Build and deploy a chaincode to the Fabric network"
+  echo "                 Usage: $0 deploycc <package|roleauth>"
+  echo "  upgradecc      Upgrade a chaincode to a new version"
+  echo "                 Usage: CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc <package|roleauth>"
   echo "  updaterole     Update role for an existing user (usage: $0 updaterole <username> <new_role> <org_number>)"
   echo "  listidentities List all identities in the CA for an org (usage: $0 listidentities <org_number>)"
   echo ""
@@ -501,12 +565,19 @@ function printHelp() {
   echo "If neither firefly nor fabric is specified, both will be operated on."
   echo ""
   echo "Examples:"
-  echo "  CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc    # Upgrade chaincode to version 1.1 with sequence 2"
+  echo "  $0 deploycc package                     # Deploy pm3package chaincode"
+  echo "  $0 deploycc roleauth                    # Deploy roleAuth chaincode"
+  echo "  CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc package   # Upgrade package chaincode"
+  echo "  CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc roleauth  # Upgrade roleAuth chaincode"
   echo "  $0 updaterole transporter1 manager 1         # Update transporter1 in Org1 to manager role"
   echo "  $0 updaterole ombud1 auditor 2               # Update ombud1 in Org2 to auditor role"
   echo "  $0 listidentities 1                          # List all identities registered in Org1's CA"
   echo "  $0 listidentities 2                          # List all identities registered in Org2's CA"
 }
+
+########################################
+# Argument parsing
+########################################
 
 # Parse commandline args
 ## Parse mode
@@ -522,7 +593,7 @@ firefly_selected=false
 fabric_selected=false
 
 # Commands that take positional arguments should skip the firefly/fabric parsing loop
-if [[ "${MODE}" != "updaterole" && "${MODE}" != "listidentities" && "${MODE}" != "upgradecc" ]]; then
+if [[ "${MODE}" != "updaterole" && "${MODE}" != "listidentities" && "${MODE}" != "upgradecc" && "${MODE}" != "deploycc" ]]; then
   while [[ $# -ge 1 ]]; do
     case "$1" in
     ff)
@@ -591,11 +662,27 @@ elif [[ "${MODE}" == "install" ]]; then
     install
   fi
 elif [[ "${MODE}" == "deploycc" ]]; then
-  # Build and deploy the PM3 chaincode
+  # Build and deploy a specific chaincode
+  if [[ $# -lt 1 ]]; then
+    errorln "deploycc requires 1 argument: <package|roleauth>"
+    echo "Example: $0 deploycc package"
+    echo "Example: $0 deploycc roleauth"
+    exit 1
+  fi
+  CONTRACT=$1
+  selectChaincode "${CONTRACT}"
   buildChaincode
   deployChaincode
 elif [[ "${MODE}" == "upgradecc" ]]; then
-  # Build and upgrade the PM3 chaincode
+  # Build and upgrade a specific chaincode
+  if [[ $# -lt 1 ]]; then
+    errorln "upgradecc requires 1 argument: <package|roleauth>"
+    echo "Example: CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc package"
+    echo "Example: CC_VERSION=1.1 CC_SEQUENCE=2 $0 upgradecc roleauth"
+    exit 1
+  fi
+  CONTRACT=$1
+  selectChaincode "${CONTRACT}"
   upgradeChaincode
 elif [[ "${MODE}" == "updaterole" ]]; then
   # Parse additional arguments for updaterole command
