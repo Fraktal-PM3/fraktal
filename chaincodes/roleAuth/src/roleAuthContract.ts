@@ -23,7 +23,7 @@ import { Permission, PermissionSchema } from './roleUtils'
  */
 
 // PM3 MSP identifier used to gate administrative actions
-export const PM3_MSPID = 'org_7ab6de'
+export const PM3_MSPID = "Org1MSP"
 
 export class RoleAuthContract extends Contract {
 
@@ -72,15 +72,25 @@ export class RoleAuthContract extends Contract {
     public async setPermissions(
         ctx: Context,
         targetIdentityIdentifier: string,
-        permissions: Permission[],
+        permissionsJson: string,
     ): Promise<void> {
         const callerMsp = ctx.clientIdentity.getMSPID()
         if (callerMsp !== PM3_MSPID) {
-            throw new Error('ACCESS DENIED: only PM3 may update permissions')
+            throw new Error(`ACCESS DENIED: only PM3 may update permissions, caller MSP is ${callerMsp} and required is ${PM3_MSPID}`)
         }
 
-        const parsed = z.array(PermissionSchema).parse(permissions)
-        await ctx.stub.putState(this.permissionsKey(targetIdentityIdentifier), Buffer.from(JSON.stringify(parsed)))
+        let permissions: Permission[]
+        try {
+            const parsed = JSON.parse(permissionsJson)
+            permissions = z.array(PermissionSchema).parse(parsed)
+          } catch (err: any) {
+            throw new Error(
+              `Invalid permissions JSON. Expected array of permission strings. ` +
+              `Error: ${err?.message ?? String(err)}`
+            )
+          }
+
+        await ctx.stub.putState(this.permissionsKey(targetIdentityIdentifier), Buffer.from(JSON.stringify(permissions)))
     }
 
     /**
