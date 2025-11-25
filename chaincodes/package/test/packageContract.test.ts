@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { PackageContract } from "../src/packageContract"
 import { MockContext } from "./helpers/mockContext"
 import { Status, Urgency, PackageDetails, PackagePII } from "../src/package"
+import { de } from "zod/v4/locales"
 
 // Mock the fabric-contract-api decorators before importing classes that use them
 vi.mock("fabric-contract-api", async (importOriginal: any) => {
@@ -76,4 +77,15 @@ describe("PackageContract (unit)", () => {
             expect(parsedPkg.pii).toEqual(pii)
         })
     })
+    describe("ReadBlockchainPackage", () => {})
+    describe("ReadPackageDetailsAndPII", () => {})
+    describe("UpdatePackageStatus", () => {})
+    describe("DeletePackage", () => {})
+    describe("PackageExists", () => {})
+    describe("ProposeTransfer", () => {})
+    describe("CheckPackageDetailsAndPIIHash", () => {})
+    describe("ReadTransferTerms", () => {})
+    describe("ReadPrivateTransferTerms", () => {})
+    describe("AcceptTransfer", () => {})
+    describe("ExecuteTransfer", () => {})
 })
