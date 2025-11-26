@@ -23,6 +23,7 @@ import {
     isUUID,
     isISODateString,
 } from "./utils"
+import { RoleAuthContract } from "../../roleAuth/src/roleAuthContract"
 
 const compositeKeyPrefix = "transferTerms"
 
@@ -35,6 +36,7 @@ export class PackageContract extends Contract {
      * CreatePackage issues a new package to the world state with given details.
      * Stores the private package details and PII in the caller's implicit collection
      * and a public package record (with a hash of the private blob) on the ledger.
+     * Requires 'package:create' permission.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier (unique)
      * @returns {Promise<void>}
@@ -48,6 +50,15 @@ export class PackageContract extends Contract {
         console.log(
             `[CreatePackage] Called by: ${callerMSPID} for package: ${externalId}`,
         )
+
+        // Check permission
+        const roleAuthContract = new RoleAuthContract()
+        const hasPermission = await roleAuthContract.callerHasPermission(ctx, 'package:create')
+        if (!hasPermission) {
+            throw new Error(
+                `The caller is not authorized to create packages. Missing 'package:create' permission.`,
+            )
+        }
 
         if (!externalId || externalId.trim() === "") {
             throw new Error("packageID must be a non-empty string")
