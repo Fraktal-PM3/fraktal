@@ -1,7 +1,7 @@
 {
-    "name": "pm3-package-chaincode",
+    "name": "pm3-roleauth-chaincode",
     "version": "1.0.0",
-    "description": "Package chaincode for PM3",
+    "description": "Role authorization chaincode for PM3",
     "main": "dist/index.js",
     "typings": "dist/index.d.ts",
     "engines": {
