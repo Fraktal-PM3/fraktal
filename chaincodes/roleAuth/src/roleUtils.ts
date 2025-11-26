@@ -1,4 +1,5 @@
 import z from 'zod'
+import { Context } from 'fabric-contract-api'
 
 /**
  * Zod schema for canonical role names used by the contracts.
@@ -10,7 +11,7 @@ import z from 'zod'
  *
  * Use this schema to validate role strings at runtime or when parsing configs.
  */
-export const RoleSchema = z.enum(['pm3', 'ombud', 'transporter'])
+export const RoleSchema = z.enum(['pm3org'])
 export type Role = z.infer<typeof RoleSchema>
 
 
@@ -46,7 +47,7 @@ export type RolePermissions = z.infer<typeof RolePermissionsSchema>
  * Modify this object only when you intentionally change authorization rules.
  */
 export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
-    pm3: [
+    pm3org: [
         'package:create',
         'package:read',
         'package:read:private',
@@ -55,16 +56,22 @@ export const DEFAULT_ROLE_PERMISSIONS: RolePermissions = {
         'transfer:propose',
         'transfer:accept',
         'transfer:execute',
-    ],
-    ombud: [
-        'package:read',
-        'package:read:private',
-        'package:delete',
-    ],
-    transporter: [
-        'package:read',
-        'package:read:private',
-        'transfer:propose',
-        'transfer:accept',
-    ],
+    ]
+
 }
+
+
+
+/**
+ * Helper function to construct the permissions key for a given identity.
+ * This matches the key format used by RoleAuthContract.
+ *
+ * @param identityId - Identity identifier in format "MSPID:certificateId"
+ * @returns The state key for the identity's permissions
+ */
+export function getPermissionsKey(identityId: string): string {
+    return `roleauth:perms:${identityId}`
+}
+
+
+

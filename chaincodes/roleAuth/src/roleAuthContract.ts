@@ -1,7 +1,7 @@
 
 import { Context, Contract, Transaction } from 'fabric-contract-api'
 import { z } from 'zod'
-import { Permission, PermissionSchema } from './roleUtils'
+import { getPermissionsKey, Permission, PermissionSchema } from './roleUtils'
 
 
 /**
@@ -105,6 +105,182 @@ export class RoleAuthContract extends Contract {
             return perms.includes(permission)
         } catch {
             return false
+        }
+    }
+
+    /**
+     * Check if anyone on the blockchain has permissions.
+     * Returns true if at least one identity has permissions set.
+     */
+    private async anyoneHasPermissions(ctx: Context): Promise<boolean> {
+        // Query all keys with the permissions prefix
+        const iterator = await ctx.stub.getStateByRange('roleauth:perms:', 'roleauth:perms:~')
+
+        try {
+            let result = await iterator.next()
+            // If we get any result, someone has permissions
+            if (!result.done && result.value) {
+                return true
+            }
+            return false
+        } finally {
+            await iterator.close()
+        }
+    }
+
+    @Transaction()
+    public async setDefaultPermissions(ctx: Context, targetIdentityIdentifier: string): Promise<void> {
+        const callerMsp = ctx.clientIdentity.getMSPID()
+
+        // Check if no one has permissions on the blockchain
+        const hasAnyPermissions = await this.anyoneHasPermissions(ctx)
+
+        if (!hasAnyPermissions) {
+            // Bootstrap case: no one has permissions yet
+            // Assign default permissions to PM3 org caller
+            if (callerMsp !== PM3_MSPID) {
+                throw new Error(`Bootstrap failed: first permissions must be assigned to PM3 org, caller MSP is ${callerMsp}`)
+            }
+
+            const pm3Identifier = this.identityIdentifierFromCtx(ctx)
+            const defaultPermissions: Permission[] = [
+                'package:create',
+                'package:read',
+                'package:read:private',
+                'package:updateStatus',
+                'package:delete',
+                'transfer:propose',
+                'transfer:accept',
+                'transfer:execute',
+            ]
+
+            await ctx.stub.putState(this.permissionsKey(pm3Identifier), Buffer.from(JSON.stringify(defaultPermissions)))
+            return
+        }
+
+        // Normal case: someone already has permissions, enforce PM3 access control
+        if (callerMsp !== PM3_MSPID) {
+            throw new Error(`ACCESS DENIED: only PM3 may update permissions, caller MSP is ${callerMsp} and required is ${PM3_MSPID}`)
+        }
+
+        const defaultPermissions: Permission[] = [
+            'package:create',
+            'package:read',
+            'package:read:private',
+            'package:updateStatus',
+            'package:delete',
+            'transfer:propose',
+            'transfer:accept',
+            'transfer:execute',
+        ]
+
+        await ctx.stub.putState(this.permissionsKey(targetIdentityIdentifier), Buffer.from(JSON.stringify(defaultPermissions)))
+    }
+
+    /**
+     * Helper function to get the caller's identity identifier.
+     * This matches the format used by RoleAuthContract.
+     *
+     * @param ctx - Fabric transaction context
+     * @returns Identity identifier in format "MSPID:certificateId"
+     */
+    @Transaction(false)
+    public getCallerIdentifier(ctx: Context): string {
+        return `${ctx.clientIdentity.getMSPID()}:${ctx.clientIdentity.getID()}`
+    }
+
+    /**
+     * Fetch the caller's permissions from the blockchain.
+     * Returns an array of Permission strings that the caller has been granted.
+     * Returns an empty array if the caller has no permissions set.
+     *
+     * This helper can be used in other contracts (like PackageContract) to check
+     * permissions without needing to invoke the RoleAuthContract.
+     *
+     * @param ctx - Fabric transaction context
+     * @returns Array of permissions the caller has
+     *
+     * @example
+     * ```typescript
+     * import { getCallerPermissions } from './roleAuth/src/roleUtils'
+     *
+     * // In your contract method:
+     * const permissions = await getCallerPermissions(ctx)
+     * if (!permissions.includes('package:create')) {
+     *   throw new Error('ACCESS DENIED: missing package:create permission')
+     * }
+     * ```
+     */
+    @Transaction(false)
+    public async getCallerPermissions(ctx: Context): Promise<Permission[]> {
+        const identityId = this.getCallerIdentifier(ctx)
+        const key = getPermissionsKey(identityId)
+
+        const data = await ctx.stub.getState(key)
+        if (!data || data.length === 0) {
+            return []
+        }
+
+        try {
+            const parsed = JSON.parse(data.toString()) as unknown
+            // Validate the stored value before returning
+            const validated = z.array(PermissionSchema).parse(parsed)
+            return validated
+        } catch {
+            // On corruption/parse error, return empty array to be safe
+            return []
+        }
+    }
+
+    /**
+     * Check if the caller has a specific permission.
+     * Convenience wrapper around getCallerPermissions.
+     *
+     * @param ctx - Fabric transaction context
+     * @param permission - The permission to check for
+     * @returns true if the caller has the permission, false otherwise
+     *
+     * @example
+     * ```typescript
+     * import { callerHasPermission } from './roleAuth/src/roleUtils'
+     *
+     * // In your contract method:
+     * if (!await callerHasPermission(ctx, 'package:create')) {
+     *   throw new Error('ACCESS DENIED: missing package:create permission')
+     * }
+     * ```
+     */
+    @Transaction(false)
+    public async callerHasPermission(ctx: Context, permission: Permission): Promise<boolean> {
+        const permissions = await this.getCallerPermissions(ctx)
+        return permissions.includes(permission)
+    }
+
+    /**
+     * Require that the caller has a specific permission, throwing an error if they don't.
+     * Use this at the start of contract methods that need permission checks.
+     *
+     * @param ctx - Fabric transaction context
+     * @param permission - The required permission
+     * @throws Error if the caller doesn't have the permission
+     *
+     * @example
+     * ```typescript
+     * import { requirePermission } from './roleAuth/src/roleUtils'
+     *
+     * @Transaction()
+     * public async createPackage(ctx: Context, ...args: any[]): Promise<void> {
+     *   await requirePermission(ctx, 'package:create')
+     *   // ... rest of the method
+     * }
+     * ```
+     */
+    @Transaction(false)
+    public async requirePermission(ctx: Context, permission: Permission): Promise<void> {
+        const hasPermission = await this.callerHasPermission(ctx, permission)
+        if (!hasPermission) {
+            const identityId = this.getCallerIdentifier(ctx)
+            throw new Error(`ACCESS DENIED: Identity ${identityId} does not have permission '${permission}'`)
         }
     }
 
