@@ -94,6 +94,87 @@ export class RoleAuthContract extends Contract {
     }
 
     /**
+     * Grant specific permissions to a target organization.
+     * Only PM3 may call this function. This allows granular permission management.
+     *
+     * @param ctx - Fabric transaction context
+     * @param targetMSP - Target organization's MSP ID (e.g., "Org2MSP")
+     * @param targetCertId - Target user's certificate ID (the result of getID())
+     * @param permissionsJson - JSON array of permission strings to grant
+     * @returns {Promise<void>}
+     *
+     * @example
+     * // Grant package read permissions to Org2MSP user
+     * await grantPermissionsToOrg(ctx, "Org2MSP", "x509::CN=user1...", '["package:read"]')
+     */
+    @Transaction()
+    public async grantPermissionsToOrg(
+        ctx: Context,
+        targetMSP: string,
+        targetCertId: string,
+        permissionsJson: string,
+    ): Promise<void> {
+        const callerMsp = ctx.clientIdentity.getMSPID()
+        if (callerMsp !== PM3_MSPID) {
+            throw new Error(`ACCESS DENIED: only PM3 may grant permissions, caller MSP is ${callerMsp}`)
+        }
+
+        // Validate permissions input
+        let permissions: Permission[]
+        try {
+            const parsed = JSON.parse(permissionsJson)
+            permissions = z.array(PermissionSchema).parse(parsed)
+        } catch (err: any) {
+            throw new Error(
+                `Invalid permissions JSON. Expected array of permission strings. ` +
+                `Error: ${err?.message ?? String(err)}`
+            )
+        }
+
+        // Construct the target identity identifier
+        const targetIdentityIdentifier = `${targetMSP}:${targetCertId}`
+
+        console.log(
+            `[grantPermissionsToOrg] PM3 granting permissions to ${targetIdentityIdentifier}: ${JSON.stringify(permissions)}`
+        )
+
+        await ctx.stub.putState(
+            this.permissionsKey(targetIdentityIdentifier),
+            Buffer.from(JSON.stringify(permissions))
+        )
+    }
+
+    /**
+     * Revoke all permissions from a target organization user.
+     * Only PM3 may call this function.
+     *
+     * @param ctx - Fabric transaction context
+     * @param targetMSP - Target organization's MSP ID
+     * @param targetCertId - Target user's certificate ID
+     * @returns {Promise<void>}
+     */
+    @Transaction()
+    public async revokePermissionsFromOrg(
+        ctx: Context,
+        targetMSP: string,
+        targetCertId: string,
+    ): Promise<void> {
+        const callerMsp = ctx.clientIdentity.getMSPID()
+        if (callerMsp !== PM3_MSPID) {
+            throw new Error(`ACCESS DENIED: only PM3 may revoke permissions, caller MSP is ${callerMsp}`)
+        }
+
+        const targetIdentityIdentifier = `${targetMSP}:${targetCertId}`
+
+        console.log(
+            `[revokePermissionsFromOrg] PM3 revoking all permissions from ${targetIdentityIdentifier}`
+        )
+
+        // Delete the permissions entry (effectively setting to empty array)
+        await ctx.stub.deleteState(this.permissionsKey(targetIdentityIdentifier))
+    }
+
+    /**
      * Check whether the caller has the supplied permission by reading the caller's
      * stored permissions from the ledger.
      */
