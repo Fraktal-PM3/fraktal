@@ -107,9 +107,43 @@ describe("PackageContract (unit)", () => {
             expect(pkg.pii).toEqual(pii)
         })
     })
-    describe.skip("UpdatePackageStatus", () => {})
-    describe.skip("DeletePackage", () => {})
-    describe.skip("PackageExists", () => {})
+    describe("UpdatePackageStatus", () => {
+        it("Should update the package status", async () => {
+            const externalId = "PKG-004"
+            const salt = "randomSalt000"
+            await c.CreatePackage(ctxOmbud as any, externalId, salt)
+            await c.UpdatePackageStatus(
+                ctxOmbud as any,
+                externalId,
+                Status.PROPOSED
+            )
+            const pkgStr = await c.ReadBlockchainPackage(
+                ctxOmbud as any,
+                externalId
+            )
+            const pkg = JSON.parse(pkgStr)
+            expect(pkg.status).toBe(Status.PROPOSED)
+        })
+    })
+    describe("DeletePackage", () => {
+        it("Should delete the package", async () => {
+            const externalId = "PKG-005"
+            const salt = "randomSalt999"
+            await c.CreatePackage(ctxPM3 as any, externalId, salt)
+            let exists = await c.PackageExists(ctxPM3 as any, externalId)
+            expect(exists).toBe(true)
+            await c.DeletePackage(ctxPM3 as any, externalId)
+            exists = await c.PackageExists(ctxPM3 as any, externalId)
+            expect(exists).toBe(false)
+        })
+    })
+    describe("PackageExists", () => {
+        it("Should return false for non-existing package", async () => {
+            const externalId = "PKG-999"
+            const exists = await c.PackageExists(ctxOmbud as any, externalId)
+            expect(exists).toBe(false)
+        })
+    })
     describe.skip("ProposeTransfer", () => {})
     describe.skip("CheckPackageDetailsAndPIIHash", () => {})
     describe.skip("ReadTransferTerms", () => {})

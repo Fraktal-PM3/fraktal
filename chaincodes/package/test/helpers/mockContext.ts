@@ -1,5 +1,10 @@
 type Bytes = Buffer | Uint8Array
 
+interface CompositeKey {
+    objectType: string
+    attributes: string[]
+}
+
 export class MockStub {
     private state = new Map<string, Buffer>()
     private pdc = new Map<string, Map<string, Buffer>>() // collection -> (key -> value)
@@ -70,11 +75,68 @@ export class MockStub {
             }
         })
 
+    deletePrivateData = (collection: string, key: string): Promise<void> =>
+        new Promise((resolve, reject) => {
+            try {
+                const col = this.pdc.get(collection)
+                if (col) {
+                    col.delete(key)
+                }
+                resolve()
+            } catch (error) {
+                reject(error as Error)
+            }
+        })
+
+    // composite keys
+    createCompositeKey = (objectType: string, attributes: string[]): string => {
+        return `\x00${objectType}\x00${attributes.join("\x00")}\x00`
+    }
+
+    splitCompositeKey = (compositeKey: string): CompositeKey => {
+        const parts = compositeKey.split("\x00").filter((p) => p !== "")
+        return {
+            objectType: parts[0] || "",
+            attributes: parts.slice(1),
+        }
+    }
+
+    getStateByPartialCompositeKey = (
+        objectType: string,
+        attributes: string[]
+    ): Promise<any> => {
+        return new Promise((resolve) => {
+            const prefix = this.createCompositeKey(objectType, attributes)
+            const matchingEntries: Array<{ key: string; value: Buffer }> = []
+
+            for (const [key, value] of this.state.entries()) {
+                if (key.startsWith(prefix)) {
+                    matchingEntries.push({ key, value })
+                }
+            }
+
+            let index = 0
+            const iterator = {
+                async next() {
+                    if (index < matchingEntries.length) {
+                        return {
+                            value: matchingEntries[index++],
+                            done: false,
+                        }
+                    }
+                    return { value: undefined, done: true }
+                },
+                async close() {},
+            }
+
+            resolve(iterator)
+        })
+    }
+
     getTransient = (): Map<string, Uint8Array> => {
         return this.transient
     }
 
-    // Convenience for tests: set transient from JS values/strings/Buffers
     setTransient = (obj: Record<string, any>): Promise<void> =>
         new Promise((resolve, reject) => {
             try {
