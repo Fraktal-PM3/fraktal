@@ -77,7 +77,6 @@ export class PackageContract extends Contract {
             )
         }
 
-        
         const parsedPackageInfo = validateJSONToPackageDetails(
             packageDetails.toString(),
         )
@@ -88,7 +87,7 @@ export class PackageContract extends Contract {
         const storeObject = {
             packageDetails: parsedPackageInfo,
             pii: parsedPII,
-            salt: parsedSalt
+            salt: parsedSalt,
         }
 
         const canonicalPackageInfo = stringify(sortKeysRecursive(storeObject))
@@ -123,7 +122,10 @@ export class PackageContract extends Contract {
         )
         const eventBuffer = Buffer.from(
             stringify(
-                sortKeysRecursive({ id: externalId, status: Status.PENDING }),
+                sortKeysRecursive({
+                    ...blockchainPackage,
+                    caller: ownerOrgMSPID,
+                }),
             ),
         )
 
@@ -263,7 +265,13 @@ export class PackageContract extends Contract {
             stringify(sortKeysRecursive(packageData)),
         )
         const eventBuffer = Buffer.from(
-            stringify(sortKeysRecursive({ id: externalId, status })),
+            stringify(
+                sortKeysRecursive({
+                    externalId: externalId,
+                    status,
+                    caller: callerMSPID,
+                }),
+            ),
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
@@ -337,7 +345,14 @@ export class PackageContract extends Contract {
 
             ctx.stub.setEvent(
                 "DeletePackage",
-                Buffer.from(stringify(sortKeysRecursive({ id: externalId }))),
+                Buffer.from(
+                    stringify(
+                        sortKeysRecursive({
+                            id: externalId,
+                            caller: callerMSPID,
+                        }),
+                    ),
+                ),
             )
             return
         }
@@ -453,7 +468,16 @@ export class PackageContract extends Contract {
 
         ctx.stub.setEvent(
             "ProposeTransfer",
-            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
+            Buffer.from(
+                stringify(
+                    sortKeysRecursive({
+                        externalId,
+                        termsId,
+                        terms,
+                        caller: callerMSP(ctx),
+                    }),
+                ),
+            ),
         )
     }
 
@@ -698,7 +722,15 @@ export class PackageContract extends Contract {
 
         ctx.stub.setEvent(
             "AcceptTransfer",
-            Buffer.from(stringify(sortKeysRecursive({ externalId, termsId }))),
+            Buffer.from(
+                stringify(
+                    sortKeysRecursive({
+                        externalId,
+                        termsId,
+                        caller: callerMSPID,
+                    }),
+                ),
+            ),
         )
     }
 
@@ -805,7 +837,6 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
-        // Emit minimal event
         ctx.stub.setEvent(
             "TransferExecuted",
             Buffer.from(
@@ -813,6 +844,7 @@ export class PackageContract extends Contract {
                     externalId,
                     termsId,
                     newOwner: packageData.ownerOrgMSP,
+                    caller: callerMSP(ctx),
                 }),
             ),
         )
