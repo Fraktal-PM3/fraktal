@@ -237,21 +237,31 @@ export class PackageContract extends Contract {
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
         const callerMSPID = callerMSP(ctx)
-        const isOwner = packageData.ownerOrgMSP === callerMSPID
 
         // Enforce that only the owner organization can update the package status
-        if (!isOwner) {
+        if (packageData.ownerOrgMSP !== callerMSPID) {
             throw new Error(
                 `The caller is not authorized to update the package ${externalId} status`,
             )
         }
 
+        const isPM3 = true // TODO: replace with pm3 check when authorization is implemented
+
         // Enforce valid status transitions
-        if (status == Status.SUCCEEDED && !requireAttr(ctx, "role", "pm3")) {
+        //TODO: Check for pm3 msp
+        if (status == Status.SUCCEEDED && !isPM3) {
             throw new Error(
                 "The caller is not authorized to update the package status to SUCCEEDED",
             )
         }
+
+        //TODO: Check for pm3 msp
+        if (status == Status.FAILED && !isPM3) {
+            throw new Error(
+                "The caller is not authorized to update the package status to FAILED",
+            )
+        }
+
         if (!isAllowedTransition(packageData.status, status)) {
             throw new Error(
                 `The status transition from ${packageData.status} to ${status} is not allowed`,
@@ -849,4 +859,6 @@ export class PackageContract extends Contract {
             ),
         )
     }
+
+    
 }
