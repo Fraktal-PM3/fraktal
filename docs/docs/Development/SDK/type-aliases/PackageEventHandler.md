@@ -8,7 +8,7 @@
 
 > **PackageEventHandler** = (`res`) => `void`
 
-Defined in: [src/lib/services/package/types.common.ts:187](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L187)
+Defined in: [src/lib/services/package/types.common.ts:238](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L238)
 
 Callback signature for package-related blockchain events.
 
@@ -16,7 +16,7 @@ Callback signature for package-related blockchain events.
 
 ### res
 
-\{ `output`: `any`; `timestamp`: `string`; `txid`: `string` \| `undefined`; \} | \{ `author`: `string`; `created`: `string`; `hash`: `string`; `id`: `string`; `namespace`: `string`; `signingKey`: `string`; `validator`: `string`; `value`: `any`; \}
+[`BlockchainEventDelivery`](BlockchainEventDelivery.md) | [`FireFlyDatatypeMessage`](FireFlyDatatypeMessage.md)
 
 ## Returns
 

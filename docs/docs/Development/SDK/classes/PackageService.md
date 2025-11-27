@@ -6,7 +6,7 @@
 
 # Class: PackageService
 
-Defined in: [src/lib/services/package/PackageService.ts:63](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L63)
+Defined in: [src/lib/services/package/PackageService.ts:84](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L84)
 
 High-level API for interacting with blockchain-based package management via Hyperledger FireFly.
 
@@ -27,8 +27,8 @@ await svc.initalize()
 ```
 
 ```ts
-await svc.onEvent("PackageCreated", (e) => {
-  console.log("New package:", e.output, e.txid)
+await svc.onEvent("CreatePackage", (e) => {
+  console.log("New package:", e.output.externalId, e.txid)
 })
 ```
 
@@ -45,7 +45,7 @@ await svc.createPackage("pkg123", packageDetails, pii, salt)
 
 > **new PackageService**(`ff`): `PackageService`
 
-Defined in: [src/lib/services/package/PackageService.ts:68](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L68)
+Defined in: [src/lib/services/package/PackageService.ts:89](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L89)
 
 #### Parameters
 
@@ -63,7 +63,7 @@ Defined in: [src/lib/services/package/PackageService.ts:68](https://github.com/F
 
 > **acceptTransfer**(`externalId`, `termsId`, `privateTransferTerms`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:605](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L605)
+Defined in: [src/lib/services/package/PackageService.ts:697](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L697)
 
 Accepts a previously proposed transfer.
 
@@ -105,7 +105,7 @@ FireFly invocation response.
 
 > **checkPackageDetailsAndPIIHash**(`externalId`, `expectedHash`): `Promise`\<`boolean`\>
 
-Defined in: [src/lib/services/package/PackageService.ts:489](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L489)
+Defined in: [src/lib/services/package/PackageService.ts:581](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L581)
 
 Verifies that the private package details and PII hash matches the expected hash.
 
@@ -135,7 +135,7 @@ Expected SHA256 hex hash.
 
 > **createPackage**(`externalId`, `packageDetails`, `pii`, `salt`, `broadcast`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:348](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L348)
+Defined in: [src/lib/services/package/PackageService.ts:440](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L440)
 
 Creates a new package on-chain.
 
@@ -189,7 +189,7 @@ await svc.createPackage("pkg-001", details, { name: "Alice" }, saltHex);
 
 > **deletePackage**(`externalId`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:468](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L468)
+Defined in: [src/lib/services/package/PackageService.ts:560](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L560)
 
 Deletes a package from the ledger. You can only delete packages that you own and that are in a deletable state.
 
@@ -213,7 +213,7 @@ FireFly invocation response.
 
 > **executeTransfer**(`externalId`, `termsId`, `storeObject`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:637](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L637)
+Defined in: [src/lib/services/package/PackageService.ts:729](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L729)
 
 Executes a confirmed transfer (finalization step).
 
@@ -250,7 +250,7 @@ FireFly invocation response.
 
 > **getDataType**(): `Promise`\<\{ \}\>
 
-Defined in: [src/lib/services/package/PackageService.ts:288](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L288)
+Defined in: [src/lib/services/package/PackageService.ts:380](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L380)
 
 Retrieves the private package datatype from FireFly.
 
@@ -270,7 +270,7 @@ If the datatype does not exist.
 
 > **getLocalPackage**(`id`): `Promise`\<`Required`\<\{ \}\> \| `null`\>
 
-Defined in: [src/lib/services/package/PackageService.ts:310](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L310)
+Defined in: [src/lib/services/package/PackageService.ts:402](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L402)
 
 Reads a locally-cached FireFly data record by ID.
 
@@ -294,7 +294,7 @@ The data record (if found) or `null` if missing/errored.
 
 > **initalize**(): `Promise`\<`void`\>
 
-Defined in: [src/lib/services/package/PackageService.ts:81](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L81)
+Defined in: [src/lib/services/package/PackageService.ts:102](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L102)
 
 Initializes the service:
 - Ensures the private package **datatype** exists (creates if missing).
@@ -315,7 +315,7 @@ Resolves when initialization finishes.
 
 > **initialized**(): `boolean`
 
-Defined in: [src/lib/services/package/PackageService.ts:97](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L97)
+Defined in: [src/lib/services/package/PackageService.ts:118](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L118)
 
 Whether the service has completed initialization.
 
@@ -329,35 +329,371 @@ Whether the service has completed initialization.
 
 ### onEvent()
 
+#### Call Signature
+
 > **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
 
-Defined in: [src/lib/services/package/PackageService.ts:215](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L215)
+Defined in: [src/lib/services/package/PackageService.ts:263](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L263)
 
-Registers a local handler for a blockchain event.
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
 
-#### Parameters
+##### Parameters
 
-##### eventName
+###### eventName
+
+`"CreatePackage"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:268](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L268)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
+
+`"StatusUpdated"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:273](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L273)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
+
+`"DeletePackage"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:278](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L278)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
+
+`"ProposeTransfer"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:283](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L283)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
+
+`"AcceptTransfer"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:288](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L288)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
+
+`"TransferExecuted"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:294](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L294)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
+
+`"message"`
+
+Name of the blockchain event (as defined in the contract interface).
+
+###### handler
+
+(`event`) => `void`
+
+Callback invoked for each event delivery with properly typed event data.
+
+##### Returns
+
+`Promise`\<`void`\>
+
+##### Example
+
+```ts
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
+})
+```
+
+#### Call Signature
+
+> **onEvent**(`eventName`, `handler`): `Promise`\<`void`\>
+
+Defined in: [src/lib/services/package/PackageService.ts:300](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L300)
+
+Registers a local handler for a blockchain event with type-safe casting.
+Provides specific event types for known events, and a generic fallback for others.
+
+##### Parameters
+
+###### eventName
 
 `string`
 
 Name of the blockchain event (as defined in the contract interface).
 
-##### handler
+###### handler
 
-(...`args`) => `void`
+(`event`) => `void`
 
-Callback invoked for each event delivery.
+Callback invoked for each event delivery with properly typed event data.
 
-#### Returns
+##### Returns
 
 `Promise`\<`void`\>
 
-#### Example
+##### Example
 
 ```ts
-await svc.onEvent("PackageUpdated", (e) => {
-  console.log(e.txid, e.timestamp, e.output)
+// Type-safe listener for CreatePackage event
+await svc.onEvent("CreatePackage", (e) => {
+  console.log(e.output.externalId, e.output.ownerOrgMSP)
+})
+
+// Type-safe listener for StatusUpdated event
+await svc.onEvent("StatusUpdated", (e) => {
+  console.log(e.output.externalId, e.output.status)
+})
+
+// Type-safe listener for ProposeTransfer event
+await svc.onEvent("ProposeTransfer", (e) => {
+  console.log(e.output.termsId, e.output.terms.fromMSP)
 })
 ```
 
@@ -367,7 +703,7 @@ await svc.onEvent("PackageUpdated", (e) => {
 
 > **packageExists**(`externalId`): `Promise`\<`boolean`\>
 
-Defined in: [src/lib/services/package/PackageService.ts:430](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L430)
+Defined in: [src/lib/services/package/PackageService.ts:522](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L522)
 
 Checks if a package exists on-chain.
 
@@ -391,7 +727,7 @@ Package external ID.
 
 > **proposeTransfer**(`externalId`, `toMSP`, `terms`, `expiryISO?`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:519](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L519)
+Defined in: [src/lib/services/package/PackageService.ts:611](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L611)
 
 Proposes a transfer to another organization.
 
@@ -445,7 +781,7 @@ await svc.proposeTransfer("pkg-001", "Org2MSP", { id: "t-123", price: 42.5 });
 
 > **readBlockchainPackage**(`externalId`): `Promise`\<[`BlockchainPackage`](../type-aliases/BlockchainPackage.md)\>
 
-Defined in: [src/lib/services/package/PackageService.ts:410](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L410)
+Defined in: [src/lib/services/package/PackageService.ts:502](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L502)
 
 Reads the public, on-chain package record.
 
@@ -469,7 +805,7 @@ The [BlockchainPackage](../type-aliases/BlockchainPackage.md).
 
 > **readPackageDetailsAndPII**(`externalId`): `Promise`\<`Required`\<`any`\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:448](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L448)
+Defined in: [src/lib/services/package/PackageService.ts:540](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L540)
 
 Reads the **private** package details and PII visible to the caller’s org.
 
@@ -493,7 +829,7 @@ Implementation-specific object with details + PII.
 
 > **readPrivateTransferTerms**(`termsId`): `Promise`\<`Required`\<`any`\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:578](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L578)
+Defined in: [src/lib/services/package/PackageService.ts:670](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L670)
 
 Reads the private transfer terms for a given terms ID.
 Only the recipient organization (toMSP) can read their private terms.
@@ -518,7 +854,7 @@ The private transfer terms as a JSON string.
 
 > **readTransferTerms**(`termsId`): `Promise`\<`Required`\<`any`\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:557](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L557)
+Defined in: [src/lib/services/package/PackageService.ts:649](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L649)
 
 Reads the public transfer terms for a given terms ID.
 
@@ -542,7 +878,7 @@ The transfer terms as a JSON string.
 
 > **updatePackageStatus**(`externalId`, `status`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:389](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L389)
+Defined in: [src/lib/services/package/PackageService.ts:481](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L481)
 
 Updates the **status** of an existing package.
 
@@ -572,7 +908,7 @@ FireFly invocation response.
 
 > **uploadPackage**(`pkg`): `Promise`\<`Required`\<\{ \}\>\>
 
-Defined in: [src/lib/services/package/PackageService.ts:317](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/PackageService.ts#L317)
+Defined in: [src/lib/services/package/PackageService.ts:409](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/PackageService.ts#L409)
 
 #### Parameters
 

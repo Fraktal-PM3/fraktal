@@ -6,7 +6,7 @@
 
 # Enumeration: Status
 
-Defined in: [src/lib/services/package/types.common.ts:42](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L42)
+Defined in: [src/lib/services/package/types.common.ts:42](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L42)
 
 Current lifecycle status of a package.
 
@@ -16,7 +16,7 @@ Current lifecycle status of a package.
 
 > **DELIVERED**: `"delivered"`
 
-Defined in: [src/lib/services/package/types.common.ts:54](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L54)
+Defined in: [src/lib/services/package/types.common.ts:54](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L54)
 
 Reached the drop location.
 
@@ -26,7 +26,7 @@ Reached the drop location.
 
 > **FAILED**: `"failed"`
 
-Defined in: [src/lib/services/package/types.common.ts:58](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L58)
+Defined in: [src/lib/services/package/types.common.ts:58](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L58)
 
 Business process failed (irrecoverable).
 
@@ -36,7 +36,7 @@ Business process failed (irrecoverable).
 
 > **IN\_TRANSIT**: `"in_transit"`
 
-Defined in: [src/lib/services/package/types.common.ts:52](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L52)
+Defined in: [src/lib/services/package/types.common.ts:52](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L52)
 
 In transit between locations.
 
@@ -46,7 +46,7 @@ In transit between locations.
 
 > **PENDING**: `"pending"`
 
-Defined in: [src/lib/services/package/types.common.ts:44](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L44)
+Defined in: [src/lib/services/package/types.common.ts:44](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L44)
 
 Created but not yet ready for pickup.
 
@@ -56,7 +56,7 @@ Created but not yet ready for pickup.
 
 > **PICKED\_UP**: `"picked_up"`
 
-Defined in: [src/lib/services/package/types.common.ts:50](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L50)
+Defined in: [src/lib/services/package/types.common.ts:50](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L50)
 
 Courier has picked up the package.
 
@@ -66,7 +66,7 @@ Courier has picked up the package.
 
 > **PROPOSED**: `"proposed"`
 
-Defined in: [src/lib/services/package/types.common.ts:46](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L46)
+Defined in: [src/lib/services/package/types.common.ts:46](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L46)
 
 Transfer has been proposed to another organization.
 
@@ -76,7 +76,7 @@ Transfer has been proposed to another organization.
 
 > **READY\_FOR\_PICKUP**: `"ready_for_pickup"`
 
-Defined in: [src/lib/services/package/types.common.ts:48](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L48)
+Defined in: [src/lib/services/package/types.common.ts:48](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L48)
 
 Ready for pickup by the courier.
 
@@ -86,6 +86,6 @@ Ready for pickup by the courier.
 
 > **SUCCEEDED**: `"succeeded"`
 
-Defined in: [src/lib/services/package/types.common.ts:56](https://github.com/Fraktal-PM3/fraktal-lib/blob/eff4b5a6caf1290c4a9614c73cff032385c181de/src/lib/services/package/types.common.ts#L56)
+Defined in: [src/lib/services/package/types.common.ts:56](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L56)
 
 Business process completed successfully.
