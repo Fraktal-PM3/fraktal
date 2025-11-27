@@ -8,7 +8,7 @@
 
 > **PrivateTransferTerms** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:89](https://github.com/Fraktal-PM3/fraktal-lib/blob/7321e86e85b115942bce945b2b3c1c1ca5059f46/src/lib/services/package/types.common.ts#L89)
+Defined in: [src/lib/services/package/types.common.ts:89](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L89)
 
 Private terms for a transfer that should not be public on-chain.
 
@@ -18,6 +18,6 @@ Private terms for a transfer that should not be public on-chain.
 
 > **price**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:91](https://github.com/Fraktal-PM3/fraktal-lib/blob/7321e86e85b115942bce945b2b3c1c1ca5059f46/src/lib/services/package/types.common.ts#L91)
+Defined in: [src/lib/services/package/types.common.ts:91](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L91)
 
 Price to transfer ownership (currency/context external).
