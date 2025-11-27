@@ -188,76 +188,7 @@ export class RoleAuthContract extends Contract {
             return false
         }
     }
-
-    /**
-     * Check if anyone on the blockchain has permissions.
-     * Returns true if at least one identity has permissions set.
-     */
-    private async anyoneHasPermissions(ctx: Context): Promise<boolean> {
-        // Query all keys with the permissions prefix
-        const iterator = await ctx.stub.getStateByRange('roleauth:perms:', 'roleauth:perms:~')
-
-        try {
-            let result = await iterator.next()
-            // If we get any result, someone has permissions
-            if (!result.done && result.value) {
-                return true
-            }
-            return false
-        } finally {
-            await iterator.close()
-        }
-    }
-
-    @Transaction()
-    public async setDefaultPermissions(ctx: Context, targetIdentityIdentifier: string): Promise<void> {
-        const callerMsp = ctx.clientIdentity.getMSPID()
-
-        // Check if no one has permissions on the blockchain
-        const hasAnyPermissions = await this.anyoneHasPermissions(ctx)
-
-        if (!hasAnyPermissions) {
-            // Bootstrap case: no one has permissions yet
-            // Assign default permissions to PM3 org caller
-            if (callerMsp !== PM3_MSPID) {
-                throw new Error(`Bootstrap failed: first permissions must be assigned to PM3 org, caller MSP is ${callerMsp}`)
-            }
-
-            const pm3Identifier = this.identityIdentifierFromCtx(ctx)
-            const defaultPermissions: Permission[] = [
-                'package:create',
-                'package:read',
-                'package:read:private',
-                'package:updateStatus',
-                'package:delete',
-                'transfer:propose',
-                'transfer:accept',
-                'transfer:execute',
-            ]
-
-            await ctx.stub.putState(this.permissionsKey(pm3Identifier), Buffer.from(JSON.stringify(defaultPermissions)))
-            return
-        }
-
-        // Normal case: someone already has permissions, enforce PM3 access control
-        if (callerMsp !== PM3_MSPID) {
-            throw new Error(`ACCESS DENIED: only PM3 may update permissions, caller MSP is ${callerMsp} and required is ${PM3_MSPID}`)
-        }
-
-        const defaultPermissions: Permission[] = [
-            'package:create',
-            'package:read',
-            'package:read:private',
-            'package:updateStatus',
-            'package:delete',
-            'transfer:propose',
-            'transfer:accept',
-            'transfer:execute',
-        ]
-
-        await ctx.stub.putState(this.permissionsKey(targetIdentityIdentifier), Buffer.from(JSON.stringify(defaultPermissions)))
-    }
-
+    
     /**
      * Helper function to get the caller's identity identifier.
      * This matches the format used by RoleAuthContract.
@@ -336,33 +267,6 @@ export class RoleAuthContract extends Contract {
         const permissions = await this.getCallerPermissions(ctx)
         return permissions.includes(permission)
     }
-
-    /**
-     * Require that the caller has a specific permission, throwing an error if they don't.
-     * Use this at the start of contract methods that need permission checks.
-     *
-     * @param ctx - Fabric transaction context
-     * @param permission - The required permission
-     * @throws Error if the caller doesn't have the permission
-     *
-     * @example
-     * ```typescript
-     * import { requirePermission } from './roleAuth/src/roleUtils'
-     *
-     * @Transaction()
-     * public async createPackage(ctx: Context, ...args: any[]): Promise<void> {
-     *   await requirePermission(ctx, 'package:create')
-     *   // ... rest of the method
-     * }
-     * ```
-     */
-    @Transaction(false)
-    public async requirePermission(ctx: Context, permission: Permission): Promise<void> {
-        const hasPermission = await this.callerHasPermission(ctx, permission)
-        if (!hasPermission) {
-            const identityId = this.getCallerIdentifier(ctx)
-            throw new Error(`ACCESS DENIED: Identity ${identityId} does not have permission '${permission}'`)
-        }
-    }
+    
 
 }
