@@ -23,6 +23,8 @@ import {
     isUUID,
     isISODateString,
 } from "./utils"
+import { RoleAuthContract } from "../../roleAuth/src/roleAuthContract"
+import { Permission } from "../../roleAuth/src/roleUtils"
 
 const compositeKeyPrefix = "transferTerms"
 
@@ -719,6 +721,16 @@ export class PackageContract extends Contract {
         externalId: string,
         termsId: string,
     ): Promise<void> {
+        // Check if caller has transfer:execute permission using RoleAuthContract
+        const roleAuthContract = new RoleAuthContract()
+        const hasPermission = await roleAuthContract.callerHasPermission(ctx, 'transfer:execute' as Permission)
+        if (!hasPermission) {
+            const callerIdentity = `${ctx.clientIdentity.getMSPID()}:${ctx.clientIdentity.getID()}`
+            throw new Error(
+                `ACCESS DENIED: Caller ${callerIdentity} does not have 'transfer:execute' permission`
+            )
+        }
+
         // Read public transfer terms
         const termsJSON = await this.ReadTransferTerms(ctx, termsId)
         const terms = validateJSONToTransferTerms(termsJSON)

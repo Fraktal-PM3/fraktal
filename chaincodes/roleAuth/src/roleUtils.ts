@@ -1,5 +1,4 @@
 import z from 'zod'
-import { Context } from 'fabric-contract-api'
 
 /**
  * Zod schema for canonical role names used by the contracts.
