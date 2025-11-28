@@ -8,7 +8,7 @@
 
 > **TransferOfferData** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:359](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L359)
+Defined in: [src/lib/services/package/types.common.ts:359](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L359)
 
 Transfer offer data structure for FireFly datatype messages.
 
@@ -18,7 +18,7 @@ Transfer offer data structure for FireFly datatype messages.
 
 > **createdISO**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:371](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L371)
+Defined in: [src/lib/services/package/types.common.ts:371](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L371)
 
 ISO-8601 creation timestamp.
 
@@ -28,7 +28,7 @@ ISO-8601 creation timestamp.
 
 > **expiryISO**: `string` \| `null` \| `undefined`
 
-Defined in: [src/lib/services/package/types.common.ts:373](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L373)
+Defined in: [src/lib/services/package/types.common.ts:373](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L373)
 
 Optional ISO-8601 expiry timestamp.
 
@@ -38,7 +38,7 @@ Optional ISO-8601 expiry timestamp.
 
 > **externalPackageId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:361](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L361)
+Defined in: [src/lib/services/package/types.common.ts:361](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L361)
 
 External identifier of the package being transferred.
 
@@ -48,7 +48,7 @@ External identifier of the package being transferred.
 
 > **fromMSP**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:365](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L365)
+Defined in: [src/lib/services/package/types.common.ts:365](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L365)
 
 MSP initiating the transfer.
 
@@ -58,7 +58,7 @@ MSP initiating the transfer.
 
 > **price**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:369](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L369)
+Defined in: [src/lib/services/package/types.common.ts:369](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L369)
 
 Price for the transfer.
 
@@ -68,7 +68,7 @@ Price for the transfer.
 
 > **termsId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:363](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L363)
+Defined in: [src/lib/services/package/types.common.ts:363](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L363)
 
 Identifier for this transfer proposal.
 
@@ -78,6 +78,6 @@ Identifier for this transfer proposal.
 
 > **toMSP**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:367](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/services/package/types.common.ts#L367)
+Defined in: [src/lib/services/package/types.common.ts:367](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/services/package/types.common.ts#L367)
 
 MSP targeted to receive the package.

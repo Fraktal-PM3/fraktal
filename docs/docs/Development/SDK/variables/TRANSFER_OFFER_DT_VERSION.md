@@ -8,4 +8,4 @@
 
 > `const` **TRANSFER\_OFFER\_DT\_VERSION**: `"1.0.0"` = `"1.0.0"`
 
-Defined in: [src/lib/datatypes/package.ts:67](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/datatypes/package.ts#L67)
+Defined in: [src/lib/datatypes/package.ts:70](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/datatypes/package.ts#L70)
