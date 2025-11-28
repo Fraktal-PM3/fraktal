@@ -8,7 +8,7 @@
 
 > **PackagePII** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:84](https://github.com/Fraktal-PM3/fraktal-lib/blob/daeada21355d102e10396752f2a80e945abf514e/src/lib/services/package/types.common.ts#L84)
+Defined in: [src/lib/services/package/types.common.ts:84](https://github.com/Fraktal-PM3/fraktal-lib/blob/755a00672b0a6277cf4ebfc878b6356f5d6d3aff/src/lib/services/package/types.common.ts#L84)
 
 Arbitrary personally identifiable information attached to a package.
 
