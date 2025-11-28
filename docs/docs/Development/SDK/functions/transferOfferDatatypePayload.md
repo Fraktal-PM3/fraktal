@@ -8,7 +8,7 @@
 
 > **transferOfferDatatypePayload**(`namespace`): `object`
 
-Defined in: [src/lib/datatypes/package.ts:97](https://github.com/Fraktal-PM3/fraktal-lib/blob/8e64bffca5679abbec34098ceb926c8787473b8b/src/lib/datatypes/package.ts#L97)
+Defined in: [src/lib/datatypes/package.ts:98](https://github.com/Fraktal-PM3/fraktal-lib/blob/daeada21355d102e10396752f2a80e945abf514e/src/lib/datatypes/package.ts#L98)
 
 ## Parameters
 
