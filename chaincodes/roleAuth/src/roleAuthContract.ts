@@ -118,33 +118,61 @@ export class RoleAuthContract extends Contract {
     }
 
     /**
-     * Revoke all permissions from a target organization.
-     * Only PM3 may call this function.
+     * Remove specific permissions from an organization's identity.
+     * Only the PM3 organization is authorized to remove permissions.
      *
-     * @param ctx - Fabric transaction context
-     * @param targetMSP - Target organization's MSP ID
+     * @param {Context} ctx - Fabric transaction context.
+     * @param {string} targetMSP - MSP ID of the target organization.
+     * @param {string} permissionsJson - JSON array of permission strings to remove.
      * @returns {Promise<void>}
+     * @throws {Error} If the caller is not PM3 or if the permissionsJson is invalid.
      */
+
     @Transaction()
-    public async revokePermissionsFromOrg(
+    public async removePermissionsFromOrg(
         ctx: Context,
-        targetMSP: string
+        targetMSP: string,
+        permissionsJson: string
     ): Promise<void> {
         const callerMsp = ctx.clientIdentity.getMSPID()
         if (callerMsp !== PM3_MSPID) {
             throw new Error(
-                `ACCESS DENIED: only PM3 may revoke permissions, caller MSP is ${callerMsp}`
+                "ACCESS DENIED: only PM3 may remove permissions, caller MSP is" +
+                    `${callerMsp}`
             )
         }
 
-        const targetIdentityIdentifier = `${targetMSP}`
+        let permissionsToRemove: Permission[]
+        try {
+            const parsed = JSON.parse(permissionsJson)
+            permissionsToRemove = z.array(PermissionSchema).parse(parsed)
+        } catch (err: any) {
+            throw new Error(
+                "Invalid permissions JSON. Expected array of permission strings."
+            )
+        }
 
-        console.log(
-            `[revokePermissionsFromOrg] PM3 revoking all permissions from ${targetIdentityIdentifier}`
+        const TargetID = `${targetMSP}`
+
+        const currentPermissionsJson = await this.getPermissions(ctx, TargetID)
+        const currentPermissions: Permission[] = JSON.parse(
+            currentPermissionsJson
         )
 
-        // Delete the permissions entry (effectively setting to empty array)
-        await ctx.stub.deleteState(getPermissionsKey(targetIdentityIdentifier))
+        const updatedPermissions = currentPermissions.filter(
+            (perm) => !permissionsToRemove.includes(perm)
+        )
+
+        console.log(
+            `[removePermissionsFromOrg] removing permissions from ${TargetID}: ${JSON.stringify(
+                permissionsToRemove
+            )}. Updated permissions: ${JSON.stringify(updatedPermissions)}`
+        )
+
+        await ctx.stub.putState(
+            getPermissionsKey(TargetID),
+            Buffer.from(JSON.stringify(updatedPermissions))
+        )
     }
 
     /**
@@ -175,10 +203,16 @@ export class RoleAuthContract extends Contract {
         console.log(`[getCallerPermissions] Looking up key: ${key}`)
 
         const data = await ctx.stub.getState(key)
-        console.log(`[getCallerPermissions] Data found: ${data && data.length > 0 ? 'YES' : 'NO'}`)
+        console.log(
+            `[getCallerPermissions] Data found: ${
+                data && data.length > 0 ? "YES" : "NO"
+            }`
+        )
 
         if (!data || data.length === 0) {
-            console.log(`[getCallerPermissions] No permissions found for ${identityId}`)
+            console.log(
+                `[getCallerPermissions] No permissions found for ${identityId}`
+            )
             return []
         }
 
@@ -189,11 +223,17 @@ export class RoleAuthContract extends Contract {
             console.log(`[getCallerPermissions] Parsed data:`, parsed)
             // Validate the stored value before returning
             const validated = z.array(PermissionSchema).parse(parsed)
-            console.log(`[getCallerPermissions] Validated permissions:`, validated)
+            console.log(
+                `[getCallerPermissions] Validated permissions:`,
+                validated
+            )
             return validated
         } catch (err) {
             // On corruption/parse error, return empty array to be safe
-            console.log(`[getCallerPermissions] Error parsing/validating permissions:`, err)
+            console.log(
+                `[getCallerPermissions] Error parsing/validating permissions:`,
+                err
+            )
             return []
         }
     }
