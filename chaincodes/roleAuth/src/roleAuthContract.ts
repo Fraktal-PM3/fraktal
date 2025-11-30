@@ -171,18 +171,29 @@ export class RoleAuthContract extends Contract {
         const identityId = this.getCallerIdentifier(ctx)
         const key = getPermissionsKey(identityId)
 
+        console.log(`[getCallerPermissions] Identity ID: ${identityId}`)
+        console.log(`[getCallerPermissions] Looking up key: ${key}`)
+
         const data = await ctx.stub.getState(key)
+        console.log(`[getCallerPermissions] Data found: ${data && data.length > 0 ? 'YES' : 'NO'}`)
+
         if (!data || data.length === 0) {
+            console.log(`[getCallerPermissions] No permissions found for ${identityId}`)
             return []
         }
 
+        console.log(`[getCallerPermissions] Raw data: ${data.toString()}`)
+
         try {
             const parsed = JSON.parse(data.toString()) as unknown
+            console.log(`[getCallerPermissions] Parsed data:`, parsed)
             // Validate the stored value before returning
             const validated = z.array(PermissionSchema).parse(parsed)
+            console.log(`[getCallerPermissions] Validated permissions:`, validated)
             return validated
-        } catch {
+        } catch (err) {
             // On corruption/parse error, return empty array to be safe
+            console.log(`[getCallerPermissions] Error parsing/validating permissions:`, err)
             return []
         }
     }

@@ -26,7 +26,7 @@ export const requireMSP = (ctx: Context, expected: string) => {
 export const proposalKey = (
     ctx: Context,
     pkgId: string,
-    proposalId: string,
+    proposalId: string
 ) => {
     return ctx.stub.createCompositeKey("proposal", [pkgId, proposalId])
 }
@@ -57,7 +57,7 @@ export const validateJSONToBlockchainPackage = (json: string) => {
         return BlockchainPackageSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for BlockchainPackage: ${(e as Error).message}`,
+            `Invalid JSON format for BlockchainPackage: ${(e as Error).message}`
         )
     }
 }
@@ -67,7 +67,7 @@ export const validateJSONToPackageDetails = (json: string) => {
         return PackageDetailsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PackageDetails: ${(e as Error).message}`,
+            `Invalid JSON format for PackageDetails: ${(e as Error).message}`
         )
     }
 }
@@ -77,7 +77,7 @@ export const validateJSONToPII = (json: string) => {
         return PackagePIISchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PackagePII: ${(e as Error).message}`,
+            `Invalid JSON format for PackagePII: ${(e as Error).message}`
         )
     }
 }
@@ -87,7 +87,9 @@ export const validateJSONToPrivateTransferTerms = (json: string) => {
         return PrivateTransferTermsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for PrivateTransferTerms: ${(e as Error).message}`,
+            `Invalid JSON format for PrivateTransferTerms: ${
+                (e as Error).message
+            }`
         )
     }
 }
@@ -97,7 +99,7 @@ export const validateJSONToTransferTerms = (json: string) => {
         return TransferTermsSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for TransferTerms: ${(e as Error).message}`,
+            `Invalid JSON format for TransferTerms: ${(e as Error).message}`
         )
     }
 }
@@ -107,7 +109,7 @@ export const validateJSONToStoreObject = (json: string) => {
         return StoreObjectSchema.parse(JSON.parse(json))
     } catch (e) {
         throw new Error(
-            `Invalid JSON format for StoreObject: ${(e as Error).message}`,
+            `Invalid JSON format for StoreObject: ${(e as Error).message}`
         )
     }
 }
@@ -134,3 +136,57 @@ export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
 
+/**
+ * Check if the caller has a specific permission by invoking the roleAuth chaincode.
+ * Uses cross-chaincode invocation to query the roleAuth contract.
+ *
+ * @param ctx - The transaction context
+ * @param permission - The permission to check (e.g., 'package:delete')
+ * @param channelName - The channel name where roleAuth is deployed (defaults to 'pm3')
+ * @returns {Promise<boolean>} true if the caller has the permission, false otherwise
+ */
+export const checkPermission = async (
+    ctx: Context,
+    permission: string,
+    channelName: string = "pm3"
+): Promise<boolean> => {
+    try {
+        console.log(
+            `[checkPermission] Invoking pm3roleauth chaincode for permission '${permission}' on channel '${channelName}'`
+        )
+        const response = await ctx.stub.invokeChaincode(
+            "pm3roleauth",
+            ["callerHasPermission", permission],
+            channelName
+        )
+
+        console.log(
+            `[checkPermission] Response status: ${response.status}, message: ${response.message}`
+        )
+
+        if (response.status !== 200) {
+            console.log(
+                `[checkPermission] Failed to check permission '${permission}': ${response.message}`
+            )
+            return false
+        }
+
+        if (!response.payload) {
+            console.log(
+                `[checkPermission] No payload returned for permission '${permission}'`
+            )
+            return false
+        }
+
+        const hasPermission = JSON.parse(response.payload.toString())
+        console.log(
+            `[checkPermission] Permission '${permission}' check result: ${hasPermission}`
+        )
+        return hasPermission
+    } catch (error) {
+        console.log(
+            `[checkPermission] Error checking permission '${permission}': ${error}`
+        )
+        return false
+    }
+}

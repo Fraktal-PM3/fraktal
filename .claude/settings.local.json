@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(npm run build:*)",
+      "Bash(docker ps:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(docker exec:*)"
     ],
     "deny": [],
     "ask": []

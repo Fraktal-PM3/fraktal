@@ -11,6 +11,7 @@ import sortKeysRecursive from "sort-keys-recursive"
 import { BlockchainPackageSchema, Status, TransferTerms } from "./package"
 import {
     callerMSP,
+    checkPermission,
     getImplicitCollection,
     isAllowedTransition,
     requireAttr,
@@ -281,14 +282,19 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string
     ): Promise<void> {
+        const hasDeletePermission = await checkPermission(ctx, "package:delete")
+        if (!hasDeletePermission) {
+            throw new Error(
+                `ACCESS DENIED: caller lacks 'package:delete' permission`
+            )
+        }
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
         const callerMSPID = callerMSP(ctx)
-        const isOwner = packageData.ownerOrgMSP === callerMSPID
 
         if (
-            isOwner &&
+            hasDeletePermission &&
             (packageData.status === Status.PENDING ||
                 packageData.status === Status.PROPOSED ||
                 packageData.status === Status.READY_FOR_PICKUP)
