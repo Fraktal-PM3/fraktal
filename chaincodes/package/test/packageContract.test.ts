@@ -163,8 +163,229 @@ describe("PackageContract (unit)", () => {
             expect(exists).toBe(false)
         })
     })
-    describe.skip("ProposeTransfer", () => {})
-    describe.skip("CheckPackageDetailsAndPIIHash", () => {})
+    describe("ProposeTransfer", () => {
+        it("Owner should be able to propose a transfer", async () => {
+            const externalId = "PKG-TRANSFER-001"
+            const salt = "transferSalt123"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const termsId = "550e8400-e29b-41d4-a716-446655440000"
+            const toMSP = "Org1MSP"
+            const createdISO = new Date().toISOString()
+            const expiryISO = new Date(Date.now() + 86400000).toISOString()
+            const privateTransferTerms = { price: 100.5 }
+
+            await ctxOmbud.stub.setTransient({ privateTransferTerms })
+
+            await c.ProposeTransfer(
+                ctxOmbud as any,
+                externalId,
+                termsId,
+                toMSP,
+                createdISO,
+                expiryISO
+            )
+
+            const pkgStr = await c.ReadBlockchainPackage(
+                ctxOmbud as any,
+                externalId
+            )
+            const pkg = JSON.parse(pkgStr)
+            expect(pkg.status).toBe(Status.PROPOSED)
+
+            const termsStr = await c.ReadTransferTerms(ctxOmbud as any, termsId)
+            const terms = JSON.parse(termsStr)
+            expect(terms.externalPackageId).toBe(externalId)
+            expect(terms.fromMSP).toBe("Org0MSP")
+            expect(terms.toMSP).toBe(toMSP)
+            expect(terms.createdISO).toBe(createdISO)
+            expect(terms.expiryISO).toBe(expiryISO)
+        })
+
+        it("Should fail if package does not exist", async () => {
+            const externalId = "PKG-NONEXISTENT"
+            const termsId = "550e8400-e29b-41d4-a716-446655440001"
+            const toMSP = "Org1MSP"
+            const createdISO = new Date().toISOString()
+            const privateTransferTerms = { price: 100.5 }
+
+            await ctxOmbud.stub.setTransient({ privateTransferTerms })
+
+            await expect(
+                c.ProposeTransfer(
+                    ctxOmbud as any,
+                    externalId,
+                    termsId,
+                    toMSP,
+                    createdISO
+                )
+            ).rejects.toThrow(`The package ${externalId} does not exist`)
+        })
+
+        it("Should fail if caller is not the owner", async () => {
+            const externalId = "PKG-TRANSFER-002"
+            const salt = "transferSalt456"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            ctxOmbud.clientIdentity.setMSP("Org1MSP")
+
+            const termsId = "550e8400-e29b-41d4-a716-446655440002"
+            const toMSP = "Org2MSP"
+            const createdISO = new Date().toISOString()
+            const privateTransferTerms = { price: 100.5 }
+
+            await ctxOmbud.stub.setTransient({ privateTransferTerms })
+
+            await expect(
+                c.ProposeTransfer(
+                    ctxOmbud as any,
+                    externalId,
+                    termsId,
+                    toMSP,
+                    createdISO
+                )
+            ).rejects.toThrow(
+                `Only the owner organization may propose a transfer for package ${externalId}`
+            )
+
+            ctxOmbud.clientIdentity.setMSP("Org0MSP")
+        })
+
+        it("Should fail if termsId is not a valid UUID", async () => {
+            const externalId = "PKG-TRANSFER-003"
+            const salt = "transferSalt789"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const termsId = "not-a-valid-uuid"
+            const toMSP = "Org1MSP"
+            const createdISO = new Date().toISOString()
+            const privateTransferTerms = { price: 100.5 }
+
+            await ctxOmbud.stub.setTransient({ privateTransferTerms })
+
+            await expect(
+                c.ProposeTransfer(
+                    ctxOmbud as any,
+                    externalId,
+                    termsId,
+                    toMSP,
+                    createdISO
+                )
+            ).rejects.toThrow("Invalid termsId format — must be a UUID string.")
+        })
+
+        it("Should fail if createdISO is not a valid ISO date", async () => {
+            const externalId = "PKG-TRANSFER-004"
+            const salt = "transferSalt000"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const termsId = "550e8400-e29b-41d4-a716-446655440003"
+            const toMSP = "Org1MSP"
+            const createdISO = "not-a-valid-date"
+            const privateTransferTerms = { price: 100.5 }
+
+            await ctxOmbud.stub.setTransient({ privateTransferTerms })
+
+            await expect(
+                c.ProposeTransfer(
+                    ctxOmbud as any,
+                    externalId,
+                    termsId,
+                    toMSP,
+                    createdISO
+                )
+            ).rejects.toThrow(
+                "Invalid createdISO format — must be an ISO-8601 string."
+            )
+        })
+
+        it("Should fail if privateTransferTerms is missing from transient data", async () => {
+            const externalId = "PKG-TRANSFER-005"
+            const salt = "transferSalt111"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const termsId = "550e8400-e29b-41d4-a716-446655440004"
+            const toMSP = "Org1MSP"
+            const createdISO = new Date().toISOString()
+
+            await expect(
+                c.ProposeTransfer(
+                    ctxOmbud as any,
+                    externalId,
+                    termsId,
+                    toMSP,
+                    createdISO
+                )
+            ).rejects.toThrow(
+                "Missing transient field 'privateTransferTerms' for private transfer terms"
+            )
+        })
+    })
+    describe("CheckPackageDetailsAndPIIHash", () => {
+        it("Should return true when hash matches", async () => {
+            const externalId = "PKG-HASH-001"
+            const salt = "hashTestSalt123"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const pkgStr = await c.ReadBlockchainPackage(
+                ctxOmbud as any,
+                externalId
+            )
+            const pkg = JSON.parse(pkgStr)
+            const expectedHash = pkg.packageDetailsAndPIIHash
+
+            const result = await c.CheckPackageDetailsAndPIIHash(
+                ctxOmbud as any,
+                externalId,
+                expectedHash
+            )
+            expect(result).toBe(true)
+        })
+
+        it("Should return false when hash does not match", async () => {
+            const externalId = "PKG-HASH-002"
+            const salt = "hashTestSalt456"
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const wrongHash =
+                "0000000000000000000000000000000000000000000000000000000000000000"
+
+            const result = await c.CheckPackageDetailsAndPIIHash(
+                ctxOmbud as any,
+                externalId,
+                wrongHash
+            )
+            expect(result).toBe(false)
+        })
+
+        it("Should throw error when package does not exist", async () => {
+            const externalId = "PKG-NONEXISTENT-HASH"
+            const someHash =
+                "1111111111111111111111111111111111111111111111111111111111111111"
+
+            await expect(
+                c.CheckPackageDetailsAndPIIHash(
+                    ctxOmbud as any,
+                    externalId,
+                    someHash
+                )
+            ).rejects.toThrow(`The package ${externalId} does not exist`)
+        })
+    })
     describe.skip("ReadTransferTerms", () => {})
     describe.skip("ReadPrivateTransferTerms", () => {})
     describe.skip("AcceptTransfer", () => {})
