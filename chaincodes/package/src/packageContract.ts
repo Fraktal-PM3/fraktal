@@ -865,7 +865,8 @@ export class PackageContract extends Contract {
         )
     }
 
-    public TransferToPM3 = async (ctx: Context, externalId: string): Promise<void> => {
+    @Transaction()
+    public async TransferToPM3(ctx: Context, externalId: string): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
             throw new Error(`The package ${externalId} does not exist`)
