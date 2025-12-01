@@ -8,7 +8,7 @@
 
 > **DeletePackageEvent** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:273](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L273)
+Defined in: [src/lib/services/package/types.common.ts:280](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L280)
 
 Event emitted when a package is deleted.
 
@@ -18,7 +18,7 @@ Event emitted when a package is deleted.
 
 > **caller**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:279](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L279)
+Defined in: [src/lib/services/package/types.common.ts:286](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L286)
 
 Identity of the caller who deleted the package.
 
@@ -28,7 +28,7 @@ Identity of the caller who deleted the package.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:275](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L275)
+Defined in: [src/lib/services/package/types.common.ts:282](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L282)
 
 External identifier of the deleted package.
 
@@ -38,6 +38,6 @@ External identifier of the deleted package.
 
 > **status**: [`Status`](../enumerations/Status.md)
 
-Defined in: [src/lib/services/package/types.common.ts:277](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L277)
+Defined in: [src/lib/services/package/types.common.ts:284](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L284)
 
 Status of the package at deletion.

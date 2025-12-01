@@ -8,7 +8,7 @@
 
 > **BlockchainEventDelivery** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:224](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L224)
+Defined in: [src/lib/services/package/types.common.ts:231](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L231)
 
 Blockchain-emitted event with typed output.
 
@@ -18,7 +18,7 @@ Blockchain-emitted event with typed output.
 
 > **header**: [`FireFlyMessageHeader`](FireFlyMessageHeader.md)
 
-Defined in: [src/lib/services/package/types.common.ts:232](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L232)
+Defined in: [src/lib/services/package/types.common.ts:239](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L239)
 
 Message header (always included).
 
@@ -28,7 +28,7 @@ Message header (always included).
 
 > **output**: `any`
 
-Defined in: [src/lib/services/package/types.common.ts:228](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L228)
+Defined in: [src/lib/services/package/types.common.ts:235](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L235)
 
 Event output/payload from the contract.
 
@@ -38,7 +38,7 @@ Event output/payload from the contract.
 
 > **timestamp**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:230](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L230)
+Defined in: [src/lib/services/package/types.common.ts:237](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L237)
 
 ISO-8601 timestamp when the event was recorded.
 
@@ -48,6 +48,6 @@ ISO-8601 timestamp when the event was recorded.
 
 > `optional` **txid**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:226](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L226)
+Defined in: [src/lib/services/package/types.common.ts:233](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/services/package/types.common.ts#L233)
 
 Blockchain transaction ID.

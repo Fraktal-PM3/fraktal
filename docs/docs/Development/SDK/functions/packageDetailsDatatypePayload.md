@@ -8,7 +8,7 @@
 
 > **packageDetailsDatatypePayload**(`namespace`): `object`
 
-Defined in: [src/lib/datatypes/package.ts:61](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/datatypes/package.ts#L61)
+Defined in: [src/lib/datatypes/package.ts:61](https://github.com/Fraktal-PM3/fraktal-lib/blob/ce999374d61643a8d0997907334a30d246182b3e/src/lib/datatypes/package.ts#L61)
 
 ## Parameters
 
