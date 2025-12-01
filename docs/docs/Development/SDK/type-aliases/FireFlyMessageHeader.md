@@ -8,7 +8,7 @@
 
 > **FireFlyMessageHeader** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:187](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L187)
+Defined in: [src/lib/services/package/types.common.ts:187](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L187)
 
 FireFly message header information.
 
@@ -24,7 +24,7 @@ Additional header metadata.
 
 > **author**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:191](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L191)
+Defined in: [src/lib/services/package/types.common.ts:191](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L191)
 
 Author identity of the message sender.
 
@@ -34,6 +34,6 @@ Author identity of the message sender.
 
 > **key**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:189](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L189)
+Defined in: [src/lib/services/package/types.common.ts:189](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L189)
 
 Signing key ID used to sign this message.

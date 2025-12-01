@@ -8,7 +8,7 @@
 
 > **AcceptTransferEvent** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:310](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L310)
+Defined in: [src/lib/services/package/types.common.ts:310](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L310)
 
 Event emitted when a transfer is accepted.
 
@@ -18,7 +18,7 @@ Event emitted when a transfer is accepted.
 
 > **caller**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:316](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L316)
+Defined in: [src/lib/services/package/types.common.ts:316](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L316)
 
 Identity of the caller who accepted the transfer.
 
@@ -28,7 +28,7 @@ Identity of the caller who accepted the transfer.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:312](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L312)
+Defined in: [src/lib/services/package/types.common.ts:312](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L312)
 
 External identifier of the package.
 
@@ -38,6 +38,6 @@ External identifier of the package.
 
 > **termsId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:314](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L314)
+Defined in: [src/lib/services/package/types.common.ts:314](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L314)
 
 Identifier for the accepted transfer proposal.

@@ -8,7 +8,7 @@
 
 > **ProposeTransferEvent** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:285](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L285)
+Defined in: [src/lib/services/package/types.common.ts:285](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L285)
 
 Event emitted when a transfer is proposed.
 
@@ -18,7 +18,7 @@ Event emitted when a transfer is proposed.
 
 > **caller**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:304](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L304)
+Defined in: [src/lib/services/package/types.common.ts:304](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L304)
 
 Identity of the caller who proposed the transfer.
 
@@ -28,7 +28,7 @@ Identity of the caller who proposed the transfer.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:287](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L287)
+Defined in: [src/lib/services/package/types.common.ts:287](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L287)
 
 External identifier of the package being transferred.
 
@@ -38,7 +38,7 @@ External identifier of the package being transferred.
 
 > **terms**: `object`
 
-Defined in: [src/lib/services/package/types.common.ts:291](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L291)
+Defined in: [src/lib/services/package/types.common.ts:291](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L291)
 
 Public transfer terms.
 
@@ -78,6 +78,6 @@ MSP targeted to receive the package.
 
 > **termsId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:289](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L289)
+Defined in: [src/lib/services/package/types.common.ts:289](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L289)
 
 Identifier for this transfer proposal.

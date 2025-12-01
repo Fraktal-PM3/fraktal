@@ -8,7 +8,7 @@
 
 > **Location** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:16](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L16)
+Defined in: [src/lib/services/package/types.common.ts:16](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L16)
 
 A real-world location.
 
@@ -18,7 +18,7 @@ A real-world location.
 
 > **address**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:18](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L18)
+Defined in: [src/lib/services/package/types.common.ts:18](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L18)
 
 Human-readable street address.
 
@@ -28,7 +28,7 @@ Human-readable street address.
 
 > `optional` **lat**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:20](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L20)
+Defined in: [src/lib/services/package/types.common.ts:20](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L20)
 
 Latitude in decimal degrees (WGS84).
 
@@ -38,6 +38,6 @@ Latitude in decimal degrees (WGS84).
 
 > `optional` **lng**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:22](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L22)
+Defined in: [src/lib/services/package/types.common.ts:22](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L22)
 
 Longitude in decimal degrees (WGS84).
