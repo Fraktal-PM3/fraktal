@@ -888,7 +888,7 @@ export class PackageContract extends Contract {
 
         if (packageData.status !== Status.DELIVERED) {
             throw new Error(
-                `The package ${externalId} must be in SUCCEEDED status to transfer to PM3`
+                `The package ${externalId} must be in DELIVERED status to transfer to PM3`
             )
         }
 
