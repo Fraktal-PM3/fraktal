@@ -13,18 +13,16 @@ import {
     callerMSP,
     getImplicitCollection,
     isAllowedTransition,
+    isISODateString,
+    isUUID,
     requireAttr,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
     validateJSONToPII,
     validateJSONToPrivateTransferTerms,
-    validateJSONToTransferTerms,
     validateJSONToStoreObject,
-    isUUID,
-    isISODateString,
+    validateJSONToTransferTerms,
 } from "./utils"
-import { string } from "zod"
-import { parse } from "path"
 
 const compositeKeyPrefix = "transferTerms"
 
@@ -447,17 +445,17 @@ export class PackageContract extends Contract {
             .update(stringify(sortKeysRecursive(privateTransferTerms)))
             .digest("hex")
 
-        const terms: TransferTerms = {
+        const unparsedTerms: TransferTerms = {
             externalPackageId: externalId,
             fromMSP: callerMSP(ctx),
             expiryISO: expiryISO || null,
-            createdISO,
-            toMSP,
-            privateTermsHash,
+            createdISO: createdISO,
+            toMSP: toMSP,
+            privateTermsHash: privateTermsHash,
         }
 
-        const parsedTerms = validateJSONToTransferTerms(
-            stringify(sortKeysRecursive(terms))
+        const terms = validateJSONToTransferTerms(
+            stringify(sortKeysRecursive(unparsedTerms))
         )
 
         const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
@@ -473,12 +471,12 @@ export class PackageContract extends Contract {
 
         await ctx.stub.putState(
             termsId,
-            Buffer.from(stringify(sortKeysRecursive(parsedTerms)))
+            Buffer.from(stringify(sortKeysRecursive(terms)))
         )
 
         await ctx.stub.putState(
             compositeKey,
-            Buffer.from(stringify(sortKeysRecursive(parsedTerms)))
+            Buffer.from(stringify(sortKeysRecursive(terms)))
         )
 
         packageData.status = Status.PROPOSED
@@ -494,7 +492,7 @@ export class PackageContract extends Contract {
                     sortKeysRecursive({
                         externalId,
                         termsId,
-                        parsedTerms,
+                        parsedTerms: terms,
                         caller: callerMSP(ctx),
                     }),
                 ),
