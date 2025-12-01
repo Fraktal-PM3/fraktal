@@ -42,7 +42,8 @@ export class PackageContract extends Contract {
     @Transaction()
     public async CreatePackage(
         ctx: Context,
-        externalId: string
+        externalId: string,
+        recipientOrgMSP: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
@@ -114,6 +115,7 @@ export class PackageContract extends Contract {
             externalId: externalId,
             ownerOrgMSP: ownerOrgMSPID,
             status: Status.PENDING,
+            recipientOrgMSP: recipientOrgMSP,
             packageDetailsAndPIIHash: packageInfoHash,
         })
 

@@ -8,4 +8,4 @@
 
 > `const` **TRANSFER\_OFFER\_DT\_NAME**: `"TransferOffer"` = `"TransferOffer"`
 
-Defined in: [src/lib/datatypes/package.ts:66](https://github.com/Fraktal-PM3/fraktal-lib/blob/1a083dd0d8d8f600e13b9e9a0d7fd348dfebf328/src/lib/datatypes/package.ts#L66)
+Defined in: [src/lib/datatypes/package.ts:71](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/datatypes/package.ts#L71)
