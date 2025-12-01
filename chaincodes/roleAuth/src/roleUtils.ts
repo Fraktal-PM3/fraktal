@@ -1,4 +1,4 @@
-import z from 'zod'
+import z from "zod"
 
 /**
  * Zod schema for permission strings. Each permission represents a fine-grained
@@ -7,14 +7,14 @@ import z from 'zod'
  * Examples: `package:create`, `transfer:propose`.
  */
 export const PermissionSchema = z.enum([
-    'package:create',
-    'package:read',
-    'package:read:private',
-    'package:updateStatus',
-    'package:delete',
-    'transfer:propose',
-    'transfer:accept',
-    'transfer:execute',
+    "package:create",
+    "package:read",
+    "package:read:private",
+    "package:updateStatus",
+    "package:delete",
+    "transfer:propose",
+    "transfer:accept",
+    "transfer:execute",
 ])
 export type Permission = z.infer<typeof PermissionSchema>
 
@@ -28,6 +28,3 @@ export type Permission = z.infer<typeof PermissionSchema>
 export function getPermissionsKey(identityId: string): string {
     return `roleauth:perms:${identityId}`
 }
-
-
-
