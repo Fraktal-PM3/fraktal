@@ -8,7 +8,7 @@
 
 > **StoreObject** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:149](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L149)
+Defined in: [src/lib/services/package/types.common.ts:149](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L149)
 
 Opaque object used to store private package data with integrity.
 Typically sent through transient/private channels.
@@ -19,7 +19,7 @@ Typically sent through transient/private channels.
 
 > **packageDetails**: [`PackageDetails`](PackageDetails.md)
 
-Defined in: [src/lib/services/package/types.common.ts:158](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L158)
+Defined in: [src/lib/services/package/types.common.ts:158](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L158)
 
 Public package details mirrored in private context for verification.
 
@@ -29,7 +29,7 @@ Public package details mirrored in private context for verification.
 
 > **pii**: [`PackagePII`](PackagePII.md)
 
-Defined in: [src/lib/services/package/types.common.ts:156](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L156)
+Defined in: [src/lib/services/package/types.common.ts:156](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L156)
 
 Private, personally identifiable information.
 
@@ -39,7 +39,7 @@ Private, personally identifiable information.
 
 > **salt**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:154](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L154)
+Defined in: [src/lib/services/package/types.common.ts:154](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L154)
 
 Salt used when hashing [PackageDetails](PackageDetails.md) and [PackagePII](PackagePII.md)
 for integrity verification.

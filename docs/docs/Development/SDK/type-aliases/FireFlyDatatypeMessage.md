@@ -8,7 +8,7 @@
 
 > **FireFlyDatatypeMessage** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:200](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L200)
+Defined in: [src/lib/services/package/types.common.ts:200](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L200)
 
 Generic FireFly datatype message event.
 Represents a message that was confirmed on-chain with datatype information.
@@ -19,7 +19,7 @@ Represents a message that was confirmed on-chain with datatype information.
 
 > **author**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:218](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L218)
+Defined in: [src/lib/services/package/types.common.ts:218](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L218)
 
 Author identity.
 
@@ -29,7 +29,7 @@ Author identity.
 
 > **created**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:212](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L212)
+Defined in: [src/lib/services/package/types.common.ts:212](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L212)
 
 ISO-8601 timestamp when created.
 
@@ -39,7 +39,7 @@ ISO-8601 timestamp when created.
 
 > **hash**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:210](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L210)
+Defined in: [src/lib/services/package/types.common.ts:210](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L210)
 
 Hash of the message content.
 
@@ -49,7 +49,7 @@ Hash of the message content.
 
 > **header**: [`FireFlyMessageHeader`](FireFlyMessageHeader.md)
 
-Defined in: [src/lib/services/package/types.common.ts:204](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L204)
+Defined in: [src/lib/services/package/types.common.ts:204](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L204)
 
 Message header with signing and author information.
 
@@ -59,7 +59,7 @@ Message header with signing and author information.
 
 > **id**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:202](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L202)
+Defined in: [src/lib/services/package/types.common.ts:202](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L202)
 
 Unique message identifier.
 
@@ -69,7 +69,7 @@ Unique message identifier.
 
 > **namespace**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:208](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L208)
+Defined in: [src/lib/services/package/types.common.ts:208](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L208)
 
 Namespace the message belongs to.
 
@@ -79,7 +79,7 @@ Namespace the message belongs to.
 
 > **signingKey**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:216](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L216)
+Defined in: [src/lib/services/package/types.common.ts:216](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L216)
 
 Signing key used for this message.
 
@@ -89,7 +89,7 @@ Signing key used for this message.
 
 > **validator**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:206](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L206)
+Defined in: [src/lib/services/package/types.common.ts:206](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L206)
 
 Validator type (typically "json").
 
@@ -99,6 +99,6 @@ Validator type (typically "json").
 
 > **value**: `any`
 
-Defined in: [src/lib/services/package/types.common.ts:214](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L214)
+Defined in: [src/lib/services/package/types.common.ts:214](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L214)
 
 The parsed message value/payload.

@@ -8,7 +8,7 @@
 
 > **CreatePackageEvent** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:245](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L245)
+Defined in: [src/lib/services/package/types.common.ts:245](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L245)
 
 Event emitted when a package is created.
 
@@ -18,7 +18,7 @@ Event emitted when a package is created.
 
 > **caller**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:255](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L255)
+Defined in: [src/lib/services/package/types.common.ts:255](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L255)
 
 Identity of the caller who created the package.
 
@@ -28,7 +28,7 @@ Identity of the caller who created the package.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:247](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L247)
+Defined in: [src/lib/services/package/types.common.ts:247](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L247)
 
 External identifier of the created package.
 
@@ -38,7 +38,7 @@ External identifier of the created package.
 
 > **ownerOrgMSP**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:249](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L249)
+Defined in: [src/lib/services/package/types.common.ts:249](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L249)
 
 MSP/organization that owns the package.
 
@@ -48,7 +48,7 @@ MSP/organization that owns the package.
 
 > **packageDetailsAndPIIHash**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:253](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L253)
+Defined in: [src/lib/services/package/types.common.ts:253](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L253)
 
 Integrity hash of the package details and PII.
 
@@ -58,6 +58,6 @@ Integrity hash of the package details and PII.
 
 > **status**: [`Status`](../enumerations/Status.md)
 
-Defined in: [src/lib/services/package/types.common.ts:251](https://github.com/Fraktal-PM3/fraktal-lib/blob/0da627c81ee3e36a14def24adf527f6e2be2cef5/src/lib/services/package/types.common.ts#L251)
+Defined in: [src/lib/services/package/types.common.ts:251](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L251)
 
 Initial status of the package.
