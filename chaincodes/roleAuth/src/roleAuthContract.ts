@@ -66,7 +66,7 @@ export class RoleAuthContract extends Contract {
 
     /**
      * Grant specific permissions to a target organization.
-     * Only PM3 may call this function. This allows granular permission management.
+     * Only PM3 may call this function. This adds permissions to existing ones without removing any.
      *
      * @param ctx - Fabric transaction context
      * @param targetMSP - Target organization's MSP ID (e.g., "Org2MSP")
@@ -74,8 +74,8 @@ export class RoleAuthContract extends Contract {
      * @returns {Promise<void>}
      *
      * @example
-     * // Grant package read permissions to Org2MSP
-     * await grantPermissionsToOrg(ctx, "Org2MSP", '["package:read"]')
+     * // Grant package:create permission to Org2MSP
+     * await grantPermissionsToOrg(ctx, "Org2MSP", '["package:create"]')
      */
     @Transaction()
     public async grantPermissionsToOrg(
@@ -86,34 +86,43 @@ export class RoleAuthContract extends Contract {
         const callerMsp = ctx.clientIdentity.getMSPID()
         if (callerMsp !== PM3_MSPID) {
             throw new Error(
-                `ACCESS DENIED: only PM3 may grant permissions, caller MSP is ${callerMsp}`
+                "ACCESS DENIED: only PM3 may grant permissions, caller MSP is" +
+                    `${callerMsp}`
             )
         }
 
-        // Validate permissions input
-        let permissions: Permission[]
+        let permissionsToAdd: Permission[]
         try {
             const parsed = JSON.parse(permissionsJson)
-            permissions = z.array(PermissionSchema).parse(parsed)
+            permissionsToAdd = z.array(PermissionSchema).parse(parsed)
         } catch (err: any) {
             throw new Error(
-                `Invalid permissions JSON. Expected array of permission strings. ` +
-                    `Error: ${err?.message ?? String(err)}`
+                "Invalid permissions JSON. Expected array of permission strings."
             )
         }
 
-        // Construct the target identity identifier
-        const targetIdentityIdentifier = `${targetMSP}`
+        const TargetMSP = `${targetMSP}`
 
-        console.log(
-            `[grantPermissionsToOrg] PM3 granting permissions to ${targetIdentityIdentifier}: ${JSON.stringify(
-                permissions
-            )}`
+        const currentPermissionsJson = await this.getPermissions(ctx, TargetMSP)
+        const currentPermissions: Permission[] = JSON.parse(
+            currentPermissionsJson
         )
 
-        await ctx.stub.putState(
-            getPermissionsKey(targetIdentityIdentifier),
-            Buffer.from(JSON.stringify(permissions))
+        const updatedPermissions = currentPermissions.concat(
+            permissionsToAdd.filter(
+                (perm) => !currentPermissions.includes(perm)
+            )
+        )
+
+        console.log(
+            `[grantPermissionsToOrg] PM3 granting permissions to ${TargetMSP}: ${JSON.stringify(
+                permissionsToAdd
+            )}. Updated permissions: ${JSON.stringify(updatedPermissions)}`
+        )
+        await this.setPermissions(
+            ctx,
+            TargetMSP,
+            JSON.stringify(updatedPermissions)
         )
     }
 
@@ -152,9 +161,9 @@ export class RoleAuthContract extends Contract {
             )
         }
 
-        const TargetID = `${targetMSP}`
+        const TargetMSP = `${targetMSP}`
 
-        const currentPermissionsJson = await this.getPermissions(ctx, TargetID)
+        const currentPermissionsJson = await this.getPermissions(ctx, TargetMSP)
         const currentPermissions: Permission[] = JSON.parse(
             currentPermissionsJson
         )
@@ -164,14 +173,16 @@ export class RoleAuthContract extends Contract {
         )
 
         console.log(
-            `[removePermissionsFromOrg] removing permissions from ${TargetID}: ${JSON.stringify(
+            `[removePermissionsFromOrg] removing permissions from ${TargetMSP}: ${JSON.stringify(
                 permissionsToRemove
             )}. Updated permissions: ${JSON.stringify(updatedPermissions)}`
         )
 
-        await ctx.stub.putState(
-            getPermissionsKey(TargetID),
-            Buffer.from(JSON.stringify(updatedPermissions))
+        // Use setPermissions to save the updated permissions
+        await this.setPermissions(
+            ctx,
+            TargetMSP,
+            JSON.stringify(updatedPermissions)
         )
     }
 

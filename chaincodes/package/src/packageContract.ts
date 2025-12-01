@@ -45,6 +45,13 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string
     ): Promise<void> {
+        const hasCreatePermission = await checkPermission(ctx, "package:create")
+        if (!hasCreatePermission) {
+            throw new Error(
+                `ACCESS DENIED: caller lacks 'package:create' permission`
+            )
+        }
+
         const callerMSPID = callerMSP(ctx)
         console.log(
             `[CreatePackage] Called by: ${callerMSPID} for package: ${externalId}`
