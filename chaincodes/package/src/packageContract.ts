@@ -865,6 +865,15 @@ export class PackageContract extends Contract {
         )
     }
 
+    /**
+     * TransferToPM3 transfers ownership of a delivered package to PM3 organization.
+     * The caller must be the current owner, and the package must be in DELIVERED status
+     * with matching owner and recipient organizations.
+     *
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @returns {Promise<void>}
+     */
     @Transaction()
     public async TransferToPM3(ctx: Context, externalId: string): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
