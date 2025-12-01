@@ -6,7 +6,7 @@
 
 # Enumeration: Urgency
 
-Defined in: [src/lib/services/package/types.common.ts:28](https://github.com/Fraktal-PM3/fraktal-lib/blob/755a00672b0a6277cf4ebfc878b6356f5d6d3aff/src/lib/services/package/types.common.ts#L28)
+Defined in: [src/lib/services/package/types.common.ts:28](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L28)
 
 How urgent a delivery is.
 
@@ -16,7 +16,7 @@ How urgent a delivery is.
 
 > **HIGH**: `"high"`
 
-Defined in: [src/lib/services/package/types.common.ts:30](https://github.com/Fraktal-PM3/fraktal-lib/blob/755a00672b0a6277cf4ebfc878b6356f5d6d3aff/src/lib/services/package/types.common.ts#L30)
+Defined in: [src/lib/services/package/types.common.ts:30](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L30)
 
 Highest priority.
 
@@ -26,7 +26,7 @@ Highest priority.
 
 > **LOW**: `"low"`
 
-Defined in: [src/lib/services/package/types.common.ts:34](https://github.com/Fraktal-PM3/fraktal-lib/blob/755a00672b0a6277cf4ebfc878b6356f5d6d3aff/src/lib/services/package/types.common.ts#L34)
+Defined in: [src/lib/services/package/types.common.ts:34](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L34)
 
 Low priority.
 
@@ -36,7 +36,7 @@ Low priority.
 
 > **MEDIUM**: `"medium"`
 
-Defined in: [src/lib/services/package/types.common.ts:32](https://github.com/Fraktal-PM3/fraktal-lib/blob/755a00672b0a6277cf4ebfc878b6356f5d6d3aff/src/lib/services/package/types.common.ts#L32)
+Defined in: [src/lib/services/package/types.common.ts:32](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L32)
 
 Medium priority.
 
@@ -46,6 +46,6 @@ Medium priority.
 
 > **NONE**: `"none"`
 
-Defined in: [src/lib/services/package/types.common.ts:36](https://github.com/Fraktal-PM3/fraktal-lib/blob/755a00672b0a6277cf4ebfc878b6356f5d6d3aff/src/lib/services/package/types.common.ts#L36)
+Defined in: [src/lib/services/package/types.common.ts:36](https://github.com/Fraktal-PM3/fraktal-lib/blob/83c7e4dd65aa346553765d0c89e45ec502fbf464/src/lib/services/package/types.common.ts#L36)
 
 No urgency specified.
