@@ -8,4 +8,4 @@
 
 > `const` **PACKAGE\_DETAILS\_DT\_NAME**: `"PackageDetails"` = `"PackageDetails"`
 
-Defined in: [src/lib/datatypes/package.ts:3](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/datatypes/package.ts#L3)
+Defined in: [src/lib/datatypes/package.ts:3](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/datatypes/package.ts#L3)

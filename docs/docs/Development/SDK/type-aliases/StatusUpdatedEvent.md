@@ -8,7 +8,7 @@
 
 > **StatusUpdatedEvent** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:261](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L261)
+Defined in: [src/lib/services/package/types.common.ts:268](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L268)
 
 Event emitted when a package status changes.
 
@@ -18,7 +18,7 @@ Event emitted when a package status changes.
 
 > **caller**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:267](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L267)
+Defined in: [src/lib/services/package/types.common.ts:274](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L274)
 
 Identity of the caller who updated the status.
 
@@ -28,7 +28,7 @@ Identity of the caller who updated the status.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:263](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L263)
+Defined in: [src/lib/services/package/types.common.ts:270](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L270)
 
 External identifier of the package.
 
@@ -38,6 +38,6 @@ External identifier of the package.
 
 > **status**: [`Status`](../enumerations/Status.md)
 
-Defined in: [src/lib/services/package/types.common.ts:265](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L265)
+Defined in: [src/lib/services/package/types.common.ts:272](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L272)
 
 New status of the package.

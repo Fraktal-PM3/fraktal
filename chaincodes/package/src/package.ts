@@ -65,6 +65,7 @@ export const TransferTermsSchema = z
         toMSP: z.string().nonempty(),
         createdISO: z.iso.datetime(),
         expiryISO: z.iso.datetime().nullable().optional(),
+        privateTermsHash: z.hash("sha256"),
     })
     .strict()
 
@@ -78,6 +79,7 @@ export const TransferSchema = z
 
 export const PrivateTransferTermsSchema = z
     .object({
+        salt: z.string().nonempty(),
         price: z.number().nonnegative(),
     })
     .strict()
@@ -88,8 +90,8 @@ export const BlockchainPackageSchema = z
     .object({
         externalId: z.string().nonempty(),
         ownerOrgMSP: z.string().nonempty(),
-        status: StatusEnumSchema,
         recipientOrgMSP: z.string().nonempty(),
+        status: StatusEnumSchema,
         packageDetailsAndPIIHash: z.hash("sha256"),
     })
     .strict()

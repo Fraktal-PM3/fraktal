@@ -8,7 +8,7 @@
 
 > **TransferExecutedEvent** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:322](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L322)
+Defined in: [src/lib/services/package/types.common.ts:329](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L329)
 
 Event emitted when a transfer is executed (ownership transferred).
 
@@ -18,7 +18,7 @@ Event emitted when a transfer is executed (ownership transferred).
 
 > **caller**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:330](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L330)
+Defined in: [src/lib/services/package/types.common.ts:337](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L337)
 
 Identity of the caller who executed the transfer.
 
@@ -28,7 +28,7 @@ Identity of the caller who executed the transfer.
 
 > **externalId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:324](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L324)
+Defined in: [src/lib/services/package/types.common.ts:331](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L331)
 
 External identifier of the package.
 
@@ -38,7 +38,7 @@ External identifier of the package.
 
 > **newOwner**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:328](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L328)
+Defined in: [src/lib/services/package/types.common.ts:335](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L335)
 
 MSP that is now the new owner of the package.
 
@@ -48,6 +48,6 @@ MSP that is now the new owner of the package.
 
 > **termsId**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:326](https://github.com/Fraktal-PM3/fraktal-lib/blob/264f9dc8966b61c0fde5ee253960ad54127b041e/src/lib/services/package/types.common.ts#L326)
+Defined in: [src/lib/services/package/types.common.ts:333](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L333)
 
 Identifier for the executed transfer.
