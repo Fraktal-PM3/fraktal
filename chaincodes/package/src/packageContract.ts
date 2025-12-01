@@ -23,6 +23,8 @@ import {
     isUUID,
     isISODateString,
 } from "./utils"
+import { string } from "zod"
+import { parse } from "path"
 
 const compositeKeyPrefix = "transferTerms"
 
@@ -454,6 +456,10 @@ export class PackageContract extends Contract {
             privateTermsHash,
         }
 
+        const parsedTerms = validateJSONToTransferTerms(
+            stringify(sortKeysRecursive(terms))
+        )
+
         const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
             externalId,
             termsId,
@@ -467,12 +473,12 @@ export class PackageContract extends Contract {
 
         await ctx.stub.putState(
             termsId,
-            Buffer.from(stringify(sortKeysRecursive(terms)))
+            Buffer.from(stringify(sortKeysRecursive(parsedTerms)))
         )
 
         await ctx.stub.putState(
             compositeKey,
-            Buffer.from(stringify(sortKeysRecursive(terms)))
+            Buffer.from(stringify(sortKeysRecursive(parsedTerms)))
         )
 
         packageData.status = Status.PROPOSED
@@ -488,7 +494,7 @@ export class PackageContract extends Contract {
                     sortKeysRecursive({
                         externalId,
                         termsId,
-                        terms,
+                        parsedTerms,
                         caller: callerMSP(ctx),
                     }),
                 ),
