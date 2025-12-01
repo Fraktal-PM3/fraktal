@@ -26,6 +26,8 @@ import {
 
 const compositeKeyPrefix = "transferTerms"
 
+export const PM3_MSPID = "Org1MSP"
+
 @Info({
     title: "PackageContract",
     description: "Smart contract for managing packages",
@@ -406,6 +408,12 @@ export class PackageContract extends Contract {
         if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
             throw new Error(
                 `Only the owner organization may propose a transfer for package ${externalId}`
+            )
+        }
+
+        if (packageData.status === Status.PROPOSED) {
+            throw new Error(
+                `Cannot propose transfer for package ${externalId} — it is already in PROPOSED status`
             )
         }
 
@@ -856,4 +864,50 @@ export class PackageContract extends Contract {
             ),
         )
     }
+
+    public TransferToPM3 = async (ctx: Context, externalId: string): Promise<void> => {
+        const exists = await this.PackageExists(ctx, externalId)
+        if (!exists) {
+            throw new Error(`The package ${externalId} does not exist`)
+        }
+
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
+
+        if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
+            throw new Error(
+                `Only the owner organization may transfer the package ${externalId} to PM3`
+            )
+        }
+
+        if (packageData.ownerOrgMSP !== packageData.recipientOrgMSP) {
+            throw new Error(
+                `The package ${externalId} recipientOrgMSP does not match the current ownerOrgMSP`
+            )
+        }
+
+        if (packageData.status !== Status.DELIVERED) {
+            throw new Error(
+                `The package ${externalId} must be in SUCCEEDED status to transfer to PM3`
+            )
+        }
+
+        // Update public package owner to PM3
+        packageData.ownerOrgMSP = PM3_MSPID
+        packageData.status = Status.SUCCEEDED
+
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData)))
+        )
+        ctx.stub.setEvent(
+            "TransferToPM3",
+            Buffer.from(
+                stringify(
+                    sortKeysRecursive({ externalId }),
+                ),
+            ),
+        )
+    }
+
 }
