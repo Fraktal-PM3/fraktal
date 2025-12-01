@@ -64,7 +64,9 @@ describe("PackageContract (unit)", () => {
         it("Anyone can create a package test", async () => {
             const externalId = "PKG-001"
             const salt = "randomSalt123"
-            await c.CreatePackage(ctxOmbud as any, externalId, salt)
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
             const exists = await c.PackageExists(ctxOmbud as any, externalId)
             expect(exists).toBe(true)
             // prettier-ignore
@@ -79,7 +81,9 @@ describe("PackageContract (unit)", () => {
         it("Should read back the created package", async () => {
             const externalId = "PKG-002"
             const salt = "randomSalt456"
-            await c.CreatePackage(ctxPM3 as any, externalId, salt)
+            const recipientOrgMSP = "Org2MSP"
+            await ctxPM3.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxPM3 as any, externalId, recipientOrgMSP)
             const pkgStr = await c.ReadBlockchainPackage(
                 ctxPM3 as any,
                 externalId
@@ -88,6 +92,7 @@ describe("PackageContract (unit)", () => {
             expect(pkg.externalId).toBe(externalId)
             expect(pkg.status).toBe(Status.PENDING)
             expect(pkg.ownerOrgMSP).toBe("Org1MSP")
+            expect(pkg.recipientOrgMSP).toBe(recipientOrgMSP)
             expect(pkg.packageDetailsAndPIIHash).toBeDefined()
             expect(pkg.packageDetailsAndPIIHash).toMatch(/^[a-f0-9]{64}$/) // SHA256 hash format
         })
@@ -96,7 +101,17 @@ describe("PackageContract (unit)", () => {
         it("Should read back the package details and PII", async () => {
             const externalId = "PKG-003"
             const salt = "randomSalt789"
-            await c.CreatePackage(ctxTransporter as any, externalId, salt)
+            const recipientOrgMSP = "Org1MSP"
+            await ctxTransporter.stub.setTransient({
+                packageDetails,
+                pii,
+                salt,
+            })
+            await c.CreatePackage(
+                ctxTransporter as any,
+                externalId,
+                recipientOrgMSP
+            )
             const pkgStr = await c.ReadPackageDetailsAndPII(
                 ctxTransporter as any,
                 externalId
@@ -111,7 +126,9 @@ describe("PackageContract (unit)", () => {
         it("Should update the package status", async () => {
             const externalId = "PKG-004"
             const salt = "randomSalt000"
-            await c.CreatePackage(ctxOmbud as any, externalId, salt)
+            const recipientOrgMSP = "Org2MSP"
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
             await c.UpdatePackageStatus(
                 ctxOmbud as any,
                 externalId,
@@ -129,7 +146,9 @@ describe("PackageContract (unit)", () => {
         it("Should delete the package", async () => {
             const externalId = "PKG-005"
             const salt = "randomSalt999"
-            await c.CreatePackage(ctxPM3 as any, externalId, salt)
+            const recipientOrgMSP = "Org1MSP"
+            await ctxPM3.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxPM3 as any, externalId, recipientOrgMSP)
             let exists = await c.PackageExists(ctxPM3 as any, externalId)
             expect(exists).toBe(true)
             await c.DeletePackage(ctxPM3 as any, externalId)
