@@ -8,7 +8,7 @@
 
 > **Size** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:4](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L4)
+Defined in: [src/lib/services/package/types.common.ts:4](https://github.com/Fraktal-PM3/fraktal-lib/blob/edf80d1ae36c4ff5ecc8f5c693291c518d5289d1/src/lib/services/package/types.common.ts#L4)
 
 Physical size of a package.
 
@@ -18,7 +18,7 @@ Physical size of a package.
 
 > **depth**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:10](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L10)
+Defined in: [src/lib/services/package/types.common.ts:10](https://github.com/Fraktal-PM3/fraktal-lib/blob/edf80d1ae36c4ff5ecc8f5c693291c518d5289d1/src/lib/services/package/types.common.ts#L10)
 
 Depth/length in meters.
 
@@ -28,7 +28,7 @@ Depth/length in meters.
 
 > **height**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:8](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L8)
+Defined in: [src/lib/services/package/types.common.ts:8](https://github.com/Fraktal-PM3/fraktal-lib/blob/edf80d1ae36c4ff5ecc8f5c693291c518d5289d1/src/lib/services/package/types.common.ts#L8)
 
 Height in meters.
 
@@ -38,6 +38,6 @@ Height in meters.
 
 > **width**: `number`
 
-Defined in: [src/lib/services/package/types.common.ts:6](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L6)
+Defined in: [src/lib/services/package/types.common.ts:6](https://github.com/Fraktal-PM3/fraktal-lib/blob/edf80d1ae36c4ff5ecc8f5c693291c518d5289d1/src/lib/services/package/types.common.ts#L6)
 
 Width in meters.

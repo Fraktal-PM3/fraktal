@@ -8,7 +8,7 @@
 
 > **PackageEventHandler** = (`res`) => `void`
 
-Defined in: [src/lib/services/package/types.common.ts:248](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L248)
+Defined in: [src/lib/services/package/types.common.ts:251](https://github.com/Fraktal-PM3/fraktal-lib/blob/edf80d1ae36c4ff5ecc8f5c693291c518d5289d1/src/lib/services/package/types.common.ts#L251)
 
 Callback signature for package-related blockchain events.
 
