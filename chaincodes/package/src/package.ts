@@ -91,6 +91,7 @@ export const BlockchainPackageSchema = z
         externalId: z.string().nonempty(),
         ownerOrgMSP: z.string().nonempty(),
         recipientOrgMSP: z.string().nonempty(),
+        senderOrgMSP: z.string().nonempty(),
         status: StatusEnumSchema,
         packageDetailsAndPIIHash: z.hash("sha256"),
     })
@@ -121,6 +122,9 @@ export class BlockchainPackage {
 
     @Property()
     public recipientOrgMSP: string = ""
+
+    @Property()
+    public senderOrgMSP: string = ""
 
     @Property()
     public status: Status = Status.PENDING
