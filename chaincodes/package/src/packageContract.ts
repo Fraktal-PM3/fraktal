@@ -742,7 +742,10 @@ export class PackageContract extends Contract {
 
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
-        packageData.status = Status.READY_FOR_PICKUP
+
+        if (packageData.status === Status.PROPOSED) {
+            packageData.status = Status.READY_FOR_PICKUP
+        }
 
         await ctx.stub.putState(
             externalId,
@@ -862,6 +865,15 @@ export class PackageContract extends Contract {
 
         // Update public package owner
         packageData.ownerOrgMSP = terms.toMSP
+
+        // Transporter picks package up
+        if (packageData.recipientOrgMSP !== terms.toMSP) {
+            packageData.status = Status.PICKED_UP
+        } else {
+            // Transporter hands package to reciever
+            packageData.status = Status.DELIVERED
+        }
+
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
