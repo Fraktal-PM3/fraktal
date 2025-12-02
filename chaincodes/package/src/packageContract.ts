@@ -15,7 +15,6 @@ import {
     isAllowedTransition,
     isISODateString,
     isUUID,
-    requireAttr,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
     validateJSONToPII,
@@ -251,12 +250,6 @@ export class PackageContract extends Contract {
             )
         }
 
-        // Enforce valid status transitions
-        if (status == Status.SUCCEEDED && !requireAttr(ctx, "role", "pm3")) {
-            throw new Error(
-                "The caller is not authorized to update the package status to SUCCEEDED",
-            )
-        }
         if (!isAllowedTransition(packageData.status, status)) {
             throw new Error(
                 `The status transition from ${packageData.status} to ${status} is not allowed`,

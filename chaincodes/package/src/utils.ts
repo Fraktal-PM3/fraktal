@@ -40,13 +40,13 @@ export const validUrgencies = new Set<string>([
 
 export const isAllowedTransition = (from: Status, to: Status): boolean => {
     const edges: Record<Status, Status[]> = {
-        [Status.PENDING]: [Status.PROPOSED],
-        [Status.PROPOSED]: [Status.READY_FOR_PICKUP],
-        [Status.READY_FOR_PICKUP]: [Status.PICKED_UP],
-        [Status.PICKED_UP]: [Status.IN_TRANSIT],
-        [Status.IN_TRANSIT]: [Status.DELIVERED],
-        [Status.DELIVERED]: [Status.SUCCEEDED, Status.FAILED],
-        [Status.SUCCEEDED]: [],
+        [Status.PENDING]: [Status.FAILED],
+        [Status.PROPOSED]: [Status.FAILED],
+        [Status.READY_FOR_PICKUP]: [Status.FAILED],
+        [Status.PICKED_UP]: [Status.IN_TRANSIT, Status.FAILED],
+        [Status.IN_TRANSIT]: [Status.FAILED],
+        [Status.DELIVERED]: [Status.FAILED],
+        [Status.SUCCEEDED]: [Status.FAILED],
         [Status.FAILED]: [],
     }
     return edges[from].includes(to)
@@ -133,4 +133,3 @@ export const isISODateString = (str: string): boolean => {
 export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
-
