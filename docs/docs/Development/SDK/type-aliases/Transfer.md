@@ -8,7 +8,7 @@
 
 > **Transfer** = `object`
 
-Defined in: [src/lib/services/package/types.common.ts:123](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L123)
+Defined in: [src/lib/services/package/types.common.ts:123](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L123)
 
 A transfer instance and its state.
 
@@ -18,7 +18,7 @@ A transfer instance and its state.
 
 > **status**: [`TransferStatus`](../enumerations/TransferStatus.md)
 
-Defined in: [src/lib/services/package/types.common.ts:127](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L127)
+Defined in: [src/lib/services/package/types.common.ts:127](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L127)
 
 Current [TransferStatus](../enumerations/TransferStatus.md) of the transfer.
 
@@ -28,7 +28,7 @@ Current [TransferStatus](../enumerations/TransferStatus.md) of the transfer.
 
 > **terms**: [`TransferTerms`](TransferTerms.md)
 
-Defined in: [src/lib/services/package/types.common.ts:125](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L125)
+Defined in: [src/lib/services/package/types.common.ts:125](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L125)
 
 Public terms for this transfer.
 
@@ -38,7 +38,7 @@ Public terms for this transfer.
 
 > **transferTermsHash**: `string`
 
-Defined in: [src/lib/services/package/types.common.ts:133](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L133)
+Defined in: [src/lib/services/package/types.common.ts:133](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L133)
 
 Integrity hash of private terms or payloads associated with the transfer.
 

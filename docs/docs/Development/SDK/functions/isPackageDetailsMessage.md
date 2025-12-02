@@ -8,7 +8,7 @@
 
 > **isPackageDetailsMessage**(`msg`): `msg is FireFlyDatatypeMessage & { value: PackageDetailsWithId }`
 
-Defined in: [src/lib/services/package/types.common.ts:345](https://github.com/Fraktal-PM3/fraktal-lib/blob/5f3b11a2f5ed5a955483a277e36fe14ae1f4b719/src/lib/services/package/types.common.ts#L345)
+Defined in: [src/lib/services/package/types.common.ts:348](https://github.com/Fraktal-PM3/fraktal-lib/blob/923fd0ee464d01ab825000e88a2852e9d2ca6a86/src/lib/services/package/types.common.ts#L348)
 
 Type guard to check if a message is a PackageDetails datatype message.
 
