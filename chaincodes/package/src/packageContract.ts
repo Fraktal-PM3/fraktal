@@ -839,25 +839,26 @@ export class PackageContract extends Contract {
             .digest("hex")
 
         const recipientCollection = getImplicitCollection(terms.toMSP)
-        if (
-            await this.CheckPackageDetailsAndPIIHash(
-                ctx,
-                externalId,
-                packageInfoHash,
+        const verified = await this.CheckPackageDetailsAndPIIHash(
+            ctx,
+            externalId,
+            packageInfoHash,
+        )
+
+        if (!verified) {
+            throw new Error(
+                `The provided package details and PII do not match the stored hash for package ${externalId}`,
             )
-        ) {
-            // same org — nothing to move, but still update public owner
-        } else {
-            // write into recipient collection first (move semantics)
-            await ctx.stub.putPrivateData(
-                recipientCollection,
-                externalId,
-                Buffer.from(stringify(sortKeysRecursive(parsedStoreObject))),
-            )
-            const ownerCollection = getImplicitCollection(terms.fromMSP)
-            // remove from owner's collection
-            await ctx.stub.deletePrivateData(ownerCollection, externalId)
         }
+
+        await ctx.stub.putPrivateData(
+            recipientCollection,
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(parsedStoreObject))),
+        )
+        const ownerCollection = getImplicitCollection(terms.fromMSP)
+        // remove from owner's collection
+        await ctx.stub.deletePrivateData(ownerCollection, externalId)
 
         // Update public package owner
         packageData.ownerOrgMSP = terms.toMSP
