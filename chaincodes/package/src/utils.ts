@@ -9,6 +9,11 @@ import {
     TransferTermsSchema,
     Urgency,
 } from "./package"
+import { msp } from "@hyperledger/fabric-protos"
+import {
+    SignaturePolicy,
+    SignaturePolicyEnvelope,
+} from "@hyperledger/fabric-protos/lib/common"
 
 export const callerMSP = (ctx: Context) => {
     return ctx.clientIdentity.getMSPID()
@@ -132,4 +137,70 @@ export const isISODateString = (str: string): boolean => {
  */
 export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
+}
+
+export const setAssetStateBasedEndorsement = async (
+    ctx: Context,
+    assetID: string,
+    ownerOrgMSP: string,
+    toMSP: string,
+) => {
+    const principals = [`${ownerOrgMSP}.peer`, `${toMSP}.peer`]
+    const ep = buildEP(principals, 2) // AND policy
+    await ctx.stub.setStateValidationParameter(assetID, ep)
+    await ctx.stub.setPrivateDataValidationParameter(
+        getImplicitCollection(ownerOrgMSP),
+        assetID,
+        ep,
+    )
+    await ctx.stub.setPrivateDataValidationParameter(
+        getImplicitCollection(toMSP),
+        assetID,
+        ep,
+    )
+}
+
+/** principals like: "Org1MSP.peer", "Org2MSP.member", "Org1MSP.admin" */
+export const buildEP = (
+    principals: string[],
+    nRequired?: number,
+): Uint8Array => {
+    const ids: msp.MSPPrincipal[] = []
+    const rules: SignaturePolicy[] = []
+
+    principals.forEach((p, i) => {
+        const [mspid, roleStr = "member"] = p.split(".")
+        const role = new msp.MSPRole()
+        role.setMspIdentifier(mspid)
+        role.setRole(
+            roleStr.toLowerCase() === "admin"
+                ? msp.MSPRole.MSPRoleType.ADMIN
+                : roleStr.toLowerCase() === "peer"
+                  ? msp.MSPRole.MSPRoleType.PEER
+                  : msp.MSPRole.MSPRoleType.MEMBER,
+        )
+
+        const principal = new msp.MSPPrincipal()
+        principal.setPrincipalClassification(
+            msp.MSPPrincipal.Classification.ROLE,
+        )
+        principal.setPrincipal(role.serializeBinary())
+        ids.push(principal)
+
+        const signedBy = new SignaturePolicy()
+        signedBy.setSignedBy(i)
+        rules.push(signedBy)
+    })
+
+    const nOutOf = new SignaturePolicy.NOutOf()
+    nOutOf.setN(nRequired ?? 1) // default OR
+    nOutOf.setRulesList(rules)
+
+    const rule = new SignaturePolicy()
+    rule.setNOutOf(nOutOf)
+
+    const env = new SignaturePolicyEnvelope()
+    env.setIdentitiesList(ids)
+    env.setRule(rule)
+    return env.serializeBinary()
 }

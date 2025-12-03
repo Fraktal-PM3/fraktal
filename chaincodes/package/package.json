@@ -24,6 +24,7 @@
     "engineStrict": true,
     "author": "Fraktal",
     "dependencies": {
+        "@hyperledger/fabric-protos": "^0.2.2",
         "fabric-contract-api": "~2.5",
         "fabric-shim": "~2.5",
         "json-stringify-deterministic": "^1.0.0",

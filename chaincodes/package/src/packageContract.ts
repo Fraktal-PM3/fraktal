@@ -15,6 +15,7 @@ import {
     isAllowedTransition,
     isISODateString,
     isUUID,
+    setAssetStateBasedEndorsement,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
     validateJSONToPII,
@@ -882,6 +883,20 @@ export class PackageContract extends Contract {
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
+
+        await setAssetStateBasedEndorsement(
+            ctx,
+            externalId,
+            packageData.ownerOrgMSP,
+            terms.toMSP,
+        )
+
+        await setAssetStateBasedEndorsement(
+            ctx,
+            termsId,
+            packageData.ownerOrgMSP,
+            terms.toMSP,
         )
 
         ctx.stub.setEvent(
