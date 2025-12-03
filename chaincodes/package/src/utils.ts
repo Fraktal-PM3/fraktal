@@ -142,22 +142,11 @@ export const getImplicitCollection = (mspID: string): string => {
 export const setAssetStateBasedEndorsement = async (
     ctx: Context,
     assetID: string,
-    ownerOrgMSP: string,
-    toMSP: string,
+    orgs: string[],
 ) => {
-    const principals = [`${ownerOrgMSP}.peer`, `${toMSP}.peer`]
-    const ep = buildEP(principals, 2) // AND policy
+    const principals = orgs.map((org) => `${org}.peer`)
+    const ep = buildEP(principals, 1) // AND policy
     await ctx.stub.setStateValidationParameter(assetID, ep)
-    await ctx.stub.setPrivateDataValidationParameter(
-        getImplicitCollection(ownerOrgMSP),
-        assetID,
-        ep,
-    )
-    await ctx.stub.setPrivateDataValidationParameter(
-        getImplicitCollection(toMSP),
-        assetID,
-        ep,
-    )
 }
 
 /** principals like: "Org1MSP.peer", "Org2MSP.member", "Org1MSP.admin" */
