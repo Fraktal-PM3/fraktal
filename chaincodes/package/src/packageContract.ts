@@ -482,7 +482,10 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(terms))),
         )
 
-        packageData.status = Status.PROPOSED
+        if (packageData.status !== Status.IN_TRANSIT) {
+            packageData.status = Status.PROPOSED
+        }
+
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
@@ -681,6 +684,15 @@ export class PackageContract extends Contract {
             externalId,
         )
         const parsedPackage = validateJSONToBlockchainPackage(blockchainPackage)
+
+        if (
+            parsedPackage.status !== Status.PROPOSED &&
+            parsedPackage.status !== Status.IN_TRANSIT
+        ) {
+            throw new Error(
+                "[AcceptTransfer] You cannot accept a transfer for a package that has not been proposed or is being delivered",
+            )
+        }
 
         // Validate that the package externalId has correct hash as I have recieved
         if (
