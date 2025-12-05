@@ -145,7 +145,7 @@ export const setAssetStateBasedEndorsement = async (
     orgs: string[],
 ) => {
     const principals = orgs.map((org) => `${org}.peer`)
-    const ep = buildEP(principals, 1) // AND policy
+    const ep = buildEP(principals, 1)
     await ctx.stub.setStateValidationParameter(assetID, ep)
 }
 
@@ -182,7 +182,7 @@ export const buildEP = (
     })
 
     const nOutOf = new SignaturePolicy.NOutOf()
-    nOutOf.setN(nRequired ?? 1) // default OR
+    nOutOf.setN(nRequired ?? 1) 
     nOutOf.setRulesList(rules)
 
     const rule = new SignaturePolicy()

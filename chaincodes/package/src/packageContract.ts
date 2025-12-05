@@ -888,11 +888,11 @@ export class PackageContract extends Contract {
         )
 
         await setAssetStateBasedEndorsement(ctx, externalId, [
-            terms.toMSP,
+            terms.fromMSP,
         ])
 
         await setAssetStateBasedEndorsement(ctx, termsId, [
-            terms.toMSP,
+            terms.fromMSP,
         ])
 
         ctx.stub.setEvent(
