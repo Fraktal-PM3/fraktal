@@ -150,6 +150,13 @@ export class PackageContract extends Contract {
         externalId: string
     ): Promise<string> {
         const packageJSON = await ctx.stub.getState(externalId) // get the package from chaincode state
+        const hasReadPermission = await checkPermission(ctx, "package:read")
+        if (!hasReadPermission) {
+            throw new Error(
+                `ACCESS DENIED: caller lacks 'package:read' permission`
+            )
+        }
+
         if (packageJSON.length === 0) {
             throw new Error(`The package ${externalId} does not exist`)
         }
@@ -168,6 +175,15 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string
     ): Promise<string> {
+        const hasReadPrivatePermission = await checkPermission(
+            ctx,
+            "package:read:private"
+        )
+        if (!hasReadPrivatePermission) {
+            throw new Error(
+                `ACCESS DENIED: caller lacks 'package:read:private' permission`
+            )
+        }
         const callerMSPID = callerMSP(ctx)
         console.log(
             `[ReadPackageDetailsAndPII] Called by: ${callerMSPID} for package: ${externalId}`
@@ -238,6 +254,15 @@ export class PackageContract extends Contract {
         externalId: string,
         status: Status
     ): Promise<void> {
+        const hasUpdateStatusPermission = await checkPermission(
+            ctx,
+            "package:updateStatus"
+        )
+        if (!hasUpdateStatusPermission) {
+            throw new Error(
+                `ACCESS DENIED: caller lacks 'package:updateStatus' permission`
+            )
+        }
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
@@ -299,6 +324,15 @@ export class PackageContract extends Contract {
         const packageData = validateJSONToBlockchainPackage(packageJSON)
 
         const callerMSPID = callerMSP(ctx)
+        const isOwner = packageData.ownerOrgMSP === callerMSPID
+        const isPM3 = requireAttr(ctx, "role", "pm3")
+
+        // Only the owner or PM3 can delete the package
+        if (!isOwner && !isPM3) {
+            throw new Error(
+                `The caller is not authorized to delete the package ${externalId}.`
+            )
+        }
 
         if (
             hasDeletePermission &&

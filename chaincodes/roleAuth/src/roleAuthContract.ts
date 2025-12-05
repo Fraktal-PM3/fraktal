@@ -2,13 +2,25 @@ import { Context, Contract, Transaction } from "fabric-contract-api"
 import { z } from "zod"
 import { getPermissionsKey, Permission, PermissionSchema } from "./roleUtils"
 
-// PM3 MSP identifier used to gate administrative actions
+/**
+ * PM3 MSP identifier used to gate administrative actions.
+ * Only members of this organization are authorized to manage permissions.
+ */
 export const PM3_MSPID = "Org1MSP"
 
+/**
+ * Smart contract for managing role-based permissions in Hyperledger Fabric.
+ * Provides functionality to get, set, grant, and remove permissions for organizations.
+ * Administrative operations are restricted to the PM3 organization.
+ */
 export class RoleAuthContract extends Contract {
     /**
-     * Get permissions for a specific identity identifier (or the caller when not
-     * provided). Returns a JSON string containing the permissions array.
+     * Get permissions for a specific identity identifier (or the caller when not provided).
+     * Returns a JSON string containing the permissions array.
+     *
+     * @param ctx - Fabric transaction context
+     * @param identityIdentifier - Optional identity identifier (defaults to caller's identifier)
+     * @returns JSON string containing an array of permissions
      */
     @Transaction()
     public async getPermissions(
@@ -20,11 +32,9 @@ export class RoleAuthContract extends Contract {
         if (!data || data.length === 0) return JSON.stringify([])
         try {
             const parsed = JSON.parse(data.toString()) as unknown
-            // validate stored value before returning; return canonical JSON string
             const validated = z.array(PermissionSchema).parse(parsed)
             return JSON.stringify(validated)
         } catch {
-            // on corruption/parse error, return empty array JSON to be safe
             return JSON.stringify([])
         }
     }
@@ -33,6 +43,11 @@ export class RoleAuthContract extends Contract {
      * Set explicit permissions for an identity. Only callers from the PM3 MSP may
      * update permissions for other identities. This writes the Permission[] into
      * the ledger under a stable key.
+     *
+     * @param ctx - Fabric transaction context
+     * @param targetIdentityIdentifier - Identity identifier to set permissions for
+     * @param permissionsJson - JSON array of permission strings
+     * @throws {Error} If caller is not from PM3 MSP or if permissionsJson is invalid
      */
     @Transaction()
     public async setPermissions(
@@ -71,7 +86,7 @@ export class RoleAuthContract extends Contract {
      * @param ctx - Fabric transaction context
      * @param targetMSP - Target organization's MSP ID (e.g., "Org2MSP")
      * @param permissionsJson - JSON array of permission strings to grant
-     * @returns {Promise<void>}
+     * @throws {Error} If caller is not from PM3 MSP or if permissionsJson is invalid
      *
      * @example
      * // Grant package:create permission to Org2MSP
