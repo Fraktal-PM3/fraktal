@@ -895,8 +895,8 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [terms.toMSP])
-        await setAssetStateBasedEndorsement(ctx, termsId, [terms.toMSP])
+        await setAssetStateBasedEndorsement(ctx, externalId, [terms.fromMSP])
+        await setAssetStateBasedEndorsement(ctx, termsId, [terms.fromMSP])
 
         ctx.stub.setEvent(
             "TransferExecuted",
