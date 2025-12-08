@@ -494,6 +494,9 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
+        await setAssetStateBasedEndorsement(ctx, externalId, [toMSP])
+        await setAssetStateBasedEndorsement(ctx, termsId, [toMSP])
+
         ctx.stub.setEvent(
             "ProposeTransfer",
             Buffer.from(
@@ -760,6 +763,11 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
+        await setAssetStateBasedEndorsement(ctx, externalId, [
+            parsedTerms.toMSP,
+        ])
+        await setAssetStateBasedEndorsement(ctx, termsId, [parsedTerms.toMSP])
+
         ctx.stub.setEvent(
             "AcceptTransfer",
             Buffer.from(
@@ -887,15 +895,8 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [
-            terms.toMSP,
-            terms.fromMSP,
-        ])
-
-        await setAssetStateBasedEndorsement(ctx, termsId, [
-            terms.toMSP,
-            terms.fromMSP,
-        ])
+        await setAssetStateBasedEndorsement(ctx, externalId, [terms.toMSP])
+        await setAssetStateBasedEndorsement(ctx, termsId, [terms.toMSP])
 
         ctx.stub.setEvent(
             "TransferExecuted",
