@@ -135,7 +135,6 @@ export class PackageContract extends Contract {
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
-        await setAssetStateBasedEndorsement(ctx, externalId, [ownerOrgMSPID])
 
         ctx.stub.setEvent("CreatePackage", eventBuffer)
     }
@@ -493,9 +492,6 @@ export class PackageContract extends Contract {
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
-
-        await setAssetStateBasedEndorsement(ctx, externalId, [toMSP])
-        await setAssetStateBasedEndorsement(ctx, termsId, [toMSP])
 
         ctx.stub.setEvent(
             "ProposeTransfer",
