@@ -134,9 +134,12 @@ export class PackageContract extends Contract {
             ),
         )
 
+        await setAssetStateBasedEndorsement(ctx, externalId, [ownerOrgMSPID])
+
         await ctx.stub.putState(externalId, stateBuffer)
 
         ctx.stub.setEvent("CreatePackage", eventBuffer)
+
     }
 
     /**
@@ -468,9 +471,6 @@ export class PackageContract extends Contract {
             termsId,
         ])
 
-        await setAssetStateBasedEndorsement(ctx, termsId, [toMSP])
-        await setAssetStateBasedEndorsement(ctx, externalId, [toMSP])
-
         await ctx.stub.putPrivateData(
             privateTermsCollection,
             termsId,
@@ -758,15 +758,6 @@ export class PackageContract extends Contract {
         }
 
 
-
-        await setAssetStateBasedEndorsement(ctx, externalId, [
-            parsedTerms.toMSP,
-            parsedTerms.fromMSP,
-        ],
-            true
-        )
-        await setAssetStateBasedEndorsement(ctx, termsId, [parsedTerms.toMSP, parsedTerms.fromMSP], true)
-
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
@@ -896,8 +887,8 @@ export class PackageContract extends Contract {
 
 
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [terms.fromMSP, terms.toMSP], true)
-        await setAssetStateBasedEndorsement(ctx, termsId, [terms.fromMSP, terms.toMSP], true)
+        await setAssetStateBasedEndorsement(ctx, externalId, [terms.toMSP])
+        await setAssetStateBasedEndorsement(ctx, termsId, [terms.toMSP])
 
         await ctx.stub.putState(
             externalId,
