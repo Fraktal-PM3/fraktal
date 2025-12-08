@@ -1,3 +1,8 @@
+import { msp } from "@hyperledger/fabric-protos"
+import {
+    SignaturePolicy,
+    SignaturePolicyEnvelope,
+} from "@hyperledger/fabric-protos/lib/common"
 import { Context } from "fabric-contract-api"
 import {
     BlockchainPackageSchema,
@@ -9,11 +14,6 @@ import {
     TransferTermsSchema,
     Urgency,
 } from "./package"
-import { msp } from "@hyperledger/fabric-protos"
-import {
-    SignaturePolicy,
-    SignaturePolicyEnvelope,
-} from "@hyperledger/fabric-protos/lib/common"
 
 export const callerMSP = (ctx: Context) => {
     return ctx.clientIdentity.getMSPID()
@@ -143,9 +143,10 @@ export const setAssetStateBasedEndorsement = async (
     ctx: Context,
     assetID: string,
     orgs: string[],
+    or = false
 ) => {
     const principals = orgs.map((org) => `${org}.peer`)
-    const ep = buildEP(principals, 1)
+    const ep = buildEP(principals, or ? 0 : 1) // any
     await ctx.stub.setStateValidationParameter(assetID, ep)
 }
 
@@ -165,8 +166,8 @@ export const buildEP = (
             roleStr.toLowerCase() === "admin"
                 ? msp.MSPRole.MSPRoleType.ADMIN
                 : roleStr.toLowerCase() === "peer"
-                  ? msp.MSPRole.MSPRoleType.PEER
-                  : msp.MSPRole.MSPRoleType.MEMBER,
+                    ? msp.MSPRole.MSPRoleType.PEER
+                    : msp.MSPRole.MSPRoleType.MEMBER,
         )
 
         const principal = new msp.MSPPrincipal()
@@ -182,7 +183,7 @@ export const buildEP = (
     })
 
     const nOutOf = new SignaturePolicy.NOutOf()
-    nOutOf.setN(nRequired ?? 1) 
+    nOutOf.setN(nRequired ?? 1)
     nOutOf.setRulesList(rules)
 
     const rule = new SignaturePolicy()

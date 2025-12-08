@@ -468,6 +468,8 @@ export class PackageContract extends Contract {
             termsId,
         ])
 
+        await setAssetStateBasedEndorsement(ctx, termsId, [toMSP])
+
         await ctx.stub.putPrivateData(
             privateTermsCollection,
             termsId,
@@ -754,15 +756,20 @@ export class PackageContract extends Contract {
             packageData.status = Status.READY_FOR_PICKUP
         }
 
+
+
+        await setAssetStateBasedEndorsement(ctx, externalId, [
+            parsedTerms.toMSP,
+            parsedTerms.fromMSP,
+        ],
+            true
+        )
+        await setAssetStateBasedEndorsement(ctx, termsId, [parsedTerms.toMSP, parsedTerms.fromMSP], true)
+
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
-
-        await setAssetStateBasedEndorsement(ctx, externalId, [
-            parsedTerms.toMSP,
-        ])
-        await setAssetStateBasedEndorsement(ctx, termsId, [parsedTerms.toMSP])
 
         ctx.stub.setEvent(
             "AcceptTransfer",
@@ -886,13 +893,15 @@ export class PackageContract extends Contract {
             packageData.status = Status.DELIVERED
         }
 
+
+
+        await setAssetStateBasedEndorsement(ctx, externalId, [terms.fromMSP, terms.toMSP], true)
+        await setAssetStateBasedEndorsement(ctx, termsId, [terms.fromMSP, terms.toMSP], true)
+
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
-
-        await setAssetStateBasedEndorsement(ctx, externalId, [terms.fromMSP])
-        await setAssetStateBasedEndorsement(ctx, termsId, [terms.fromMSP])
 
         ctx.stub.setEvent(
             "TransferExecuted",
