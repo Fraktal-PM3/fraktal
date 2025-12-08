@@ -137,6 +137,8 @@ export class PackageContract extends Contract {
         await ctx.stub.putState(externalId, stateBuffer)
 
         ctx.stub.setEvent("CreatePackage", eventBuffer)
+
+        await setAssetStateBasedEndorsement(ctx, externalId, [ownerOrgMSPID])
     }
 
     /**
