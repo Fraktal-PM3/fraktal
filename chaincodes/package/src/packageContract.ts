@@ -466,6 +466,7 @@ export class PackageContract extends Contract {
             stringify(sortKeysRecursive(unparsedTerms)),
         )
 
+
         const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
             externalId,
             termsId,
@@ -490,6 +491,9 @@ export class PackageContract extends Contract {
         if (packageData.status !== Status.IN_TRANSIT) {
             packageData.status = Status.PROPOSED
         }
+
+        await setAssetStateBasedEndorsement(ctx, externalId, [callerMSP(ctx), toMSP], true)
+
 
         await ctx.stub.putState(
             externalId,
@@ -757,6 +761,7 @@ export class PackageContract extends Contract {
             packageData.status = Status.READY_FOR_PICKUP
         }
 
+        await setAssetStateBasedEndorsement(ctx, externalId, [parsedTerms.fromMSP, parsedTerms.toMSP], true)
 
         await ctx.stub.putState(
             externalId,
