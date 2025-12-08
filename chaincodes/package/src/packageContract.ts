@@ -469,6 +469,7 @@ export class PackageContract extends Contract {
         ])
 
         await setAssetStateBasedEndorsement(ctx, termsId, [toMSP])
+        await setAssetStateBasedEndorsement(ctx, externalId, [toMSP])
 
         await ctx.stub.putPrivateData(
             privateTermsCollection,
