@@ -145,7 +145,7 @@ export const setAssetStateBasedEndorsement = async (
     orgs: string[],
     any = false
 ) => {
-    const principals = orgs.map((org) => `${org}.peer`)
+    const principals = orgs.map((org) => `${org}.member`)
     const ep = buildEP(principals, any ? 1 : orgs.length)
     await ctx.stub.setStateValidationParameter(assetID, ep)
 }
