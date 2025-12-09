@@ -324,6 +324,10 @@ export class PackageContract extends Contract {
                             termsJSON.toString(),
                         )
 
+                        // Delete private terms from buyer's collection if they exist
+                        // Note: Private terms only exist after AcceptTransfer (READY_FOR_PICKUP status)
+                        // If status is PROPOSED, this delete is a no-op
+                        // If status is READY_FOR_PICKUP, buyer must endorse this delete operation
                         const privateTermsCollection = getImplicitCollection(
                             terms.toMSP,
                         )
@@ -379,13 +383,22 @@ export class PackageContract extends Contract {
     }
 
     /**
-     * ProposeTransfer creates a public transfer term and stores private transfer
-     * terms (e.g. price) in the recipient's implicit collection.
+     * ProposeTransfer creates a public transfer proposal with a hash of the private terms.
+     * The owner proposes the transfer unilaterally - only owner needs to endorse.
+     * Private terms are NOT written here; buyer provides them during AcceptTransfer.
+     *
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
+     * @param {string} termsId - Unique ID for the transfer terms
      * @param {string} toMSP - Recipient organization's MSP ID
+     * @param {string} createdISO - ISO timestamp when proposal was created
      * @param {string=} expiryISO - Optional ISO expiry timestamp
      * @returns {Promise<void>}
+     *
+     * Transient data required:
+     * - privateTermsHash: SHA256 hash of the private transfer terms
+     *
+     * Endorsement: Only owner needs to endorse (can propose unilaterally)
      */
     @Transaction()
     public async ProposeTransfer(
@@ -435,23 +448,16 @@ export class PackageContract extends Contract {
             )
         }
 
-        const privateTermsCollection = getImplicitCollection(toMSP)
+        // Owner provides private terms hash only - actual private terms are provided by buyer during AcceptTransfer
         const tmap = ctx.stub.getTransient()
-
-        const privateTransferTermsData = tmap.get("privateTransferTerms")
-        if (!privateTransferTermsData || !privateTransferTermsData.length) {
+        const privateTermsHashData = tmap.get("privateTermsHash")
+        if (!privateTermsHashData || !privateTermsHashData.length) {
             throw new Error(
-                "Missing transient field 'privateTransferTerms' for private transfer terms",
+                "Missing transient field 'privateTermsHash' - owner must provide hash of private terms",
             )
         }
 
-        const privateTransferTerms = validateJSONToPrivateTransferTerms(
-            privateTransferTermsData.toString(),
-        )
-
-        const privateTermsHash = createHash("sha256")
-            .update(stringify(sortKeysRecursive(privateTransferTerms)))
-            .digest("hex")
+        const privateTermsHash = privateTermsHashData.toString()
 
         const unparsedTerms: TransferTerms = {
             externalPackageId: externalId,
@@ -472,11 +478,8 @@ export class PackageContract extends Contract {
             termsId,
         ])
 
-        await ctx.stub.putPrivateData(
-            privateTermsCollection,
-            termsId,
-            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
-        )
+        // Note: Private terms are NOT written here - buyer writes them during AcceptTransfer
+        // This allows owner to propose unilaterally without requiring buyer's endorsement
 
         await ctx.stub.putState(
             termsId,
@@ -492,7 +495,9 @@ export class PackageContract extends Contract {
             packageData.status = Status.PROPOSED
         }
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [callerMSP(ctx), toMSP], false)
+        // Set state-based endorsement to owner only - buyer hasn't accepted yet
+        // After AcceptTransfer, policy will change to require both parties
+        await setAssetStateBasedEndorsement(ctx, externalId, [callerMSP(ctx)])
 
 
         await ctx.stub.putState(
@@ -650,13 +655,20 @@ export class PackageContract extends Contract {
     }
 
     /**
-     * AcceptTransfer is called by the proposed recipient to accept a transfer.
-     * It validates the package hash and the private terms provided in transient
-     * against the stored private terms.
+     * AcceptTransfer is called by the proposed recipient (buyer) to accept a transfer.
+     * The buyer provides the private terms via transient data, which are validated
+     * against the public hash from ProposeTransfer, then stored in buyer's collection.
+     *
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
      * @param {string} termsId - Transfer term identifier
      * @returns {Promise<void>}
+     *
+     * Transient data required:
+     * - privateTransferTerms: The full private terms (price, etc) that match the hash
+     *
+     * Endorsement: Only buyer needs to endorse (writes to their own collection)
+     * State-based policy changes to require BOTH parties for future operations
      */
     @Transaction()
     public async AcceptTransfer(
@@ -719,24 +731,19 @@ export class PackageContract extends Contract {
             )
         }
 
-        // Get the package, PII and transfer terms through the pdc
-        const privateTransferTermsHash = Buffer.from(
-            await ctx.stub.getPrivateDataHash(
-                getImplicitCollection(parsedTerms.toMSP),
-                termsId,
-            ),
-        ).toString("hex")
+        // Buyer provides private transfer terms via transient data and we validate the hash
         const tmap = ctx.stub.getTransient()
         const transferTermsData = tmap.get("privateTransferTerms")
 
         if (!transferTermsData || !transferTermsData.length) {
-            throw new Error(`Missing transient field 'privateTransferTerms'`)
+            throw new Error(`Missing transient field 'privateTransferTerms' - buyer must provide private terms to accept`)
         }
 
         const parsedInputPrivateTerms = validateJSONToPrivateTransferTerms(
             transferTermsData.toString(),
         )
 
+        // Calculate hash of provided private terms
         const inputHash = createHash("sha256")
             .update(
                 Buffer.from(
@@ -745,14 +752,27 @@ export class PackageContract extends Contract {
             )
             .digest("hex")
 
-        if (privateTransferTermsHash !== inputHash) {
+        // Validate against the public hash from the proposal
+        if (parsedTerms.privateTermsHash !== inputHash) {
             console.log(
-                `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`,
+                `[AcceptTransfer] ERROR: Private transfer terms hash mismatch for proposalId ${termsId}`,
             )
             throw new Error(
-                `The provided private transfer terms do not match the stored terms for proposalId ${termsId}`,
+                `The provided private transfer terms do not match the hash in the proposal for ${termsId}`,
             )
         }
+
+        // Now write the private terms to the buyer's own collection
+        // This is allowed because the buyer is endorsing this transaction
+        const buyerCollection = getImplicitCollection(parsedTerms.toMSP)
+        await ctx.stub.putPrivateData(
+            buyerCollection,
+            termsId,
+            Buffer.from(stringify(sortKeysRecursive(parsedInputPrivateTerms))),
+        )
+        console.log(
+            `[AcceptTransfer] Successfully wrote private terms to ${buyerCollection}`,
+        )
 
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
