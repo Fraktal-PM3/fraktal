@@ -492,7 +492,7 @@ export class PackageContract extends Contract {
             packageData.status = Status.PROPOSED
         }
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [callerMSP(ctx), toMSP], true)
+        await setAssetStateBasedEndorsement(ctx, externalId, [callerMSP(ctx), toMSP], false)
 
 
         await ctx.stub.putState(
@@ -761,7 +761,7 @@ export class PackageContract extends Contract {
             packageData.status = Status.READY_FOR_PICKUP
         }
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [parsedTerms.fromMSP, parsedTerms.toMSP], true)
+        await setAssetStateBasedEndorsement(ctx, externalId, [parsedTerms.fromMSP, parsedTerms.toMSP], false)
 
         await ctx.stub.putState(
             externalId,
