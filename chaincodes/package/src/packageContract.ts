@@ -134,9 +134,9 @@ export class PackageContract extends Contract {
             ),
         )
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [ownerOrgMSPID])
-
         await ctx.stub.putState(externalId, stateBuffer)
+
+        await setAssetStateBasedEndorsement(ctx, externalId, [ownerOrgMSPID])
 
         ctx.stub.setEvent("CreatePackage", eventBuffer)
     }
@@ -316,6 +316,22 @@ export class PackageContract extends Contract {
 
                 if (attributes.attributes.length >= 2) {
                     const termsId = attributes.attributes[1]
+
+                    const termsJSON = await ctx.stub.getState(termsId)
+                    if (termsJSON.length > 0) {
+                        const terms = validateJSONToTransferTerms(
+                            termsJSON.toString(),
+                        )
+
+                        const privateTermsCollection = getImplicitCollection(
+                            terms.toMSP,
+                        )
+                        await ctx.stub.deletePrivateData(
+                            privateTermsCollection,
+                            termsId,
+                        )
+                    }
+
                     await ctx.stub.deleteState(termsId)
                     await ctx.stub.deleteState(compositeKey)
                 }
@@ -418,6 +434,7 @@ export class PackageContract extends Contract {
             )
         }
 
+        const privateTermsCollection = getImplicitCollection(toMSP)
         const tmap = ctx.stub.getTransient()
 
         const privateTransferTermsData = tmap.get("privateTransferTerms")
@@ -453,6 +470,12 @@ export class PackageContract extends Contract {
             termsId,
         ])
 
+        await ctx.stub.putPrivateData(
+            privateTermsCollection,
+            termsId,
+            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
+        )
+
         await ctx.stub.putState(
             termsId,
             Buffer.from(stringify(sortKeysRecursive(terms))),
@@ -467,16 +490,16 @@ export class PackageContract extends Contract {
             packageData.status = Status.PROPOSED
         }
 
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
+
         await setAssetStateBasedEndorsement(
             ctx,
             externalId,
             [callerMSP(ctx), toMSP],
             false,
-        )
-
-        await ctx.stub.putState(
-            externalId,
-            Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
         ctx.stub.setEvent(
@@ -566,6 +589,69 @@ export class PackageContract extends Contract {
     }
 
     /**
+     * ReadPrivateTransferTerms returns the private transfer terms from the
+     * caller's implicit collection. Caller must be the intended recipient.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} termsId - Transfer term identifier
+     * @returns {Promise<string>} JSON serialized private transfer terms
+     */
+    @Transaction(false)
+    public async ReadPrivateTransferTerms(
+        ctx: Context,
+        termsId: string,
+    ): Promise<string> {
+        const callerMSPID = callerMSP(ctx)
+        console.log(
+            `[ReadPrivateTransferTerms] Called by: ${callerMSPID} for proposalId: ${termsId}`,
+        )
+
+        const publicTransferTerms = await this.ReadTransferTerms(ctx, termsId) // Verify transfer terms exists
+
+        const parsedTerms = validateJSONToTransferTerms(publicTransferTerms)
+
+        console.log(
+            `[ReadPrivateTransferTerms] Transfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`,
+        )
+
+        if (parsedTerms.toMSP !== callerMSPID) {
+            console.log(
+                `[ReadPrivateTransferTerms] ACCESS DENIED: ${callerMSPID} tried to read private terms owned by ${parsedTerms.toMSP}`,
+            )
+            throw new Error(
+                `The caller organization (${callerMSPID}) is not authorized to read the private details of terms ${termsId} owned by ${parsedTerms.toMSP}`,
+            )
+        }
+
+        console.log(
+            `[ReadPrivateTransferTerms] ACCESS GRANTED: Reading from ${callerMSPID}'s implicit collection`,
+        )
+
+        // Read from the owner's implicit collection (which is also the caller's collection after the check above)
+        const ownerCollection = getImplicitCollection(callerMSPID)
+        console.log(
+            `[ReadPrivateTransferTerms] Collection name: ${ownerCollection}`,
+        )
+
+        const privateBuf = await ctx.stub.getPrivateData(
+            ownerCollection,
+            termsId,
+        )
+        if (privateBuf.length === 0) {
+            console.log(
+                `[ReadPrivateTransferTerms] ERROR: No data found in collection ${ownerCollection} for key ${termsId}`,
+            )
+            throw new Error(
+                `The private information for terms ${termsId} does not exist in ${callerMSPID}'s collection`,
+            )
+        }
+
+        console.log(
+            `[ReadPrivateTransferTerms] SUCCESS: Retrieved private data for ${termsId}`,
+        )
+        return privateBuf.toString()
+    }
+
+    /**
      * AcceptTransfer is called by the proposed recipient to accept a transfer.
      * It validates the package hash and the private terms provided in transient
      * against the stored private terms.
@@ -636,26 +722,14 @@ export class PackageContract extends Contract {
         }
 
         // Get the package, PII and transfer terms through the pdc
-        const tmap = ctx.stub.getTransient()
-        const transferTermsData = tmap.get("privateTransferTerms")
+        const privateTransferTermsHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(
+                getImplicitCollection(parsedTerms.toMSP),
+                termsId,
+            ),
+        ).toString("hex")
 
-        if (!transferTermsData || !transferTermsData.length) {
-            throw new Error(`Missing transient field 'privateTransferTerms'`)
-        }
-
-        const parsedInputPrivateTerms = validateJSONToPrivateTransferTerms(
-            transferTermsData.toString(),
-        )
-
-        const inputHash = createHash("sha256")
-            .update(
-                Buffer.from(
-                    stringify(sortKeysRecursive(parsedInputPrivateTerms)),
-                ),
-            )
-            .digest("hex")
-
-        if (inputHash !== parsedTerms.privateTermsHash) {
+        if (privateTransferTermsHash !== parsedTerms.privateTermsHash) {
             console.log(
                 `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`,
             )
@@ -668,16 +742,16 @@ export class PackageContract extends Contract {
             parsedPackage.status = Status.READY_FOR_PICKUP
         }
 
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(parsedPackage))),
+        )
+
         await setAssetStateBasedEndorsement(
             ctx,
             externalId,
             [parsedTerms.fromMSP, parsedTerms.toMSP],
             false,
-        )
-
-        await ctx.stub.putState(
-            externalId,
-            Buffer.from(stringify(sortKeysRecursive(parsedPackage))),
         )
 
         ctx.stub.setEvent(
