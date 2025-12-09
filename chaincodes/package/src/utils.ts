@@ -143,9 +143,9 @@ export const setAssetStateBasedEndorsement = async (
     ctx: Context,
     assetID: string,
     orgs: string[],
-    any = false
+    any = false,
 ) => {
-    const principals = orgs.map((org) => `${org}.member`)
+    const principals = orgs.map((org) => `${org}.peer`)
     const ep = buildEP(principals, any ? 1 : orgs.length)
     await ctx.stub.setStateValidationParameter(assetID, ep)
 }
@@ -166,8 +166,8 @@ export const buildEP = (
             roleStr.toLowerCase() === "admin"
                 ? msp.MSPRole.MSPRoleType.ADMIN
                 : roleStr.toLowerCase() === "peer"
-                    ? msp.MSPRole.MSPRoleType.PEER
-                    : msp.MSPRole.MSPRoleType.MEMBER,
+                  ? msp.MSPRole.MSPRoleType.PEER
+                  : msp.MSPRole.MSPRoleType.MEMBER,
         )
 
         const principal = new msp.MSPPrincipal()

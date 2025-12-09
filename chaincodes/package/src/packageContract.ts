@@ -476,6 +476,12 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
         )
 
+        await ctx.stub.putPrivateData(
+            getImplicitCollection(callerMSP(ctx)),
+            termsId,
+            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
+        )
+
         await ctx.stub.putState(
             termsId,
             Buffer.from(stringify(sortKeysRecursive(terms))),
@@ -729,7 +735,17 @@ export class PackageContract extends Contract {
             ),
         ).toString("hex")
 
-        if (privateTransferTermsHash !== parsedTerms.privateTermsHash) {
+        const privateProposerTransferTermsHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(
+                getImplicitCollection(parsedTerms.toMSP),
+                termsId,
+            ),
+        ).toString("hex")
+
+        if (
+            privateTransferTermsHash !== parsedTerms.privateTermsHash ||
+            privateProposerTransferTermsHash !== parsedTerms.privateTermsHash
+        ) {
             console.log(
                 `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`,
             )
@@ -745,13 +761,6 @@ export class PackageContract extends Contract {
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(parsedPackage))),
-        )
-
-        await setAssetStateBasedEndorsement(
-            ctx,
-            externalId,
-            [parsedTerms.fromMSP, parsedTerms.toMSP],
-            false,
         )
 
         ctx.stub.setEvent(
