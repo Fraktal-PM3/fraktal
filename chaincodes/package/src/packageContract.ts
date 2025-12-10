@@ -678,7 +678,7 @@ export class PackageContract extends Contract {
             termsID,
         ])
 
-        const updatedProposalData = {
+        const updatedProposalData: Proposal = {
             externalId,
             termsID,
             toMSP: proposalData.toMSP,
