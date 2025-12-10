@@ -65,7 +65,7 @@ export const TransferTermsSchema = z
         toMSP: z.string().nonempty(),
         createdISO: z.iso.datetime(),
         expiryISO: z.iso.datetime().nullable().optional(),
-        privateTermsHash: z.hash("sha256"),
+        price: z.number().nonnegative(),
     })
     .strict()
 
@@ -74,13 +74,6 @@ export const TransferSchema = z
         terms: TransferTermsSchema,
         status: TransferStatusEnumSchema,
         transferTermsHash: z.hash("sha256"),
-    })
-    .strict()
-
-export const PrivateTransferTermsSchema = z
-    .object({
-        salt: z.string().nonempty(),
-        price: z.number().nonnegative(),
     })
     .strict()
 
@@ -103,14 +96,23 @@ export const StoreObjectSchema = z.object({
     packageDetails: PackageDetailsSchema,
 })
 
+export const ProposalSchema = z
+    .object({
+        externalId: z.string().nonempty(),
+        termsID: z.string().nonempty(),
+        toMSP: z.string().nonempty(),
+        status: z.string().nonempty(),
+    })
+    .strict()
+
 export type Size = z.infer<typeof SizeSchema>
 export type Location = z.infer<typeof LocationSchema>
 export type PackageDetails = z.infer<typeof PackageDetailsSchema>
 export type TransferTerms = z.infer<typeof TransferTermsSchema>
 export type Transfer = z.infer<typeof TransferSchema>
-export type PrivateTransferTerms = z.infer<typeof PrivateTransferTermsSchema>
 export type PackagePII = z.infer<typeof PackagePIISchema>
 export type BlockchainPackageType = z.infer<typeof BlockchainPackageSchema>
+export type Proposal = z.infer<typeof ProposalSchema>
 
 @Object()
 export class BlockchainPackage {

@@ -8,23 +8,20 @@ import {
 } from "fabric-contract-api"
 import stringify from "json-stringify-deterministic"
 import sortKeysRecursive from "sort-keys-recursive"
-import { BlockchainPackageSchema, Status, TransferTerms } from "./package"
+import { BlockchainPackageSchema, Proposal, Status } from "./package"
 import {
     callerMSP,
     getImplicitCollection,
     isAllowedTransition,
     isISODateString,
     isUUID,
-    setAssetStateBasedEndorsement,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
     validateJSONToPII,
-    validateJSONToPrivateTransferTerms,
+    validateJSONToProposal,
     validateJSONToStoreObject,
     validateJSONToTransferTerms,
 } from "./utils"
-
-const compositeKeyPrefix = "transferTerms"
 
 export const PM3_MSPID = "Org1MSP"
 
@@ -135,8 +132,6 @@ export class PackageContract extends Contract {
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
-
-        await setAssetStateBasedEndorsement(ctx, externalId, [ownerOrgMSPID])
 
         ctx.stub.setEvent("CreatePackage", eventBuffer)
     }
@@ -281,8 +276,8 @@ export class PackageContract extends Contract {
     }
 
     /** Deletes a package from the world state
-     * - Owner can delete if status is PENDING
-     * - Owner can delete if there's an active transfer proposal (before execution)
+     * - Owner can delete if status is PENDING, PROPOSED, or READY_FOR_PICKUP
+     * - Does not delete proposal data from PDCs (proposals become orphaned)
      * @param ctx - The transaction context
      * @param externalId - Unique identifier for the package
      * @throws {Error} If caller doesn't have required permissions
@@ -304,45 +299,11 @@ export class PackageContract extends Contract {
                 packageData.status === Status.PROPOSED ||
                 packageData.status === Status.READY_FOR_PICKUP)
         ) {
-            const iterator = await ctx.stub.getStateByPartialCompositeKey(
-                compositeKeyPrefix,
-                [externalId],
-            )
-
-            let result = await iterator.next()
-            while (!result.done) {
-                const compositeKey = result.value.key
-                const attributes = ctx.stub.splitCompositeKey(compositeKey)
-
-                if (attributes.attributes.length >= 2) {
-                    const termsId = attributes.attributes[1]
-
-                    const termsJSON = await ctx.stub.getState(termsId)
-                    if (termsJSON.length > 0) {
-                        const terms = validateJSONToTransferTerms(
-                            termsJSON.toString(),
-                        )
-
-                        const privateTermsCollection = getImplicitCollection(
-                            terms.toMSP,
-                        )
-                        await ctx.stub.deletePrivateData(
-                            privateTermsCollection,
-                            termsId,
-                        )
-                    }
-
-                    await ctx.stub.deleteState(termsId)
-                    await ctx.stub.deleteState(compositeKey)
-                }
-
-                result = await iterator.next()
-            }
-            await iterator.close()
-
+            // Delete package private data from owner's collection
             const ownerCollection = getImplicitCollection(callerMSPID)
             await ctx.stub.deletePrivateData(ownerCollection, externalId)
 
+            // Delete package from ledger
             await ctx.stub.deleteState(externalId)
 
             ctx.stub.setEvent(
@@ -378,22 +339,20 @@ export class PackageContract extends Contract {
     }
 
     /**
-     * ProposeTransfer creates a public transfer term and stores private transfer
-     * terms (e.g. price) in the recipient's implicit collection.
+     * ProposeTransfer stores transfer terms in the proposer's implicit collection.
+     * Terms are provided via transient map and stored with a composite key.
+     * Does NOT update the ledger or require endorsement.
+     * Client should call UpdateStatusAfterPropose separately to update package status.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} toMSP - Recipient organization's MSP ID
-     * @param {string=} expiryISO - Optional ISO expiry timestamp
+     * @param {string} proposalID - Unique identifier for this transfer proposal (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async ProposeTransfer(
         ctx: Context,
         externalId: string,
-        termsId: string,
-        toMSP: string,
-        createdISO: string,
-        expiryISO?: string,
+        proposalID: string,
     ): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
@@ -409,117 +368,64 @@ export class PackageContract extends Contract {
             )
         }
 
+        if (!isUUID(proposalID)) {
+            throw new Error(
+                "Invalid proposalID format — must be a UUID string.",
+            )
+        }
+
+        const tmap = ctx.stub.getTransient()
+
+        const transferTermsData = tmap.get("transferTerms")
+        if (!transferTermsData || !transferTermsData.length) {
+            throw new Error(
+                "Missing transient field 'transferTerms' for transfer terms",
+            )
+        }
+
+        const transferTerms = validateJSONToTransferTerms(
+            transferTermsData.toString(),
+        )
+
+        // Validate that externalPackageId in terms matches the parameter
+        if (transferTerms.externalPackageId !== externalId) {
+            throw new Error(
+                `externalPackageId in transfer terms (${transferTerms.externalPackageId}) does not match parameter (${externalId})`,
+            )
+        }
+
+        // Validate that fromMSP matches caller
+        if (transferTerms.fromMSP !== callerMSP(ctx)) {
+            throw new Error(
+                `fromMSP in transfer terms (${transferTerms.fromMSP}) does not match caller (${callerMSP(ctx)})`,
+            )
+        }
+
+        // Validate transporter constraint
         if (
             packageData.senderOrgMSP !== callerMSP(ctx) &&
-            packageData.recipientOrgMSP !== toMSP
+            packageData.recipientOrgMSP !== transferTerms.toMSP
         ) {
             throw new Error(
-                "A transporter cannot propose a transfer to other organizations than the indtended recipient",
+                "A transporter cannot propose a transfer to other organizations than the intended recipient",
             )
         }
 
-        if (packageData.status === Status.PROPOSED) {
-            throw new Error(
-                `Cannot propose transfer for package ${externalId} — it is already in PROPOSED status`,
-            )
-        }
-
-        if (!isUUID(termsId)) {
-            throw new Error("Invalid termsId format — must be a UUID string.")
-        }
-
-        if (!isISODateString(createdISO)) {
+        if (!isISODateString(transferTerms.createdISO)) {
             throw new Error(
                 "Invalid createdISO format — must be an ISO-8601 string.",
             )
         }
 
-        const privateTermsCollection = getImplicitCollection(toMSP)
-        const tmap = ctx.stub.getTransient()
-
-        const privateTransferTermsData = tmap.get("privateTransferTerms")
-        if (!privateTransferTermsData || !privateTransferTermsData.length) {
-            throw new Error(
-                "Missing transient field 'privateTransferTerms' for private transfer terms",
-            )
-        }
-
-        const privateTransferTerms = validateJSONToPrivateTransferTerms(
-            privateTransferTermsData.toString(),
-        )
-
-        const privateTermsHash = createHash("sha256")
-            .update(stringify(sortKeysRecursive(privateTransferTerms)))
-            .digest("hex")
-
-        const unparsedTerms: TransferTerms = {
-            externalPackageId: externalId,
-            fromMSP: callerMSP(ctx),
-            expiryISO: expiryISO || null,
-            createdISO: createdISO,
-            toMSP: toMSP,
-            privateTermsHash: privateTermsHash,
-        }
-
-        const terms = validateJSONToTransferTerms(
-            stringify(sortKeysRecursive(unparsedTerms)),
-        )
-
-        const compositeKey = ctx.stub.createCompositeKey(compositeKeyPrefix, [
+        const compositeKey = ctx.stub.createCompositeKey("terms", [
             externalId,
-            termsId,
+            proposalID,
         ])
 
         await ctx.stub.putPrivateData(
-            privateTermsCollection,
-            termsId,
-            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
-        )
-
-        await ctx.stub.putPrivateData(
             getImplicitCollection(callerMSP(ctx)),
-            termsId,
-            Buffer.from(stringify(sortKeysRecursive(privateTransferTerms))),
-        )
-
-        await ctx.stub.putState(
-            termsId,
-            Buffer.from(stringify(sortKeysRecursive(terms))),
-        )
-
-        await ctx.stub.putState(
             compositeKey,
-            Buffer.from(stringify(sortKeysRecursive(terms))),
-        )
-
-        if (packageData.status !== Status.IN_TRANSIT) {
-            packageData.status = Status.PROPOSED
-        }
-
-        await ctx.stub.putState(
-            externalId,
-            Buffer.from(stringify(sortKeysRecursive(packageData))),
-        )
-
-        await setAssetStateBasedEndorsement(
-            ctx,
-            externalId,
-            [callerMSP(ctx), toMSP],
-            false,
-        )
-
-        ctx.stub.setEvent(
-            "ProposeTransfer",
-            Buffer.from(
-                stringify(
-                    sortKeysRecursive({
-                        externalId,
-                        termsId,
-                        parsedTerms: terms,
-                        caller: callerMSP(ctx),
-                    }),
-                ),
-            ),
+            Buffer.from(stringify(sortKeysRecursive(transferTerms))),
         )
     }
 
@@ -577,200 +483,226 @@ export class PackageContract extends Contract {
     }
 
     /**
-     * ReadTransferTerms returns the public transfer terms for a given term id.
-     * @param {Context} ctx - Fabric transaction context
-     * @param {string} termsId - Transfer term identifier
-     * @returns {Promise<string>} JSON serialized transfer terms
-     */
-    @Transaction(false)
-    public async ReadTransferTerms(
-        ctx: Context,
-        termsId: string,
-    ): Promise<string> {
-        const termsJSON = await ctx.stub.getState(termsId) // get the package from chaincode state
-        if (termsJSON.length === 0) {
-            throw new Error(`The package ${termsId} does not exist`)
-        }
-        return termsJSON.toString()
-    }
-
-    /**
-     * ReadPrivateTransferTerms returns the private transfer terms from the
-     * caller's implicit collection. Caller must be the intended recipient.
-     * @param {Context} ctx - Fabric transaction context
-     * @param {string} termsId - Transfer term identifier
-     * @returns {Promise<string>} JSON serialized private transfer terms
-     */
-    @Transaction(false)
-    public async ReadPrivateTransferTerms(
-        ctx: Context,
-        termsId: string,
-    ): Promise<string> {
-        const callerMSPID = callerMSP(ctx)
-        console.log(
-            `[ReadPrivateTransferTerms] Called by: ${callerMSPID} for proposalId: ${termsId}`,
-        )
-
-        const publicTransferTerms = await this.ReadTransferTerms(ctx, termsId) // Verify transfer terms exists
-
-        const parsedTerms = validateJSONToTransferTerms(publicTransferTerms)
-
-        console.log(
-            `[ReadPrivateTransferTerms] Transfer to: ${parsedTerms.toMSP}, Caller: ${callerMSPID}`,
-        )
-
-        if (parsedTerms.toMSP !== callerMSPID) {
-            console.log(
-                `[ReadPrivateTransferTerms] ACCESS DENIED: ${callerMSPID} tried to read private terms owned by ${parsedTerms.toMSP}`,
-            )
-            throw new Error(
-                `The caller organization (${callerMSPID}) is not authorized to read the private details of terms ${termsId} owned by ${parsedTerms.toMSP}`,
-            )
-        }
-
-        console.log(
-            `[ReadPrivateTransferTerms] ACCESS GRANTED: Reading from ${callerMSPID}'s implicit collection`,
-        )
-
-        // Read from the owner's implicit collection (which is also the caller's collection after the check above)
-        const ownerCollection = getImplicitCollection(callerMSPID)
-        console.log(
-            `[ReadPrivateTransferTerms] Collection name: ${ownerCollection}`,
-        )
-
-        const privateBuf = await ctx.stub.getPrivateData(
-            ownerCollection,
-            termsId,
-        )
-        if (privateBuf.length === 0) {
-            console.log(
-                `[ReadPrivateTransferTerms] ERROR: No data found in collection ${ownerCollection} for key ${termsId}`,
-            )
-            throw new Error(
-                `The private information for terms ${termsId} does not exist in ${callerMSPID}'s collection`,
-            )
-        }
-
-        console.log(
-            `[ReadPrivateTransferTerms] SUCCESS: Retrieved private data for ${termsId}`,
-        )
-        return privateBuf.toString()
-    }
-
-    /**
      * AcceptTransfer is called by the proposed recipient to accept a transfer.
-     * It validates the package hash and the private terms provided in transient
-     * against the stored private terms.
+     * Terms are provided via transient map and stored with a composite key in acceptor's PDC.
+     * Does NOT update the ledger or require endorsement.
+     * Client should call UpdateStatusAfterAccept separately to update package status.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsId - Transfer term identifier
+     * @param {string} proposalID - Transfer proposal identifier (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async AcceptTransfer(
         ctx: Context,
         externalId: string,
-        termsId: string,
+        proposalID: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
-            `[AcceptTransfer] Called by: ${callerMSPID} for proposalId: ${termsId} and externalId: ${externalId}`,
+            `[AcceptTransfer] Called by: ${callerMSPID} for proposalID: ${proposalID} and externalId: ${externalId}`,
         )
-        const publictransferTerms = await this.ReadTransferTerms(ctx, termsId)
-        const parsedTerms = validateJSONToTransferTerms(publictransferTerms)
 
-        if (parsedTerms.toMSP !== callerMSPID) {
-            console.log(
-                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${parsedTerms.toMSP}`,
-            )
+        if (!isUUID(proposalID)) {
             throw new Error(
-                `The caller organization (${callerMSPID}) is not authorized to accept terms ${termsId} meant for ${parsedTerms.toMSP}`,
-            )
-        }
-        if (parsedTerms.externalPackageId !== externalId) {
-            console.log(
-                `[AcceptTransfer] ERROR: proposalId ${termsId} is not for package ${externalId}`,
-            )
-            throw new Error(
-                `The proposalId ${termsId} is not for package ${externalId}`,
+                "Invalid proposalID format — must be a UUID string.",
             )
         }
 
-        const blockchainPackage = await this.ReadBlockchainPackage(
-            ctx,
+        const tmap = ctx.stub.getTransient()
+
+        const transferTermsData = tmap.get("transferTerms")
+        if (!transferTermsData || !transferTermsData.length) {
+            throw new Error(
+                "Missing transient field 'transferTerms' for transfer terms",
+            )
+        }
+
+        const transferTerms = validateJSONToTransferTerms(
+            transferTermsData.toString(),
+        )
+
+        // Validate that the acceptor is the intended recipient
+        if (transferTerms.toMSP !== callerMSPID) {
+            console.log(
+                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${transferTerms.toMSP}`,
+            )
+            throw new Error(
+                `The caller organization (${callerMSPID}) is not authorized to accept proposal ${proposalID} meant for ${transferTerms.toMSP}`,
+            )
+        }
+
+        // Validate that externalPackageId in terms matches the parameter
+        if (transferTerms.externalPackageId !== externalId) {
+            console.log(
+                `[AcceptTransfer] ERROR: proposalID ${proposalID} is not for package ${externalId}`,
+            )
+            throw new Error(
+                `The proposalID ${proposalID} is not for package ${externalId}`,
+            )
+        }
+
+        // Create composite key for storing accepted terms
+        const compositeKey = ctx.stub.createCompositeKey("terms", [
             externalId,
+            proposalID,
+        ])
+
+        // Store transfer terms in acceptor's PDC with composite key
+        await ctx.stub.putPrivateData(
+            getImplicitCollection(callerMSPID),
+            compositeKey,
+            Buffer.from(stringify(sortKeysRecursive(transferTerms))),
         )
-        const parsedPackage = validateJSONToBlockchainPackage(blockchainPackage)
+    }
 
-        if (
-            parsedPackage.status !== Status.PROPOSED &&
-            parsedPackage.status !== Status.IN_TRANSIT
-        ) {
+    /**
+     * UpdateStatusAfterPropose updates the package status to PROPOSED.
+     * Stores a composite key mapping on the blockchain for proposal lookup.
+     * This is a simple status update transaction with no validation.
+     * Should be called after ProposeTransfer completes.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} proposalID - Transfer proposal identifier (UUID)
+     * @returns {Promise<void>}
+     */
+    @Transaction()
+    public async UpdateStatusAfterPropose(
+        ctx: Context,
+        externalId: string,
+        proposalID: string,
+        toMSP: string,
+    ): Promise<void> {
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
+
+        if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
             throw new Error(
-                "[AcceptTransfer] You cannot accept a transfer for a package that has not been proposed or is being delivered",
+                `Only the owner organization may update the status for package ${externalId} after proposing a transfer`,
             )
         }
 
-        // Validate that the package externalId has correct hash as I have recieved
-        if (
-            !(await this.CheckPackageDetailsAndPIIHash(
-                ctx,
-                externalId,
-                parsedPackage.packageDetailsAndPIIHash,
-            ))
-        ) {
-            console.log(
-                `[AcceptTransfer] ERROR: Hash mismatch for package ${externalId}`,
-            )
-            throw new Error(
-                `[AcceptTransfer] Hash mismatch for package ${externalId}`,
-            )
-        }
-
-        // Get the package, PII and transfer terms through the pdc
-        const privateTransferTermsHash = Buffer.from(
-            await ctx.stub.getPrivateDataHash(
-                getImplicitCollection(parsedTerms.toMSP),
-                termsId,
-            ),
-        ).toString("hex")
-
-        const privateProposerTransferTermsHash = Buffer.from(
-            await ctx.stub.getPrivateDataHash(
-                getImplicitCollection(parsedTerms.toMSP),
-                termsId,
-            ),
-        ).toString("hex")
-
-        if (
-            privateTransferTermsHash !== parsedTerms.privateTermsHash ||
-            privateProposerTransferTermsHash !== parsedTerms.privateTermsHash
-        ) {
-            console.log(
-                `[AcceptTransfer] ERROR: Private transfer terms mismatch for proposalId ${termsId}`,
-            )
-            throw new Error(
-                `The provided private transfer terms do not match the stored terms for proposalId ${termsId}`,
-            )
-        }
-
-        if (parsedPackage.status === Status.PROPOSED) {
-            parsedPackage.status = Status.READY_FOR_PICKUP
+        if (packageData.status !== Status.IN_TRANSIT) {
+            packageData.status = Status.PROPOSED
         }
 
         await ctx.stub.putState(
             externalId,
-            Buffer.from(stringify(sortKeysRecursive(parsedPackage))),
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
+
+        // Store composite key mapping on blockchain for proposal lookup
+        const proposalKey = ctx.stub.createCompositeKey("proposal", [
+            externalId,
+            proposalID,
+        ])
+
+        const proposalData: Proposal = {
+            externalId,
+            proposalID,
+            toMSP: toMSP,
+            status: "active",
+        }
+
+        await ctx.stub.putState(
+            proposalKey,
+            Buffer.from(stringify(sortKeysRecursive(proposalData))),
         )
 
         ctx.stub.setEvent(
-            "AcceptTransfer",
+            "StatusUpdatedAfterPropose",
             Buffer.from(
                 stringify(
                     sortKeysRecursive({
                         externalId,
-                        termsId,
-                        caller: callerMSPID,
+                        proposalID,
+                        status: packageData.status,
+                        caller: callerMSP(ctx),
+                    }),
+                ),
+            ),
+        )
+    }
+
+    /**
+     * UpdateStatusAfterAccept updates the package status to READY_FOR_PICKUP.
+     * Updates the proposal status on the blockchain.
+     * This is a simple status update transaction with no validation.
+     * Should be called after AcceptTransfer completes.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} proposalID - Transfer proposal identifier (UUID)
+     * @returns {Promise<void>}
+     */
+    @Transaction()
+    public async UpdateStatusAfterAccept(
+        ctx: Context,
+        externalId: string,
+        proposalID: string,
+    ): Promise<void> {
+        const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
+        const packageData = validateJSONToBlockchainPackage(packageJSON)
+
+        if (packageData.ownerOrgMSP === callerMSP(ctx)) {
+            throw new Error(
+                `The owner organization cannot update the status for package ${externalId} after acceptance`,
+            )
+        }
+
+        if (packageData.status === Status.PROPOSED) {
+            packageData.status = Status.READY_FOR_PICKUP
+        }
+
+        await ctx.stub.putState(
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
+        )
+
+        // Retrieve proposal from blockchain to validate acceptor
+        const proposalIterator = await ctx.stub.getStateByPartialCompositeKey(
+            "proposal",
+            [externalId, proposalID],
+        )
+
+        const proposalResult = await proposalIterator.next()
+
+        const proposalData = validateJSONToProposal(
+            proposalResult.value.value.toString(),
+        )
+
+        if (proposalData.toMSP !== callerMSP(ctx)) {
+            throw new Error(
+                `The caller organization is not authorized to update the status for package ${externalId} after acceptance`,
+            )
+        }
+
+        // Update proposal status to accepted
+        const proposalKey = ctx.stub.createCompositeKey("proposal", [
+            externalId,
+            proposalID,
+        ])
+
+        const updatedProposalData = {
+            externalId,
+            proposalID,
+            toMSP: proposalData.toMSP,
+            status: "accepted",
+        }
+
+        await ctx.stub.putState(
+            proposalKey,
+            Buffer.from(stringify(sortKeysRecursive(updatedProposalData))),
+        )
+
+        ctx.stub.setEvent(
+            "StatusUpdatedAfterAccept",
+            Buffer.from(
+                stringify(
+                    sortKeysRecursive({
+                        externalId,
+                        proposalID,
+                        status: packageData.status,
+                        caller: callerMSP(ctx),
                     }),
                 ),
             ),
@@ -779,39 +711,23 @@ export class PackageContract extends Contract {
 
     /**
      * ExecuteTransfer performs the ownership change. Caller must be the current owner (fromMSP).
-     * It moves the package's private details and PII from the owner's implicit collection
-     * to the recipient's implicit collection (if they differ), updates the public package
-     * owner on the ledger, and emits a minimal TransferExecuted event.
+     * Validates that both proposer and acceptor have matching transfer terms in their PDCs.
+     * Moves the package's private details and PII from the owner's implicit collection
+     * to the recipient's implicit collection, updates the public package owner on the ledger,
+     * and emits a TransferExecuted event.
      *
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsId - Transfer term identifier
+     * @param {string} proposalID - Transfer proposal identifier (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async ExecuteTransfer(
         ctx: Context,
         externalId: string,
-        termsId: string,
+        proposalID: string,
     ): Promise<void> {
-        // Read public transfer terms
-        const termsJSON = await this.ReadTransferTerms(ctx, termsId)
-        const terms = validateJSONToTransferTerms(termsJSON)
-
-        if (terms.externalPackageId !== externalId) {
-            throw new Error(
-                `Transfer terms ${termsId} are not for package ${externalId}`,
-            )
-        }
-
         const caller = callerMSP(ctx)
-
-        // Only the original proposer (fromMSP) may execute the transfer
-        if (caller !== terms.fromMSP) {
-            throw new Error(
-                `Only the proposer (${terms.fromMSP}) may execute the transfer`,
-            )
-        }
 
         // Read public package and verify ownership
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
@@ -819,6 +735,66 @@ export class PackageContract extends Contract {
 
         if (packageData.ownerOrgMSP !== caller) {
             throw new Error(`Package ${externalId} is not owned by ${caller}`)
+        }
+
+        // Create composite keys for reading transfer terms from PDCs
+        const proposalKey = ctx.stub.createCompositeKey("proposal", [
+            externalId,
+            proposalID,
+        ])
+
+        const acceptanceKey = ctx.stub.createCompositeKey("acceptance", [
+            externalId,
+            proposalID,
+        ])
+
+        // Read transfer terms from proposer's PDC
+        const proposerTermsBuffer = await ctx.stub.getPrivateData(
+            getImplicitCollection(caller),
+            proposalKey,
+        )
+
+        if (proposerTermsBuffer.length === 0) {
+            throw new Error(
+                `Proposal ${proposalID} not found in proposer's collection`,
+            )
+        }
+
+        const proposerTerms = validateJSONToTransferTerms(
+            proposerTermsBuffer.toString(),
+        )
+
+        // Verify that the proposer is the caller
+        if (proposerTerms.fromMSP !== caller) {
+            throw new Error(
+                `Only the proposer (${proposerTerms.fromMSP}) may execute the transfer`,
+            )
+        }
+
+        // Hash both terms and verify they match
+        const proposerTermsHash = await ctx.stub.getPrivateDataHash(
+            getImplicitCollection(caller),
+            proposalKey,
+        )
+
+        const acceptorTermsHash = await ctx.stub.getPrivateDataHash(
+            getImplicitCollection(proposerTerms.toMSP),
+            acceptanceKey,
+        )
+
+        if (proposerTermsHash !== acceptorTermsHash) {
+            throw new Error(
+                `Transfer terms mismatch: proposer and acceptor have different terms for proposal ${proposalID}`,
+            )
+        }
+
+        // Use the matched terms for execution
+        const terms = proposerTerms
+
+        if (terms.externalPackageId !== externalId) {
+            throw new Error(
+                `Transfer terms ${proposalID} are not for package ${externalId}`,
+            )
         }
 
         // Validate expiry if present
@@ -831,7 +807,7 @@ export class PackageContract extends Contract {
             }
             if (exp < new Date()) {
                 throw new Error(
-                    `The transfer terms ${termsId} for package ${externalId} have expired`,
+                    `The transfer terms ${proposalID} for package ${externalId} have expired`,
                 )
             }
         }
@@ -885,9 +861,6 @@ export class PackageContract extends Contract {
             packageData.status = Status.DELIVERED
         }
 
-        await setAssetStateBasedEndorsement(ctx, externalId, [terms.toMSP])
-        await setAssetStateBasedEndorsement(ctx, termsId, [terms.toMSP])
-
         await ctx.stub.putState(
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
@@ -898,7 +871,7 @@ export class PackageContract extends Contract {
             Buffer.from(
                 stringify({
                     externalId,
-                    termsId,
+                    proposalID,
                     newOwner: packageData.ownerOrgMSP,
                     caller: callerMSP(ctx),
                 }),
