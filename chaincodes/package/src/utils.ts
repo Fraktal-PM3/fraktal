@@ -1,3 +1,8 @@
+import { msp } from "@hyperledger/fabric-protos"
+import {
+    SignaturePolicy,
+    SignaturePolicyEnvelope,
+} from "@hyperledger/fabric-protos/lib/common"
 import { Context } from "fabric-contract-api"
 import {
     BlockchainPackageSchema,
@@ -40,13 +45,13 @@ export const validUrgencies = new Set<string>([
 
 export const isAllowedTransition = (from: Status, to: Status): boolean => {
     const edges: Record<Status, Status[]> = {
-        [Status.PENDING]: [Status.PROPOSED],
-        [Status.PROPOSED]: [Status.READY_FOR_PICKUP],
-        [Status.READY_FOR_PICKUP]: [Status.PICKED_UP],
-        [Status.PICKED_UP]: [Status.IN_TRANSIT],
-        [Status.IN_TRANSIT]: [Status.DELIVERED],
-        [Status.DELIVERED]: [Status.SUCCEEDED, Status.FAILED],
-        [Status.SUCCEEDED]: [],
+        [Status.PENDING]: [Status.FAILED],
+        [Status.PROPOSED]: [Status.FAILED],
+        [Status.READY_FOR_PICKUP]: [Status.FAILED],
+        [Status.PICKED_UP]: [Status.IN_TRANSIT, Status.FAILED],
+        [Status.IN_TRANSIT]: [Status.FAILED],
+        [Status.DELIVERED]: [Status.FAILED],
+        [Status.SUCCEEDED]: [Status.FAILED],
         [Status.FAILED]: [],
     }
     return edges[from].includes(to)
@@ -134,3 +139,58 @@ export const getImplicitCollection = (mspID: string): string => {
     return `_implicit_org_${mspID}`
 }
 
+export const setAssetStateBasedEndorsement = async (
+    ctx: Context,
+    assetID: string,
+    orgs: string[],
+    any = false,
+) => {
+    const principals = orgs.map((org) => `${org}.peer`)
+    const ep = buildEP(principals, any ? 1 : orgs.length)
+    await ctx.stub.setStateValidationParameter(assetID, ep)
+}
+
+/** principals like: "Org1MSP.peer", "Org2MSP.member", "Org1MSP.admin" */
+export const buildEP = (
+    principals: string[],
+    nRequired?: number,
+): Uint8Array => {
+    const ids: msp.MSPPrincipal[] = []
+    const rules: SignaturePolicy[] = []
+
+    principals.forEach((p, i) => {
+        const [mspid, roleStr = "member"] = p.split(".")
+        const role = new msp.MSPRole()
+        role.setMspIdentifier(mspid)
+        role.setRole(
+            roleStr.toLowerCase() === "admin"
+                ? msp.MSPRole.MSPRoleType.ADMIN
+                : roleStr.toLowerCase() === "peer"
+                  ? msp.MSPRole.MSPRoleType.PEER
+                  : msp.MSPRole.MSPRoleType.MEMBER,
+        )
+
+        const principal = new msp.MSPPrincipal()
+        principal.setPrincipalClassification(
+            msp.MSPPrincipal.Classification.ROLE,
+        )
+        principal.setPrincipal(role.serializeBinary())
+        ids.push(principal)
+
+        const signedBy = new SignaturePolicy()
+        signedBy.setSignedBy(i)
+        rules.push(signedBy)
+    })
+
+    const nOutOf = new SignaturePolicy.NOutOf()
+    nOutOf.setN(nRequired ?? 1)
+    nOutOf.setRulesList(rules)
+
+    const rule = new SignaturePolicy()
+    rule.setNOutOf(nOutOf)
+
+    const env = new SignaturePolicyEnvelope()
+    env.setIdentitiesList(ids)
+    env.setRule(rule)
+    return env.serializeBinary()
+}

@@ -124,7 +124,10 @@ export class MockStub {
     getStateByPartialCompositeKey = (
         objectType: string,
         attributes: string[]
-    ): Promise<any> => {
+    ): Promise<{
+        next: () => Promise<{ value?: { key: string; value: Buffer }; done: boolean }>
+        close: () => Promise<void>
+    }> => {
         return new Promise((resolve) => {
             const prefix = this.createCompositeKey(objectType, attributes)
             const matchingEntries: Array<{ key: string; value: Buffer }> = []
@@ -137,7 +140,7 @@ export class MockStub {
 
             let index = 0
             const iterator = {
-                async next() {
+                next: async () => {
                     if (index < matchingEntries.length) {
                         return {
                             value: matchingEntries[index++],
@@ -146,7 +149,7 @@ export class MockStub {
                     }
                     return { value: undefined, done: true }
                 },
-                async close() {},
+                close: async () => {},
             }
 
             resolve(iterator)
@@ -157,7 +160,10 @@ export class MockStub {
         return this.transient
     }
 
-    setTransient = (obj: Record<string, any>): Promise<void> =>
+    setTransient = (
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        obj: Record<string, any>
+    ): Promise<void> =>
         new Promise((resolve, reject) => {
             try {
                 this.transient = new Map(
@@ -213,12 +219,13 @@ export class MockContext {
     constructor(opts?: {
         mspId?: string
         attrs?: Record<string, string>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         transient?: Record<string, any>
     }) {
         this.stub = new MockStub()
         this.clientIdentity = new MockClientIdentity(opts?.mspId || "Org1MSP")
         if (opts?.transient) {
-            this.stub.setTransient(opts.transient)
+            void this.stub.setTransient(opts.transient)
         }
     }
 }
