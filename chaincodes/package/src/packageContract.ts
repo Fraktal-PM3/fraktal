@@ -223,6 +223,140 @@ export class PackageContract extends Contract {
     }
 
     /**
+     * ReadPrivateTransferTerms returns the transfer terms stored in the caller's implicit collection.
+     * @param {Context} ctx - Fabric transaction context
+     * @param {string} externalId - External package identifier
+     * @param {string} termsID - Unique identifier for this transfer proposal (UUID)
+     * @returns {Promise<string>} JSON serialized transfer terms array or single object
+     */
+    @Transaction(false)
+    public async ReadPrivateTransferTerms(
+        ctx: Context,
+        externalId: string,
+        termsID: string,
+    ): Promise<string> {
+        // use the composite key to read the transfer terms from the caller's implicit collection
+        if (externalId.trim() === "" && termsID.trim() === "") {
+            throw new Error("Either externalId or termsID must be provided")
+        }
+
+        const callerMSPID = callerMSP(ctx)
+
+        if (externalId.trim() === "") {
+            return await ctx.stub
+                .getPrivateDataByPartialCompositeKey(
+                    getImplicitCollection(callerMSPID),
+                    "terms",
+                    [termsID],
+                )
+                .then(async (iterator) => {
+                    const results = []
+                    let result = await iterator.next()
+                    while (!result.done) {
+                        if (result.value.value.length > 0) {
+                            results.push(result.value.value.toString())
+                        }
+                        result = await iterator.next()
+                    }
+                    return JSON.stringify(results)
+                })
+        } else if (termsID.trim() === "") {
+            return await ctx.stub
+                .getPrivateDataByPartialCompositeKey(
+                    getImplicitCollection(callerMSPID),
+                    "terms",
+                    [externalId],
+                )
+                .then(async (iterator) => {
+                    const results = []
+                    let result = await iterator.next()
+                    while (!result.done) {
+                        if (result.value.value.length > 0) {
+                            results.push(result.value.value.toString())
+                        }
+                        result = await iterator.next()
+                    }
+                    return JSON.stringify(results)
+                })
+        } else {
+            const compositeKey = ctx.stub.createCompositeKey("terms", [
+                externalId,
+                termsID,
+            ])
+            const termsBuf = await ctx.stub.getPrivateData(
+                getImplicitCollection(callerMSPID),
+                compositeKey,
+            )
+            if (termsBuf.length === 0) {
+                throw new Error(
+                    `The transfer terms ${termsID} for package ${externalId} do not exist in ${callerMSPID}'s collection`,
+                )
+            }
+            return termsBuf.toString()
+        }
+    }
+
+    /**
+     * ReadPublicProposal returns the proposal stored on the blockchain.
+     * @param ctx - Fabric transaction context
+     * @param externalId Package external identifier
+     * @param termsID Unique identifier for this transfer proposal (UUID)
+     * @returns {Promise<string>} JSON serialized proposal array or single object
+     */
+    @Transaction(false)
+    public async ReadPublicProposal(
+        ctx: Context,
+        externalId: string,
+        termsID: string,
+    ): Promise<string> {
+        if (externalId.trim() === "" && termsID.trim() === "") {
+            throw new Error("Either externalId or termsID must be provided")
+        }
+
+        if (externalId.trim() === "") {
+            return await ctx.stub
+                .getStateByPartialCompositeKey("proposal", [termsID])
+                .then(async (iterator) => {
+                    const results = []
+                    let result = await iterator.next()
+                    while (!result.done) {
+                        if (result.value.value.length > 0) {
+                            results.push(result.value.value.toString())
+                        }
+                        result = await iterator.next()
+                    }
+                    return JSON.stringify(results)
+                })
+        } else if (termsID.trim() === "") {
+            return await ctx.stub
+                .getStateByPartialCompositeKey("proposal", [externalId])
+                .then(async (iterator) => {
+                    const results = []
+                    let result = await iterator.next()
+                    while (!result.done) {
+                        if (result.value.value.length > 0) {
+                            results.push(result.value.value.toString())
+                        }
+                        result = await iterator.next()
+                    }
+                    return JSON.stringify(results)
+                })
+        } else {
+            const compositeKey = ctx.stub.createCompositeKey("proposal", [
+                externalId,
+                termsID,
+            ])
+            const termsBuf = await ctx.stub.getState(compositeKey)
+            if (termsBuf.length === 0) {
+                throw new Error(
+                    `The transfer terms ${termsID} for package ${externalId} do not exist on the ledger`,
+                )
+            }
+            return termsBuf.toString()
+        }
+    }
+
+    /**
      * UpdatePackageStatus updates the public package status. Only the owner org
      * may perform updates and certain transitions require specific roles.
      * @param {Context} ctx - Fabric transaction context
