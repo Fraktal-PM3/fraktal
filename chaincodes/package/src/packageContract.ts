@@ -13,7 +13,6 @@ import {
     callerMSP,
     getImplicitCollection,
     isAllowedTransition,
-    isISODateString,
     isUUID,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
@@ -540,12 +539,6 @@ export class PackageContract extends Contract {
         ) {
             throw new Error(
                 "A transporter cannot propose a transfer to other organizations than the intended recipient",
-            )
-        }
-
-        if (!isISODateString(transferTerms.createdISO)) {
-            throw new Error(
-                "Invalid createdISO format — must be an ISO-8601 string.",
             )
         }
 

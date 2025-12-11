@@ -63,7 +63,6 @@ export const TransferTermsSchema = z
         externalPackageId: z.string().nonempty(),
         fromMSP: z.string().nonempty(),
         toMSP: z.string().nonempty(),
-        createdISO: z.iso.datetime(),
         expiryISO: z.iso.datetime().nullable().optional(),
         price: z.number().nonnegative(),
     })
