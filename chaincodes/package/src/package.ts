@@ -101,6 +101,7 @@ export const ProposalSchema = z
         termsID: z.string().nonempty(),
         toMSP: z.string().nonempty(),
         status: z.string().nonempty(),
+        expiryISO: z.iso.datetime().nullable().optional(),
     })
     .strict()
 

@@ -13,6 +13,7 @@ import {
     callerMSP,
     getImplicitCollection,
     isAllowedTransition,
+    isISODateString,
     isUUID,
     validateJSONToBlockchainPackage,
     validateJSONToPackageDetails,
@@ -695,6 +696,7 @@ export class PackageContract extends Contract {
         externalId: string,
         termsID: string,
         toMSP: string,
+        expiryISO: string,
     ): Promise<void> {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
@@ -702,6 +704,12 @@ export class PackageContract extends Contract {
         if (packageData.ownerOrgMSP !== callerMSP(ctx)) {
             throw new Error(
                 `Only the owner organization may update the status for package ${externalId} after proposing a transfer`,
+            )
+        }
+
+        if (!isISODateString(expiryISO)) {
+            throw new Error(
+                `Invalid expiryISO format — must be an ISO 8601 date string.`,
             )
         }
 
@@ -725,6 +733,7 @@ export class PackageContract extends Contract {
             termsID,
             toMSP: toMSP,
             status: "active",
+            expiryISO: expiryISO,
         }
 
         await ctx.stub.putState(
@@ -739,6 +748,8 @@ export class PackageContract extends Contract {
                     sortKeysRecursive({
                         externalId,
                         termsID,
+                        toMSP,
+                        expiryISO,
                         status: packageData.status,
                         caller: callerMSP(ctx),
                     }),
