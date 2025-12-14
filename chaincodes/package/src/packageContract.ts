@@ -872,12 +872,12 @@ export class PackageContract extends Contract {
         }
 
         // Create composite keys for reading transfer terms from PDCs
-        const proposalKey = ctx.stub.createCompositeKey("proposal", [
+        const proposalKey = ctx.stub.createCompositeKey("terms", [
             externalId,
             termsID,
         ])
 
-        const acceptanceKey = ctx.stub.createCompositeKey("acceptance", [
+        const acceptanceKey = ctx.stub.createCompositeKey("terms", [
             externalId,
             termsID,
         ])
