@@ -866,6 +866,7 @@ export class PackageContract extends Contract {
         // Read public package and verify ownership
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
+        const tmap = ctx.stub.getTransient()
 
         if (packageData.ownerOrgMSP !== caller) {
             throw new Error(`Package ${externalId} is not owned by ${caller}`)
@@ -883,14 +884,10 @@ export class PackageContract extends Contract {
         ])
 
         // Read transfer terms from proposer's PDC
-        const proposerTermsBuffer = await ctx.stub.getPrivateData(
-            getImplicitCollection(caller),
-            proposalKey,
-        )
-
-        if (proposerTermsBuffer.length === 0) {
+        const proposerTermsBuffer = tmap.get("transferTerms")
+        if (!proposerTermsBuffer) {
             throw new Error(
-                `Proposal ${termsID} not found in proposer's collection`,
+                `Missing transient field 'transferTerms' for proposer terms`,
             )
         }
 
@@ -906,15 +903,29 @@ export class PackageContract extends Contract {
         }
 
         // Hash both terms and verify they match
-        const proposerTermsHash = await ctx.stub.getPrivateDataHash(
-            getImplicitCollection(caller),
-            proposalKey,
-        )
+        const proposerTermsHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(
+                getImplicitCollection(caller),
+                proposalKey,
+            ),
+        ).toString("hex")
 
-        const acceptorTermsHash = await ctx.stub.getPrivateDataHash(
-            getImplicitCollection(proposerTerms.toMSP),
-            acceptanceKey,
-        )
+        const proposerInputTermsHash = createHash("sha256")
+            .update(proposerTermsBuffer)
+            .digest("hex")
+
+        const acceptorTermsHash = Buffer.from(
+            await ctx.stub.getPrivateDataHash(
+                getImplicitCollection(proposerTerms.toMSP),
+                acceptanceKey,
+            ),
+        ).toString("hex")
+
+        if (proposerTermsHash !== proposerInputTermsHash) {
+            throw new Error(
+                `Proposer's provided transfer terms do not match the stored hash for proposal ${termsID}`,
+            )
+        }
 
         if (proposerTermsHash !== acceptorTermsHash) {
             throw new Error(
@@ -946,7 +957,6 @@ export class PackageContract extends Contract {
             }
         }
 
-        const tmap = ctx.stub.getTransient()
         const storeData = tmap.get("storeObject")
         if (!storeData || !storeData.length) {
             throw new Error("Missing transient field 'storeObject'")
