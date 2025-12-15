@@ -98,7 +98,7 @@ export const StoreObjectSchema = z.object({
 export const ProposalSchema = z
     .object({
         externalId: z.string().nonempty(),
-        termsID: z.string().nonempty(),
+        termsId: z.string().nonempty(),
         toMSP: z.string().nonempty(),
         status: z.string().nonempty(),
         expiryISO: z.iso.datetime().nullable().optional(),

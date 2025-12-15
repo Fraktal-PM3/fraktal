@@ -226,18 +226,18 @@ export class PackageContract extends Contract {
      * ReadPrivateTransferTerms returns the transfer terms stored in the caller's implicit collection.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsID - Unique identifier for this transfer proposal (UUID)
+     * @param {string} termsId - Unique identifier for this transfer proposal (UUID)
      * @returns {Promise<string>} JSON serialized transfer terms array or single object
      */
     @Transaction(false)
     public async ReadPrivateTransferTerms(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
     ): Promise<string> {
         // use the composite key to read the transfer terms from the caller's implicit collection
-        if (externalId.trim() === "" && termsID.trim() === "") {
-            throw new Error("Either externalId or termsID must be provided")
+        if (externalId.trim() === "" && termsId.trim() === "") {
+            throw new Error("Either externalId or termsId must be provided")
         }
 
         const callerMSPID = callerMSP(ctx)
@@ -247,7 +247,7 @@ export class PackageContract extends Contract {
                 .getPrivateDataByPartialCompositeKey(
                     getImplicitCollection(callerMSPID),
                     "terms",
-                    [termsID],
+                    [termsId],
                 )
                 .then(async (iterator) => {
                     const results = []
@@ -260,7 +260,7 @@ export class PackageContract extends Contract {
                     }
                     return JSON.stringify(results)
                 })
-        } else if (termsID.trim() === "") {
+        } else if (termsId.trim() === "") {
             return await ctx.stub
                 .getPrivateDataByPartialCompositeKey(
                     getImplicitCollection(callerMSPID),
@@ -281,7 +281,7 @@ export class PackageContract extends Contract {
         } else {
             const compositeKey = ctx.stub.createCompositeKey("terms", [
                 externalId,
-                termsID,
+                termsId,
             ])
             const termsBuf = await ctx.stub.getPrivateData(
                 getImplicitCollection(callerMSPID),
@@ -289,7 +289,7 @@ export class PackageContract extends Contract {
             )
             if (termsBuf.length === 0) {
                 throw new Error(
-                    `The transfer terms ${termsID} for package ${externalId} do not exist in ${callerMSPID}'s collection`,
+                    `The transfer terms ${termsId} for package ${externalId} do not exist in ${callerMSPID}'s collection`,
                 )
             }
             return termsBuf.toString()
@@ -300,22 +300,22 @@ export class PackageContract extends Contract {
      * ReadPublicProposal returns the proposal stored on the blockchain.
      * @param ctx - Fabric transaction context
      * @param externalId Package external identifier
-     * @param termsID Unique identifier for this transfer proposal (UUID)
+     * @param termsId Unique identifier for this transfer proposal (UUID)
      * @returns {Promise<string>} JSON serialized proposal array or single object
      */
     @Transaction(false)
     public async ReadPublicProposal(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
     ): Promise<string> {
-        if (externalId.trim() === "" && termsID.trim() === "") {
-            throw new Error("Either externalId or termsID must be provided")
+        if (externalId.trim() === "" && termsId.trim() === "") {
+            throw new Error("Either externalId or termsId must be provided")
         }
 
         if (externalId.trim() === "") {
             return await ctx.stub
-                .getStateByPartialCompositeKey("proposal", [termsID])
+                .getStateByPartialCompositeKey("proposal", [termsId])
                 .then(async (iterator) => {
                     const results = []
                     let result = await iterator.next()
@@ -327,7 +327,7 @@ export class PackageContract extends Contract {
                     }
                     return JSON.stringify(results)
                 })
-        } else if (termsID.trim() === "") {
+        } else if (termsId.trim() === "") {
             return await ctx.stub
                 .getStateByPartialCompositeKey("proposal", [externalId])
                 .then(async (iterator) => {
@@ -344,12 +344,12 @@ export class PackageContract extends Contract {
         } else {
             const compositeKey = ctx.stub.createCompositeKey("proposal", [
                 externalId,
-                termsID,
+                termsId,
             ])
             const termsBuf = await ctx.stub.getState(compositeKey)
             if (termsBuf.length === 0) {
                 throw new Error(
-                    `The transfer terms ${termsID} for package ${externalId} do not exist on the ledger`,
+                    `The transfer terms ${termsId} for package ${externalId} do not exist on the ledger`,
                 )
             }
             return termsBuf.toString()
@@ -475,18 +475,18 @@ export class PackageContract extends Contract {
     /**
      * ProposeTransfer stores transfer terms in the proposer's implicit collection.
      * Terms are provided via transient map and stored with a composite key.
-     * Does NOT update the ledger or require endorsement.
+     * Does NOT update the ledger.
      * Client should call UpdateStatusAfterPropose separately to update package status.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsID - Unique identifier for this transfer proposal (UUID)
+     * @param {string} termsId - Unique identifier for this transfer proposal (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async ProposeTransfer(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
     ): Promise<void> {
         const exists = await this.PackageExists(ctx, externalId)
         if (!exists) {
@@ -502,8 +502,8 @@ export class PackageContract extends Contract {
             )
         }
 
-        if (!isUUID(termsID)) {
-            throw new Error("Invalid termsID format — must be a UUID string.")
+        if (!isUUID(termsId)) {
+            throw new Error("Invalid termsId format — must be a UUID string.")
         }
 
         const tmap = ctx.stub.getTransient()
@@ -545,13 +545,45 @@ export class PackageContract extends Contract {
 
         const compositeKey = ctx.stub.createCompositeKey("terms", [
             externalId,
-            termsID,
+            termsId,
         ])
 
         await ctx.stub.putPrivateData(
             getImplicitCollection(callerMSP(ctx)),
             compositeKey,
             Buffer.from(stringify(sortKeysRecursive(transferTerms))),
+        )
+
+        // Store composite key mapping on blockchain for proposal lookup
+        const proposalKey = ctx.stub.createCompositeKey("proposal", [
+            externalId,
+            termsId,
+        ])
+
+        const proposalData: Proposal = {
+            externalId,
+            termsId,
+            toMSP: transferTerms.toMSP,
+            status: "active",
+            expiryISO: transferTerms.expiryISO,
+        }
+
+        await ctx.stub.putState(
+            proposalKey,
+            Buffer.from(stringify(sortKeysRecursive(proposalData))),
+        )
+
+        ctx.stub.setEvent(
+            "ProposeTransfer",
+            Buffer.from(
+                stringify(
+                    sortKeysRecursive({
+                        externalId,
+                        termsId,
+                        caller: callerMSP(ctx),
+                    }),
+                ),
+            ),
         )
     }
 
@@ -615,22 +647,22 @@ export class PackageContract extends Contract {
      * Client should call UpdateStatusAfterAccept separately to update package status.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsID - Transfer proposal identifier (UUID)
+     * @param {string} termsId - Transfer proposal identifier (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async AcceptTransfer(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
-            `[AcceptTransfer] Called by: ${callerMSPID} for termsID: ${termsID} and externalId: ${externalId}`,
+            `[AcceptTransfer] Called by: ${callerMSPID} for termsId: ${termsId} and externalId: ${externalId}`,
         )
 
-        if (!isUUID(termsID)) {
-            throw new Error("Invalid termsID format — must be a UUID string.")
+        if (!isUUID(termsId)) {
+            throw new Error("Invalid termsId format — must be a UUID string.")
         }
 
         const tmap = ctx.stub.getTransient()
@@ -652,24 +684,24 @@ export class PackageContract extends Contract {
                 `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${transferTerms.toMSP}`,
             )
             throw new Error(
-                `The caller organization (${callerMSPID}) is not authorized to accept proposal ${termsID} meant for ${transferTerms.toMSP}`,
+                `The caller organization (${callerMSPID}) is not authorized to accept proposal ${termsId} meant for ${transferTerms.toMSP}`,
             )
         }
 
         // Validate that externalPackageId in terms matches the parameter
         if (transferTerms.externalPackageId !== externalId) {
             console.log(
-                `[AcceptTransfer] ERROR: termsID ${termsID} is not for package ${externalId}`,
+                `[AcceptTransfer] ERROR: termsId ${termsId} is not for package ${externalId}`,
             )
             throw new Error(
-                `The termsID ${termsID} is not for package ${externalId}`,
+                `The termsId ${termsId} is not for package ${externalId}`,
             )
         }
 
         // Create composite key for storing accepted terms
         const compositeKey = ctx.stub.createCompositeKey("terms", [
             externalId,
-            termsID,
+            termsId,
         ])
 
         // Store transfer terms in acceptor's PDC with composite key
@@ -677,6 +709,36 @@ export class PackageContract extends Contract {
             getImplicitCollection(callerMSPID),
             compositeKey,
             Buffer.from(stringify(sortKeysRecursive(transferTerms))),
+        )
+        // Update proposal status to accepted
+        const proposalKey = ctx.stub.createCompositeKey("proposal", [
+            externalId,
+            termsId,
+        ])
+
+        const updatedProposalData: Proposal = {
+            externalId,
+            termsId,
+            toMSP: transferTerms.toMSP,
+            status: "accepted",
+        }
+
+        await ctx.stub.putState(
+            proposalKey,
+            Buffer.from(stringify(sortKeysRecursive(updatedProposalData))),
+        )
+
+        ctx.stub.setEvent(
+            "AcceptTransfer",
+            Buffer.from(
+                stringify(
+                    sortKeysRecursive({
+                        externalId,
+                        termsId,
+                        caller: callerMSP(ctx),
+                    }),
+                ),
+            ),
         )
     }
 
@@ -687,14 +749,14 @@ export class PackageContract extends Contract {
      * Should be called after ProposeTransfer completes.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsID - Transfer proposal identifier (UUID)
+     * @param {string} termsId - Transfer proposal identifier (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async UpdateStatusAfterPropose(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
         toMSP: string,
         expiryISO: string,
     ): Promise<void> {
@@ -722,32 +784,13 @@ export class PackageContract extends Contract {
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
-        // Store composite key mapping on blockchain for proposal lookup
-        const proposalKey = ctx.stub.createCompositeKey("proposal", [
-            externalId,
-            termsID,
-        ])
-
-        const proposalData: Proposal = {
-            externalId,
-            termsID,
-            toMSP: toMSP,
-            status: "active",
-            expiryISO: expiryISO,
-        }
-
-        await ctx.stub.putState(
-            proposalKey,
-            Buffer.from(stringify(sortKeysRecursive(proposalData))),
-        )
-
         ctx.stub.setEvent(
             "StatusUpdatedAfterPropose",
             Buffer.from(
                 stringify(
                     sortKeysRecursive({
                         externalId,
-                        termsID,
+                        termsId,
                         toMSP,
                         expiryISO,
                         status: packageData.status,
@@ -765,14 +808,14 @@ export class PackageContract extends Contract {
      * Should be called after AcceptTransfer completes.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsID - Transfer proposal identifier (UUID)
+     * @param {string} termsId - Transfer proposal identifier (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async UpdateStatusAfterAccept(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
     ): Promise<void> {
         const packageJSON = await this.ReadBlockchainPackage(ctx, externalId)
         const packageData = validateJSONToBlockchainPackage(packageJSON)
@@ -787,15 +830,10 @@ export class PackageContract extends Contract {
             packageData.status = Status.READY_FOR_PICKUP
         }
 
-        await ctx.stub.putState(
-            externalId,
-            Buffer.from(stringify(sortKeysRecursive(packageData))),
-        )
-
         // Retrieve proposal from blockchain to validate acceptor
         const proposalIterator = await ctx.stub.getStateByPartialCompositeKey(
             "proposal",
-            [externalId, termsID],
+            [externalId, termsId],
         )
 
         const proposalResult = await proposalIterator.next()
@@ -810,22 +848,9 @@ export class PackageContract extends Contract {
             )
         }
 
-        // Update proposal status to accepted
-        const proposalKey = ctx.stub.createCompositeKey("proposal", [
-            externalId,
-            termsID,
-        ])
-
-        const updatedProposalData: Proposal = {
-            externalId,
-            termsID,
-            toMSP: proposalData.toMSP,
-            status: "accepted",
-        }
-
         await ctx.stub.putState(
-            proposalKey,
-            Buffer.from(stringify(sortKeysRecursive(updatedProposalData))),
+            externalId,
+            Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
 
         ctx.stub.setEvent(
@@ -834,7 +859,7 @@ export class PackageContract extends Contract {
                 stringify(
                     sortKeysRecursive({
                         externalId,
-                        termsID,
+                        termsId,
                         status: packageData.status,
                         caller: callerMSP(ctx),
                     }),
@@ -852,14 +877,14 @@ export class PackageContract extends Contract {
      *
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
-     * @param {string} termsID - Transfer proposal identifier (UUID)
+     * @param {string} termsId - Transfer proposal identifier (UUID)
      * @returns {Promise<void>}
      */
     @Transaction()
     public async ExecuteTransfer(
         ctx: Context,
         externalId: string,
-        termsID: string,
+        termsId: string,
     ): Promise<void> {
         const caller = callerMSP(ctx)
 
@@ -875,12 +900,12 @@ export class PackageContract extends Contract {
         // Create composite keys for reading transfer terms from PDCs
         const proposalKey = ctx.stub.createCompositeKey("terms", [
             externalId,
-            termsID,
+            termsId,
         ])
 
         const acceptanceKey = ctx.stub.createCompositeKey("terms", [
             externalId,
-            termsID,
+            termsId,
         ])
 
         // Read transfer terms from proposer's PDC
@@ -923,13 +948,13 @@ export class PackageContract extends Contract {
 
         if (proposerTermsHash !== proposerInputTermsHash) {
             throw new Error(
-                `Proposer's provided transfer terms do not match the stored hash for proposal ${termsID}`,
+                `Proposer's provided transfer terms do not match the stored hash for proposal ${termsId}`,
             )
         }
 
         if (proposerTermsHash !== acceptorTermsHash) {
             throw new Error(
-                `Transfer terms mismatch: proposer and acceptor have different terms for proposal ${termsID}`,
+                `Transfer terms mismatch: proposer and acceptor have different terms for proposal ${termsId}`,
             )
         }
 
@@ -938,7 +963,7 @@ export class PackageContract extends Contract {
 
         if (terms.externalPackageId !== externalId) {
             throw new Error(
-                `Transfer terms ${termsID} are not for package ${externalId}`,
+                `Transfer terms ${termsId} are not for package ${externalId}`,
             )
         }
 
@@ -952,7 +977,7 @@ export class PackageContract extends Contract {
             }
             if (exp < new Date()) {
                 throw new Error(
-                    `The transfer terms ${termsID} for package ${externalId} have expired`,
+                    `The transfer terms ${termsId} for package ${externalId} have expired`,
                 )
             }
         }
@@ -1015,7 +1040,7 @@ export class PackageContract extends Contract {
             Buffer.from(
                 stringify({
                     externalId,
-                    termsID,
+                    termsId,
                     newOwner: packageData.ownerOrgMSP,
                     caller: callerMSP(ctx),
                 }),
