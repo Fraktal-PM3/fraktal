@@ -37,15 +37,21 @@ export class PackageContract extends Contract {
      * CreatePackage issues a new package to the world state with given details.
      * Stores the private package details and PII in the caller's implicit collection
      * and a public package record (with a hash of the private blob) on the ledger.
+     *
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier (unique)
+     * @param {string} recipientOrgMSP - Recipient organization's MSP ID
+     * @transient pii - JSON object containing personally identifiable information
+     * @transient packageDetails - JSON object containing package details
+     * @transient salt - Random salt string for cryptographic hashing
+     *
      * @returns {Promise<void>}
      */
     @Transaction()
     public async CreatePackage(
         ctx: Context,
         externalId: string,
-        recipientOrgMSP: string,
+        recipientOrgMSP: string
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
         console.log(
@@ -130,8 +136,8 @@ export class PackageContract extends Contract {
                 sortKeysRecursive({
                     ...blockchainPackage,
                     caller: ownerOrgMSPID,
-                }),
-            ),
+                })
+            )
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
@@ -272,8 +278,8 @@ export class PackageContract extends Contract {
                     externalId: externalId,
                     status,
                     caller: callerMSPID,
-                }),
-            ),
+                })
+            )
         )
 
         await ctx.stub.putState(externalId, stateBuffer)
@@ -352,9 +358,9 @@ export class PackageContract extends Contract {
                         sortKeysRecursive({
                             id: externalId,
                             caller: callerMSPID,
-                        }),
-                    ),
-                ),
+                        })
+                    )
+                )
             )
             return
         }
@@ -378,12 +384,19 @@ export class PackageContract extends Contract {
     }
 
     /**
-     * ProposeTransfer creates a public transfer term and stores private transfer
-     * terms (e.g. price) in the recipient's implicit collection.
+     * ProposeTransfer creates a public transfer proposal and stores private transfer
+     * terms (e.g. price, conditions) in the recipient organization's implicit collection.
+     * Only the package owner can propose a transfer. The package status is updated to PROPOSED.
+     *
      * @param {Context} ctx - Fabric transaction context
-     * @param {string} externalId - External package identifier
-     * @param {string} toMSP - Recipient organization's MSP ID
-     * @param {string=} expiryISO - Optional ISO expiry timestamp
+     * @param {string} externalId - External package identifier for the package being transferred
+     * @param {string} termsId - Unique UUID identifier for this transfer proposal
+     * @param {string} toMSP - Recipient organization's MSP ID (the proposed new owner)
+     * @param {string} createdISO - ISO-8601 timestamp when the proposal was created
+     * @param {string=} expiryISO - Optional ISO-8601 expiry timestamp for the proposal
+     * @transient privateTransferTerms - JSON object containing private terms (e.g., price)
+     * @transient salt - Random salt string for cryptographic hashing of private terms
+     *
      * @returns {Promise<void>}
      */
     @Transaction()
@@ -517,9 +530,9 @@ export class PackageContract extends Contract {
                         termsId,
                         parsedTerms: terms,
                         caller: callerMSP(ctx),
-                    }),
-                ),
-            ),
+                    })
+                )
+            )
         )
     }
 
@@ -771,9 +784,9 @@ export class PackageContract extends Contract {
                         externalId,
                         termsId,
                         caller: callerMSPID,
-                    }),
-                ),
-            ),
+                    })
+                )
+            )
         )
     }
 
@@ -901,8 +914,8 @@ export class PackageContract extends Contract {
                     termsId,
                     newOwner: packageData.ownerOrgMSP,
                     caller: callerMSP(ctx),
-                }),
-            ),
+                })
+            )
         )
     }
 
