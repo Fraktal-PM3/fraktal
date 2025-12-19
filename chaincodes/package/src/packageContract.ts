@@ -246,7 +246,7 @@ export class PackageContract extends Contract {
             return await ctx.stub
                 .getPrivateDataByPartialCompositeKey(
                     getImplicitCollection(callerMSPID),
-                    "terms",
+                    "proposal",
                     [termsId],
                 )
                 .then(async (iterator) => {
@@ -264,7 +264,7 @@ export class PackageContract extends Contract {
             return await ctx.stub
                 .getPrivateDataByPartialCompositeKey(
                     getImplicitCollection(callerMSPID),
-                    "terms",
+                    "proposal",
                     [externalId],
                 )
                 .then(async (iterator) => {
@@ -279,7 +279,7 @@ export class PackageContract extends Contract {
                     return JSON.stringify(results)
                 })
         } else {
-            const compositeKey = ctx.stub.createCompositeKey("terms", [
+            const compositeKey = ctx.stub.createCompositeKey("proposal", [
                 externalId,
                 termsId,
             ])
@@ -507,7 +507,6 @@ export class PackageContract extends Contract {
         }
 
         const tmap = ctx.stub.getTransient()
-
         const transferTermsData = tmap.get("transferTerms")
         if (!transferTermsData || !transferTermsData.length) {
             throw new Error(
@@ -543,34 +542,32 @@ export class PackageContract extends Contract {
             )
         }
 
-        const compositeKey = ctx.stub.createCompositeKey("terms", [
-            externalId,
-            termsId,
-        ])
-
-        await ctx.stub.putPrivateData(
-            getImplicitCollection(callerMSP(ctx)),
-            compositeKey,
-            Buffer.from(stringify(sortKeysRecursive(transferTerms))),
-        )
-
-        // Store composite key mapping on blockchain for proposal lookup
         const proposalKey = ctx.stub.createCompositeKey("proposal", [
             externalId,
             termsId,
         ])
-
         const proposalData: Proposal = {
             externalId,
             termsId,
             toMSP: transferTerms.toMSP,
             status: "active",
             expiryISO: transferTerms.expiryISO,
+            termsHash: createHash("sha256")
+                .update(stringify(sortKeysRecursive(transferTerms)))
+                .digest("hex")
+                .toString(),
         }
 
         await ctx.stub.putState(
             proposalKey,
             Buffer.from(stringify(sortKeysRecursive(proposalData))),
+        )
+
+        // Store transfer terms in the toMSP's PDC with composite key
+        await ctx.stub.putPrivateData(
+            getImplicitCollection(transferTerms.toMSP),
+            proposalKey,
+            Buffer.from(stringify(sortKeysRecursive(transferTerms))),
         )
 
         ctx.stub.setEvent(
@@ -580,6 +577,7 @@ export class PackageContract extends Contract {
                     sortKeysRecursive({
                         externalId,
                         termsId,
+                        toMSP: transferTerms.toMSP,
                         caller: callerMSP(ctx),
                     }),
                 ),
@@ -589,7 +587,7 @@ export class PackageContract extends Contract {
 
     /**
      * CheckPackageDetailsAndPIIHash verifies that the private package blob
-     * stored in the owner's implicit collection matches the expected hash.
+     * hash on the chain matches the expected hash.
      * @param {Context} ctx - Fabric transaction context
      * @param {string} externalId - External package identifier
      * @param {string} expectedHash - Expected SHA256 hex hash
@@ -618,22 +616,9 @@ export class PackageContract extends Contract {
             blockchainPackageData,
         )
 
-        // Read the package details and PII
-        const ownerCollection = getImplicitCollection(
-            blockchainPackage.ownerOrgMSP,
-        )
-        console.log(
-            `[CheckPackageDetailsAndPIIHash] Collection name: ${ownerCollection}`,
-        )
-        const dataHash = Buffer.from(
-            await ctx.stub.getPrivateDataHash(ownerCollection, externalId),
-        ).toString("hex")
-
-        // No need to validate, checked validation on store
-
-        if (dataHash !== expectedHash) {
+        if (blockchainPackage.packageDetailsAndPIIHash !== expectedHash) {
             console.log(
-                `[CheckPackageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${dataHash.toString()}`,
+                `[CheckPackageDetailsAndPIIHash] Hash mismatch: expected ${expectedHash}, got ${blockchainPackage.packageDetailsAndPIIHash}`,
             )
             return false
         }
@@ -657,9 +642,6 @@ export class PackageContract extends Contract {
         termsId: string,
     ): Promise<void> {
         const callerMSPID = callerMSP(ctx)
-        console.log(
-            `[AcceptTransfer] Called by: ${callerMSPID} for termsId: ${termsId} and externalId: ${externalId}`,
-        )
 
         if (!isUUID(termsId)) {
             throw new Error("Invalid termsId format — must be a UUID string.")
@@ -680,9 +662,6 @@ export class PackageContract extends Contract {
 
         // Validate that the acceptor is the intended recipient
         if (transferTerms.toMSP !== callerMSPID) {
-            console.log(
-                `[AcceptTransfer] ACCESS DENIED: ${callerMSPID} tried to accept transfer intended for ${transferTerms.toMSP}`,
-            )
             throw new Error(
                 `The caller organization (${callerMSPID}) is not authorized to accept proposal ${termsId} meant for ${transferTerms.toMSP}`,
             )
@@ -690,37 +669,49 @@ export class PackageContract extends Contract {
 
         // Validate that externalPackageId in terms matches the parameter
         if (transferTerms.externalPackageId !== externalId) {
-            console.log(
-                `[AcceptTransfer] ERROR: termsId ${termsId} is not for package ${externalId}`,
-            )
             throw new Error(
                 `The termsId ${termsId} is not for package ${externalId}`,
             )
         }
 
-        // Create composite key for storing accepted terms
-        const compositeKey = ctx.stub.createCompositeKey("terms", [
-            externalId,
-            termsId,
-        ])
-
-        // Store transfer terms in acceptor's PDC with composite key
-        await ctx.stub.putPrivateData(
-            getImplicitCollection(callerMSPID),
-            compositeKey,
-            Buffer.from(stringify(sortKeysRecursive(transferTerms))),
-        )
-        // Update proposal status to accepted
         const proposalKey = ctx.stub.createCompositeKey("proposal", [
             externalId,
             termsId,
         ])
+
+        // Retrieve proposal from blockchain to validate acceptor
+        const proposalBuffer = await ctx.stub.getState(proposalKey)
+        if (proposalBuffer.length === 0) {
+            throw new Error(
+                `The proposal for termsId ${termsId} and package ${externalId} does not exist on the ledger`,
+            )
+        }
+
+        const proposalData = validateJSONToProposal(proposalBuffer.toString())
+        if (proposalData.toMSP !== callerMSPID) {
+            throw new Error(
+                `The caller organization (${callerMSPID}) is not authorized to accept proposal ${termsId} meant for ${proposalData.toMSP}`,
+            )
+        }
+
+        const inputHash = createHash("sha256")
+            .update(stringify(sortKeysRecursive(transferTerms)))
+            .digest("hex")
+            .toString()
+        // Validate that the terms match
+        if (!proposalData.termsHash || proposalData.termsHash !== inputHash) {
+            throw new Error(
+                `The transfer terms provided do not match the original proposal for termsId ${termsId} and package ${externalId}`,
+            )
+        }
 
         const updatedProposalData: Proposal = {
             externalId,
             termsId,
             toMSP: transferTerms.toMSP,
             status: "accepted",
+            expiryISO: proposalData.expiryISO,
+            termsHash: proposalData.termsHash,
         }
 
         await ctx.stub.putState(
@@ -885,6 +876,7 @@ export class PackageContract extends Contract {
         ctx: Context,
         externalId: string,
         termsId: string,
+        toMSP: string,
     ): Promise<void> {
         const caller = callerMSP(ctx)
 
@@ -897,90 +889,10 @@ export class PackageContract extends Contract {
             throw new Error(`Package ${externalId} is not owned by ${caller}`)
         }
 
-        // Create composite keys for reading transfer terms from PDCs
-        const proposalKey = ctx.stub.createCompositeKey("terms", [
+        const proposalKey = ctx.stub.createCompositeKey("proposal", [
             externalId,
             termsId,
         ])
-
-        const acceptanceKey = ctx.stub.createCompositeKey("terms", [
-            externalId,
-            termsId,
-        ])
-
-        // Read transfer terms from proposer's PDC
-        const proposerTermsBuffer = tmap.get("transferTerms")
-        if (!proposerTermsBuffer) {
-            throw new Error(
-                `Missing transient field 'transferTerms' for proposer terms`,
-            )
-        }
-
-        const proposerTerms = validateJSONToTransferTerms(
-            proposerTermsBuffer.toString(),
-        )
-
-        // Verify that the proposer is the caller
-        if (proposerTerms.fromMSP !== caller) {
-            throw new Error(
-                `Only the proposer (${proposerTerms.fromMSP}) may execute the transfer`,
-            )
-        }
-
-        // Hash both terms and verify they match
-        const proposerTermsHash = Buffer.from(
-            await ctx.stub.getPrivateDataHash(
-                getImplicitCollection(caller),
-                proposalKey,
-            ),
-        ).toString("hex")
-
-        const proposerInputTermsHash = createHash("sha256")
-            .update(proposerTermsBuffer)
-            .digest("hex")
-
-        const acceptorTermsHash = Buffer.from(
-            await ctx.stub.getPrivateDataHash(
-                getImplicitCollection(proposerTerms.toMSP),
-                acceptanceKey,
-            ),
-        ).toString("hex")
-
-        if (proposerTermsHash !== proposerInputTermsHash) {
-            throw new Error(
-                `Proposer's provided transfer terms do not match the stored hash for proposal ${termsId}`,
-            )
-        }
-
-        if (proposerTermsHash !== acceptorTermsHash) {
-            throw new Error(
-                `Transfer terms mismatch: proposer and acceptor have different terms for proposal ${termsId}`,
-            )
-        }
-
-        // Use the matched terms for execution
-        const terms = proposerTerms
-
-        if (terms.externalPackageId !== externalId) {
-            throw new Error(
-                `Transfer terms ${termsId} are not for package ${externalId}`,
-            )
-        }
-
-        // Validate expiry if present
-        if (terms.expiryISO) {
-            const exp = new Date(terms.expiryISO)
-            if (isNaN(exp.getTime())) {
-                throw new Error(
-                    `Invalid expiryISO on transfer terms: ${terms.expiryISO}`,
-                )
-            }
-            if (exp < new Date()) {
-                throw new Error(
-                    `The transfer terms ${termsId} for package ${externalId} have expired`,
-                )
-            }
-        }
 
         const storeData = tmap.get("storeObject")
         if (!storeData || !storeData.length) {
@@ -996,8 +908,8 @@ export class PackageContract extends Contract {
         const packageInfoHash = createHash("sha256")
             .update(canonicalPackageInfo)
             .digest("hex")
+            .toString()
 
-        const recipientCollection = getImplicitCollection(terms.toMSP)
         const verified = await this.CheckPackageDetailsAndPIIHash(
             ctx,
             externalId,
@@ -1010,20 +922,25 @@ export class PackageContract extends Contract {
             )
         }
 
+        // Transfer private package data to toMSP's implicit collection
+        const recipientCollection = getImplicitCollection(toMSP)
         await ctx.stub.putPrivateData(
             recipientCollection,
             externalId,
             Buffer.from(stringify(sortKeysRecursive(parsedStoreObject))),
         )
-        const ownerCollection = getImplicitCollection(terms.fromMSP)
-        // remove from owner's collection
-        await ctx.stub.deletePrivateData(ownerCollection, externalId)
+
+        // remove proposal from acceptor's collection
+        await ctx.stub.deletePrivateData(
+            getImplicitCollection(toMSP),
+            proposalKey,
+        )
 
         // Update public package owner
-        packageData.ownerOrgMSP = terms.toMSP
+        packageData.ownerOrgMSP = toMSP
 
-        // Transporter picks package up
-        if (packageData.recipientOrgMSP !== terms.toMSP) {
+        if (packageData.recipientOrgMSP !== toMSP) {
+            // Transporter picks package up
             packageData.status = Status.PICKED_UP
         } else {
             // Transporter hands package to reciever
@@ -1034,7 +951,6 @@ export class PackageContract extends Contract {
             externalId,
             Buffer.from(stringify(sortKeysRecursive(packageData))),
         )
-
         ctx.stub.setEvent(
             "TransferExecuted",
             Buffer.from(

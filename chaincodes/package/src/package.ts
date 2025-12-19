@@ -65,14 +65,7 @@ export const TransferTermsSchema = z
         toMSP: z.string().nonempty(),
         expiryISO: z.iso.datetime().nullable().optional(),
         price: z.number().nonnegative(),
-    })
-    .strict()
-
-export const TransferSchema = z
-    .object({
-        terms: TransferTermsSchema,
-        status: TransferStatusEnumSchema,
-        transferTermsHash: z.hash("sha256"),
+        salt: z.string().nonempty(),
     })
     .strict()
 
@@ -102,6 +95,7 @@ export const ProposalSchema = z
         toMSP: z.string().nonempty(),
         status: z.string().nonempty(),
         expiryISO: z.iso.datetime().nullable().optional(),
+        termsHash: z.hash("sha256"),
     })
     .strict()
 
@@ -109,7 +103,6 @@ export type Size = z.infer<typeof SizeSchema>
 export type Location = z.infer<typeof LocationSchema>
 export type PackageDetails = z.infer<typeof PackageDetailsSchema>
 export type TransferTerms = z.infer<typeof TransferTermsSchema>
-export type Transfer = z.infer<typeof TransferSchema>
 export type PackagePII = z.infer<typeof PackagePIISchema>
 export type BlockchainPackageType = z.infer<typeof BlockchainPackageSchema>
 export type Proposal = z.infer<typeof ProposalSchema>
