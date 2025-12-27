@@ -360,11 +360,51 @@ To start and initialize a FireFly stack with Hyperledger Fabric, run the followi
 ./dev.sh up
 ```
 
-This command will setup two organizations with one node each by default, build and deploy the necessary chaincode, and install the custom chaincode located in 'chaincodes/package'. The custom chaincode is automatically instantiated on the network during this process and contains the necessary smart contract logic for managing packages in the distributed hash ledger.
+This command will setup two organizations with one node each by default and deploy the FireFly chaincode required for the FireFly orchestration layer.
+
+:::warning Manual Chaincode Installation Required
+The `dev.sh up` command **does not** automatically install the custom pm3package or roleauth chaincodes. You must install them manually after the stack is running (see [Installing Custom Chaincode](#installing-custom-chaincode) below).
+:::
+
+### Installing Custom Chaincode
+
+After the stack is running, you need to manually install and deploy the custom chaincodes:
+
+#### Install the Package Chaincode
+
+The package chaincode contains the smart contract logic for managing packages in the distributed hash ledger:
+
+```bash
+./dev.sh deploycc package
+```
+
+#### Install the Role Auth Chaincode
+
+The roleauth chaincode manages role-based authorization:
+
+```bash
+./dev.sh deploycc roleauth
+```
 
 :::info Chaincode Deployment
-The `dev.sh up` script handles the deployment of the custom chaincode to the Fabric network as part of the stack initialization. It ensures that the chaincode is properly installed and instantiated on the peers of both organizations.
+The `deploycc` command will:
+1. Build the selected chaincode (TypeScript → JavaScript)
+2. Package the chaincode
+3. Install it on the peers of both organizations
+4. Approve and commit it to the channel
 :::
+
+#### Upgrading Chaincode
+
+If you need to upgrade an existing chaincode to a new version, you must increment both the version and sequence number:
+
+```bash
+# Example: Upgrade package chaincode to version 1.1, sequence 2
+CC_VERSION=1.1 CC_SEQUENCE=2 ./dev.sh upgradecc package
+
+# Example: Upgrade roleauth chaincode to version 2.0, sequence 3
+CC_VERSION=2.0 CC_SEQUENCE=3 ./dev.sh upgradecc roleauth
+```
 
 ---
 
