@@ -864,4 +864,128 @@ describe("PackageContract (unit)", () => {
             ).rejects.toThrow(`Package ${externalId} is not owned by Org2MSP`)
         })
     })
+
+    describe("TransferToPM3", () => {
+        it("Should transfer a delivered package to PM3", async () => {
+            const externalId = "PKG-PM3-001"
+            const salt = "pm3Salt123"
+            const recipientOrgMSP = "Org2MSP"
+
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const termsId = "550e8400-e29b-41d4-a716-446655440099"
+            const transferTerms = {
+                externalPackageId: externalId,
+                fromMSP: "Org0MSP",
+                toMSP: recipientOrgMSP,
+                expiryISO: null,
+                price: 500,
+                salt: "pm3TermsSalt",
+            }
+
+            await ctxOmbud.stub.setTransient({ transferTerms })
+            await c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
+
+            ctxOmbud.clientIdentity.setMSP("Org2MSP")
+            await ctxOmbud.stub.setTransient({ transferTerms })
+            await c.AcceptTransfer(ctxOmbud as any, externalId, termsId)
+
+            ctxOmbud.clientIdentity.setMSP("Org0MSP")
+            const storeObject = { packageDetails, pii, salt }
+            await ctxOmbud.stub.setTransient({ storeObject })
+            await c.ExecuteTransfer(
+                ctxOmbud as any,
+                externalId,
+                termsId,
+                recipientOrgMSP
+            )
+
+            ctxOmbud.clientIdentity.setMSP("Org2MSP")
+            await c.TransferToPM3(ctxOmbud as any, externalId)
+
+            const pkgStr = await c.ReadBlockchainPackage(
+                ctxOmbud as any,
+                externalId
+            )
+            const pkg = JSON.parse(pkgStr)
+            expect(pkg.ownerOrgMSP).toBe("Org1MSP")
+            expect(pkg.status).toBe(Status.SUCCEEDED)
+        })
+
+        it("Should fail if package does not exist", async () => {
+            const nonExistentId = "PKG-NONEXISTENT-PM3"
+
+            await expect(
+                c.TransferToPM3(ctxOmbud as any, nonExistentId)
+            ).rejects.toThrow(`The package ${nonExistentId} does not exist`)
+        })
+
+        it("Should fail if caller is not the owner", async () => {
+            const externalId = "PKG-PM3-002"
+            const salt = "pm3Salt456"
+            const recipientOrgMSP = "Org2MSP"
+
+            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
+            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
+
+            const termsId = "550e8400-e29b-41d4-a716-446655440088"
+            const transferTerms = {
+                externalPackageId: externalId,
+                fromMSP: "Org0MSP",
+                toMSP: recipientOrgMSP,
+                expiryISO: null,
+                price: 500,
+                salt: "pm3TermsSalt2",
+            }
+
+            await ctxOmbud.stub.setTransient({ transferTerms })
+            await c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
+
+            ctxOmbud.clientIdentity.setMSP("Org2MSP")
+            await ctxOmbud.stub.setTransient({ transferTerms })
+            await c.AcceptTransfer(ctxOmbud as any, externalId, termsId)
+
+            ctxOmbud.clientIdentity.setMSP("Org0MSP")
+            const storeObject = { packageDetails, pii, salt }
+            await ctxOmbud.stub.setTransient({ storeObject })
+            await c.ExecuteTransfer(
+                ctxOmbud as any,
+                externalId,
+                termsId,
+                recipientOrgMSP
+            )
+
+            ctxOmbud.clientIdentity.setMSP("Org0MSP")
+
+            await expect(
+                c.TransferToPM3(ctxOmbud as any, externalId)
+            ).rejects.toThrow(
+                `Only the owner organization may transfer the package ${externalId} to PM3`
+            )
+        })
+
+        it("Should fail if package is not in DELIVERED status", async () => {
+            const externalId = "PKG-PM3-004"
+            const salt = "pm3Salt000"
+            const recipientOrgMSP = "Org2MSP"
+
+            await ctxTransporter.stub.setTransient({
+                packageDetails,
+                pii,
+                salt,
+            })
+            await c.CreatePackage(
+                ctxTransporter as any,
+                externalId,
+                recipientOrgMSP
+            )
+
+            await expect(
+                c.TransferToPM3(ctxTransporter as any, externalId)
+            ).rejects.toThrow(
+                `The package ${externalId} must be in DELIVERED status to transfer to PM3`
+            )
+        })
+    })
 })
