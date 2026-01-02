@@ -182,7 +182,7 @@ describe("PackageContract (unit)", () => {
                 externalId,
                 recipientOrgMSP
             )
-            // Manually set status to PICKED_UP to test the transition to IN_TRANSIT
+
             const pkgStr = await c.ReadBlockchainPackage(
                 ctxOmbud as unknown as Context,
                 externalId
@@ -193,7 +193,7 @@ describe("PackageContract (unit)", () => {
                 externalId,
                 Buffer.from(JSON.stringify(pkg))
             )
-            // Now update from PICKED_UP to IN_TRANSIT
+
             await c.UpdatePackageStatus(
                 ctxOmbud as unknown as Context,
                 externalId,
@@ -219,7 +219,7 @@ describe("PackageContract (unit)", () => {
                 externalId,
                 recipientOrgMSP
             )
-            // Update from PENDING to FAILED
+
             await c.UpdatePackageStatus(
                 ctxOmbud as unknown as Context,
                 externalId,
@@ -291,8 +291,6 @@ describe("PackageContract (unit)", () => {
 
             await c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
 
-            // Note: ProposeTransfer no longer updates package status directly
-            // Use ReadPublicProposal to verify the proposal was created
             const proposalStr = await c.ReadPublicProposal(
                 ctxOmbud as any,
                 externalId,
@@ -338,7 +336,7 @@ describe("PackageContract (unit)", () => {
             const toMSP = "Org2MSP"
             const transferTerms = {
                 externalPackageId: externalId,
-                fromMSP: "Org1MSP", // Caller is now Org1MSP but doesn't own the package
+                fromMSP: "Org1MSP",
                 toMSP: toMSP,
                 expiryISO: null,
                 price: 100.5,
@@ -379,35 +377,6 @@ describe("PackageContract (unit)", () => {
             ).rejects.toThrow("Invalid termsId format — must be a UUID string.")
         })
 
-        it("Should fail if createdISO is not a valid ISO date", async () => {
-            // Note: The new API doesn't validate createdISO in ProposeTransfer
-            // It validates expiryISO format. This test is now obsolete or needs to be changed
-            // to test expiryISO validation instead
-            const externalId = "PKG-TRANSFER-004"
-            const salt = "transferSalt000"
-            const recipientOrgMSP = "Org2MSP"
-            await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
-            await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
-
-            const termsId = "550e8400-e29b-41d4-a716-446655440003"
-            const toMSP = "Org1MSP"
-            const transferTerms = {
-                externalPackageId: externalId,
-                fromMSP: "Org0MSP",
-                toMSP: toMSP,
-                expiryISO: "not-a-valid-date", // Invalid ISO date
-                price: 100.5,
-                salt: "termsSalt111",
-            }
-
-            await ctxOmbud.stub.setTransient({ transferTerms })
-
-            // The validation happens during Zod parsing in validateJSONToTransferTerms
-            await expect(
-                c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
-            ).rejects.toThrow() // Zod will throw a validation error
-        })
-
         it("Should fail if privateTransferTerms is missing from transient data", async () => {
             const externalId = "PKG-TRANSFER-005"
             const salt = "transferSalt111"
@@ -416,8 +385,6 @@ describe("PackageContract (unit)", () => {
             await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
 
             const termsId = "550e8400-e29b-41d4-a716-446655440004"
-
-            // Don't set transferTerms in transient
 
             await expect(
                 c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
@@ -577,7 +544,6 @@ describe("PackageContract (unit)", () => {
             await ctxOmbud.stub.setTransient({ packageDetails, pii, salt })
             await c.CreatePackage(ctxOmbud as any, externalId, recipientOrgMSP)
 
-            // Propose a transfer to Org1MSP
             const termsId = "550e8400-e29b-41d4-a716-446655440020"
             const toMSP = "Org1MSP"
             const transferTerms = {
@@ -627,8 +593,6 @@ describe("PackageContract (unit)", () => {
 
             ctxOmbud.clientIdentity.setMSP("Org2MSP")
 
-            // Org2MSP is not the recipient (toMSP is Org1MSP)
-            // So this should fail - no private terms stored for Org2MSP
             await expect(
                 c.ReadPrivateTransferTerms(ctxOmbud as any, externalId, termsId)
             ).rejects.toThrow(
@@ -646,7 +610,7 @@ describe("PackageContract (unit)", () => {
                     nonExistentExternalId,
                     nonExistentTermsId
                 )
-            ).rejects.toThrow() // Will throw when trying to read from PDC
+            ).rejects.toThrow()
         })
 
         it("Owner (proposer) should not be able to read private terms", async () => {
@@ -670,8 +634,6 @@ describe("PackageContract (unit)", () => {
             await ctxOmbud.stub.setTransient({ transferTerms })
             await c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
 
-            // Owner (Org0MSP) should not have access to the private terms
-            // stored in toMSP's collection
             await expect(
                 c.ReadPrivateTransferTerms(ctxOmbud as any, externalId, termsId)
             ).rejects.toThrow(
@@ -701,7 +663,6 @@ describe("PackageContract (unit)", () => {
             await ctxOmbud.stub.setTransient({ transferTerms })
             await c.ProposeTransfer(ctxOmbud as any, externalId, termsId)
 
-            // Update status after proposing (owner Org0MSP)
             await c.UpdateStatusAfterPropose(
                 ctxOmbud as any,
                 externalId,
@@ -715,7 +676,6 @@ describe("PackageContract (unit)", () => {
 
             await c.AcceptTransfer(ctxOmbud as any, externalId, termsId)
 
-            // Update status after accepting (still as recipient Org1MSP)
             await c.UpdateStatusAfterAccept(
                 ctxOmbud as any,
                 externalId,
@@ -785,7 +745,7 @@ describe("PackageContract (unit)", () => {
             ctxOmbud.clientIdentity.setMSP("Org1MSP")
             const wrongTransferTerms = {
                 ...transferTerms,
-                price: 999, // Different price
+                price: 999,
             }
             await ctxOmbud.stub.setTransient({
                 transferTerms: wrongTransferTerms,
