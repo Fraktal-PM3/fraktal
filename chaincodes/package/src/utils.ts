@@ -8,7 +8,7 @@ import {
     BlockchainPackageSchema,
     PackageDetailsSchema,
     PackagePIISchema,
-    PrivateTransferTermsSchema,
+    ProposalSchema,
     Status,
     StoreObjectSchema,
     TransferTermsSchema,
@@ -87,16 +87,6 @@ export const validateJSONToPII = (json: string) => {
     }
 }
 
-export const validateJSONToPrivateTransferTerms = (json: string) => {
-    try {
-        return PrivateTransferTermsSchema.parse(JSON.parse(json))
-    } catch (e) {
-        throw new Error(
-            `Invalid JSON format for PrivateTransferTerms: ${(e as Error).message}`,
-        )
-    }
-}
-
 export const validateJSONToTransferTerms = (json: string) => {
     try {
         return TransferTermsSchema.parse(JSON.parse(json))
@@ -113,6 +103,16 @@ export const validateJSONToStoreObject = (json: string) => {
     } catch (e) {
         throw new Error(
             `Invalid JSON format for StoreObject: ${(e as Error).message}`,
+        )
+    }
+}
+
+export const validateJSONToProposal = (json: string) => {
+    try {
+        return ProposalSchema.parse(JSON.parse(json))
+    } catch (e) {
+        throw new Error(
+            `Invalid JSON format for Proposal: ${(e as Error).message}`,
         )
     }
 }

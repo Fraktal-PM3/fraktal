@@ -88,6 +88,26 @@ export class MockStub {
             }
         })
 
+    getPrivateDataHash = (collection: string, key: string): Promise<Buffer> =>
+        new Promise((resolve, reject) => {
+            try {
+                const col = this.pdc.get(collection)
+                const data = col?.get(key)
+                if (!data || data.length === 0) {
+                    resolve(Buffer.from(""))
+                } else {
+                    const crypto = require("crypto")
+                    const hash = crypto
+                        .createHash("sha256")
+                        .update(data)
+                        .digest()
+                    resolve(hash)
+                }
+            } catch (error) {
+                reject(error as Error)
+            }
+        })
+
     // composite keys
     createCompositeKey = (objectType: string, attributes: string[]): string => {
         return `\x00${objectType}\x00${attributes.join("\x00")}\x00`
