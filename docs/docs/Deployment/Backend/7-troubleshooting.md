@@ -250,5 +250,5 @@ If you cannot resolve the issue:
 ## Next Steps
 
 Once issues are resolved:
-- Return to [Deployment](./5-complete-reference.md) to continue
+- Return to [Deployment](./5-deployment.md) to continue
 - Or proceed to [Verification](./6-verification.md) to verify the fix

@@ -84,7 +84,7 @@ Configure External DNS with Cloudflare:
 - DNS credential configuration
 - Understanding the DNS automation process
 
-### 5. [Deployment](./5-complete-reference.md)
+### 5. [Deployment](./5-deployment.md)
 Execute the deployment scripts:
 - Deploy base Fabric infrastructure
 - Create and join channels
