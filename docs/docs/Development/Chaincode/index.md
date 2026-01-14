@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-sidebar_label: Development Setup
+sidebar_label: Chaincode Development
 title: Chaincode Development Setup
 description: Complete guide to setting up your development environment for the distributed hash ledger project and deploy chaincode.
 ---

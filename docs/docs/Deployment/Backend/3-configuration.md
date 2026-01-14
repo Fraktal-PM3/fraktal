@@ -16,16 +16,18 @@ Edit the `build/config` file to update paths and IP addresses.
 Open `build/config` and modify the following:
 
 1. Update all certificate paths from `/path/to/your/` to your local path
-2. Update the server IP from `https://YOUR_PUBLIC_IP:18443` to your public IP with port 18443
+2. Update the server IP address based on where you're running the scripts:
+   - **Running locally on the same machine as minikube**: Use the internal minikube IP (e.g., `https://192.168.49.2:8443`). You can find this by running `kubectl cluster-info`.
+   - **Running from a remote machine**: Use your public IP with port 18443 (e.g., `https://YOUR_PUBLIC_IP:18443`)
 
 Example config structure:
 
-```yaml
+```yaml title="~/bevel-fixes/build/config"
 apiVersion: v1
 clusters:
 - cluster:
     certificate-authority: /path/to/your/bevel-fixes/build/ca.crt
-    server: https://YOUR_PUBLIC_IP:18443
+    server: https://192.168.49.2:8443  # Use internal IP for local access
   name: minikube
 contexts:
 - context:
@@ -55,13 +57,7 @@ This file defines the entire Hyperledger Fabric network topology, organizations,
 
 Create `build/network.yaml` with the following complete template. Make sure to replace all placeholder values with your actual configuration.
 
-```yaml
-##############################################################################################
-#  Copyright Accenture. All Rights Reserved.
-#
-#  SPDX-License-Identifier: Apache-2.0
-##############################################################################################
-
+```yaml title="~/bevel-fixes/build/network.yaml"
 ---
 network:
   type: fabric
@@ -726,7 +722,7 @@ mkdir -p ~/bevel-fixes/platforms/shared/inventory
 
 Create the file at `platforms/shared/inventory/ansible_provisioners`:
 
-```ini
+```ini title="~/bevel-fixes/platforms/shared/inventory/ansible_provisioners"
 [ansible_provisioners:children]
 local
 
@@ -742,7 +738,7 @@ Update all deployment scripts with your local paths. Replace `/path/to/your/` wi
 
 Edit `~/bevel-fixes/run.sh`:
 
-```bash
+```bash title="~/bevel-fixes/run.sh"
 #!/bin/bash
 set -e
 
@@ -772,7 +768,7 @@ exec ansible-playbook -vv /path/to/your/bevel-fixes/platforms/shared/configurati
 
 Edit `~/bevel-fixes/create-channels.sh`:
 
-```bash
+```bash title="~/bevel-fixes/create-channels.sh"
 #!/bin/bash
 set -e
 
@@ -799,7 +795,7 @@ exec ansible-playbook -vv /path/to/your/bevel-fixes/platforms/hyperledger-fabric
 
 Edit `~/bevel-fixes/install-chaincode.sh`:
 
-```bash
+```bash title="~/bevel-fixes/install-chaincode.sh"
 #!/bin/bash
 set -e
 
@@ -827,7 +823,7 @@ exec ansible-playbook -vv /path/to/your/bevel-fixes/platforms/hyperledger-fabric
 
 Edit `~/bevel-fixes/deploy-firefly.sh`:
 
-```bash
+```bash title="~/bevel-fixes/deploy-firefly.sh"
 #!/bin/bash
 set -e
 
@@ -865,6 +861,40 @@ exec ansible-playbook -vv /path/to/your/bevel-fixes/platforms/firefly/configurat
   -e 'ansible_python_interpreter=/usr/bin/python3'
 ```
 
+### Update setup-external-dns.sh
+
+Edit `~/bevel-fixes/setup-external-dns.sh`:
+
+```bash title="~/bevel-fixes/setup-external-dns.sh"
+#!/bin/bash
+set -e
+
+echo "=================================="
+echo "External DNS Setup for Bevel"
+echo "=================================="
+echo ""
+
+# Update this path
+export KUBECONFIG=/path/to/your/bevel-fixes/build/config
+
+# Check if network.yaml exists
+if [ ! -f "/path/to/your/bevel-fixes/build/network.yaml" ]; then
+    echo "ERROR: network.yaml not found in build/ directory"
+    exit 1
+fi
+
+# Extract DNS provider from network.yaml
+DNS_PROVIDER=$(grep -A 10 "env:" /path/to/your/bevel-fixes/build/network.yaml | grep "external_dns_provider:" | awk '{print $2}')
+EXTERNAL_DNS_ENABLED=$(grep -A 10 "env:" /path/to/your/bevel-fixes/build/network.yaml | grep "external_dns:" | awk '{print $2}')
+
+# ... rest of script remains unchanged
+```
+
+Update the three path references in this script:
+- `KUBECONFIG` path
+- Path in the network.yaml existence check
+- Paths in the DNS provider extraction commands
+
 ## Make Scripts Executable
 
 ```bash
@@ -872,6 +902,7 @@ chmod +x ~/bevel-fixes/run.sh
 chmod +x ~/bevel-fixes/create-channels.sh
 chmod +x ~/bevel-fixes/install-chaincode.sh
 chmod +x ~/bevel-fixes/deploy-firefly.sh
+chmod +x ~/bevel-fixes/setup-external-dns.sh
 ```
 
 ## Verification Checklist

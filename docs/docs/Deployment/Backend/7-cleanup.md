@@ -1,11 +1,11 @@
 ---
 sidebar_position: 9
-sidebar_label: 8. Cleanup
+sidebar_label: 7. Cleanup
 title: Cleanup and Teardown
 description: Remove the PM3 deployment and infrastructure.
 ---
 
-# Step 8: Cleanup
+# Step 7: Cleanup
 
 This guide covers removing the PM3 deployment and tearing down the infrastructure.
 
@@ -21,7 +21,7 @@ The repository includes a `reset.sh` script that handles the complete cleanup pr
 
 First, update the script with your local paths. Edit `~/bevel-fixes/reset.sh`:
 
-```bash
+```bash title="reset.sh"
 #!/bin/bash
 set -e
 

@@ -162,6 +162,6 @@ If everything is verified and working:
 - You can interact with the network through FireFly UIs
 - You can develop and deploy additional chaincodes
 
-If you encounter issues, see [Troubleshooting](./7-troubleshooting.md).
+If you encounter issues, see the troubleshooting sections in each guide.
 
-When you're done and want to tear down the deployment, see [Cleanup](./8-cleanup.md).
+When you're done and want to tear down the deployment, see [Cleanup](./7-cleanup.md).

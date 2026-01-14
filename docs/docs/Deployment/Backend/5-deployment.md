@@ -151,7 +151,7 @@ If you encounter issues during deployment:
 3. **Check events**: `kubectl get events -n <namespace> --sort-by='.lastTimestamp'`
 4. **Verify Vault connectivity**: `curl http://<YOUR_VAULT_IP>:8200/v1/sys/health`
 
-See [Troubleshooting](./7-troubleshooting.md) for detailed solutions to common issues.
+See the troubleshooting sections in each guide for detailed solutions to common issues.
 
 ## Next Steps
 

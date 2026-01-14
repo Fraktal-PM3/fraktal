@@ -54,7 +54,7 @@ cd ~/bevel-fixes
 
 This will create the Kubernetes secret without waiting for the deployment script to prompt you.
 
-## DNS Records Created
+### DNS Records Created
 
 External DNS will automatically create records for:
 
@@ -65,7 +65,7 @@ External DNS will automatically create records for:
 
 All records will point to your server's public IP address.
 
-## Verification
+### Verification
 
 After credentials are configured, you can verify the External DNS pod:
 
