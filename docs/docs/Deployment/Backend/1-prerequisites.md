@@ -198,8 +198,6 @@ cd ~/vault
 Create a file at `~/vault/compose.yml` with the following content:
 
 ```yaml title="~/vault/compose.yml"
-version: "3.8"
-
 services:
   vault:
     image: hashicorp/vault:1.15.2
@@ -287,32 +285,6 @@ secretsv2/    kv           kv_xxxxxxxx           n/a
 sys/          system       system_xxxxxxxx       system endpoints used for control, policy and debugging
 ```
 
-### Troubleshooting
-
-#### Pods Stuck in Init with "Permission Denied"
-
-**Symptom:** Pods like `fabric-ca-server-ca-0` are stuck in `Init:0/1` state and logs show:
-
-```
-Getting vault Token...
-Vault token API call response: {"errors":["permission denied"]}
-Error: Failed to obtain Vault token.
-Error Details: permission denied
-```
-
-**Cause:** Vault cannot reach the Kubernetes API to validate JWT tokens.
-
-**Solution:**
-
-1. Connect Vault to the minikube network:
-   ```bash
-   docker network connect minikube vault-dev
-   ```
-2. Delete the failing pod to restart it:
-   ```bash
-   kubectl delete pod -n <namespace> <pod-name>
-   ```
-3. The pod should now successfully authenticate with Vault.
 
 #### Verify Vault Network Configuration
 
@@ -332,10 +304,6 @@ Verify the Kubernetes auth method is properly configured:
 # List auth methods
 curl -s -H "X-Vault-Token: mydevroot" \
   http://192.168.49.1:8200/v1/sys/auth | jq
-
-# Check specific auth path config (e.g., localpm3org)
-curl -s -H "X-Vault-Token: mydevroot" \
-  http://192.168.49.1:8200/v1/auth/localpm3org/config | jq
 ```
 
 The `kubernetes_host` should point to `https://192.168.49.2:8443`.

@@ -16,9 +16,7 @@ Edit the `build/config` file to update paths and IP addresses.
 Open `build/config` and modify the following:
 
 1. Update all certificate paths from `/path/to/your/` to your local path
-2. Update the server IP address based on where you're running the scripts:
-   - **Running locally on the same machine as minikube**: Use the internal minikube IP (e.g., `https://192.168.49.2:8443`). You can find this by running `kubectl cluster-info`.
-   - **Running from a remote machine**: Use your public IP with port 18443 (e.g., `https://YOUR_PUBLIC_IP:18443`)
+2. Update the server IP address from `YOUR_PUBLIC_IP` to your actual public IP address.
 
 Example config structure:
 
@@ -27,7 +25,7 @@ apiVersion: v1
 clusters:
 - cluster:
     certificate-authority: /path/to/your/bevel-fixes/build/ca.crt
-    server: https://192.168.49.2:8443  # Use internal IP for local access
+    server: https://YOUR_PUBLIC_IP:18443 
   name: minikube
 contexts:
 - context:
