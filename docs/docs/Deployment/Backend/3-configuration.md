@@ -207,7 +207,7 @@ network:
         config_file: "/path/to/your/bevel-fixes/build/config"
 
       vault:
-        url: "http://192.168.49.1:8200"
+        url: "http://192.168.49.1:8200" # Update with your Vault IP, should be accessible from minikube
         root_token: "mydevroot"
         secret_path: "secretsv2"
 
@@ -356,7 +356,7 @@ network:
         config_file: "/path/to/your/bevel-fixes/build/config"
 
       vault:
-        url: "http://192.168.49.1:8200"
+        url: "http://192.168.49.1:8200" # Update with your Vault IP, should be accessible from minikube
         root_token: "mydevroot"
         secret_path: "secretsv2"
 
@@ -476,7 +476,7 @@ network:
         config_file: "/path/to/your/bevel-fixes/build/config"
 
       vault:
-        url: "http://192.168.49.1:8200"
+        url: "http://192.168.49.1:8200" # Update with your Vault IP, should be accessible from minikube
         root_token: "mydevroot"
         secret_path: "secretsv2"
 
@@ -596,7 +596,7 @@ network:
         config_file: "/path/to/your/bevel-fixes/build/config"
 
       vault:
-        url: "http://192.168.49.1:8200"
+        url: "http://192.168.49.1:8200" # Update with your Vault IP, should be accessible from minikube
         root_token: "mydevroot"
         secret_path: "secretsv2"
 

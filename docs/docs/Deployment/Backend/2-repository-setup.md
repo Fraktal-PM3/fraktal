@@ -42,7 +42,6 @@ git push --set-upstream origin local
 :::tip Why Use a Local Branch?
 Using a separate `local` branch allows you to:
 - Keep your deployment configurations separate from the main branch
-- Track your custom changes without affecting the upstream repository
 - Easily reset or update your deployment configuration
 :::
 

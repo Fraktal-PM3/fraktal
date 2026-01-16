@@ -221,10 +221,6 @@ docker-compose up -d
 
 ### Connect Vault to Minikube Network
 
-:::danger Critical Step
-This step is required for Vault to authenticate Kubernetes service accounts. Without it, pods will fail with "permission denied" errors when trying to obtain Vault tokens.
-:::
-
 Vault uses Kubernetes authentication to validate service account JWT tokens. This requires Vault to communicate with the Kubernetes API server. Since both Vault and minikube run in separate Docker networks, you must connect them:
 
 ```bash
